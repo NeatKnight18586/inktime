@@ -9,7 +9,10 @@ import { misregPass } from './post/misreg.mjs';
 import { edgesPass } from './post/edges.mjs';
 import { grainPass } from './post/grain.mjs';
 import { paniniPass } from './post/panini.mjs';
-import { poseCamera, shotAt, totalFrames, cameraPose } from './rig/camera.mjs';
+import { shotAt, totalFrames, cameraPose } from './rig/camera.mjs';
+import { makeShotCam } from './rig/shotcam.mjs';
+import { transitionPass, transitionAt } from './post/transitions.mjs';
+import { makeBreath } from './rig/breath.mjs';
 import { makeCard } from './rig/card.mjs';
 import { makeHands } from './rig/hands3d.mjs';
 import { installHaze, hazeColorHex } from './look/haze.mjs';
@@ -81,6 +84,8 @@ async function load(scenePath) {
   scene.add(camera);
   const poses = await (await fetch('/cast/hands/poses.json')).json();
   const hands = await makeHands(camera, tint, palette, poses);
+  const breath = makeBreath(camera, palette, tint);
+  const shotCam = makeShotCam({ spec, anchors, kit: built, camera, fps: spec.fps ?? 24 });
 
   state.normalRT?.dispose();
   const normalRT = new THREE.WebGLRenderTarget(W, H, { type: THREE.UnsignedByteType });
@@ -99,25 +104,35 @@ async function load(scenePath) {
   composer.addPass(edges);
   composer.addPass(panini);
   composer.addPass(grain);
+  const trans = transitionPass({ res, ink: palette.json.ink, seed: `${spec.seed}:transition` });
+  composer.addPass(trans);
   const showable = new Set((spec.shots ?? []).flatMap((s) => s.show ?? []));
 
-  Object.assign(state, { kit: built, hands, spec, scene, camera, anchors, cards, composer, normalRT, passes: { misreg, edges, panini, grain }, palette, showable });
+  Object.assign(state, { kit: built, hands, spec, scene, camera, anchors, cards, composer, normalRT, passes: { misreg, edges, panini, grain, trans }, breath, shotCam, palette, showable });
   return { frames: spec.frames, anchors: Object.keys(anchors) };
 }
 
 async function renderFrame(n) {
-  const { kit, hands, spec, scene, camera, anchors, cards, composer, normalRT, passes, palette, showable } = state;
+  const { kit, hands, spec, scene, camera, anchors, cards, composer, normalRT, passes, palette, showable, breath, shotCam } = state;
   if (!spec) throw new Error('renderFrame before load');
   const fps = spec.fps ?? 24;
   const shot = shotAt(spec, n);
   // Set state (ship travel, sway) first so anchors are current, then pose the camera, then camera-dependent state.
   kit.update?.(n, { fps, shot });
   scene.updateMatrixWorld(true);
-  const view = poseCamera(camera, shot.camera, anchors, n - shot.start, fps, shot.frames, { hook: kit.hook, shipPose: kit.shipPose, n0: shot.start });
+  const view = shotCam.pose(n);
   passes.misreg.uniforms.uStreak.value.set(...(view.streak ?? [0, 0]));
   passes.panini.setCamera(camera, view.panini);
   for (const name of showable) if (anchors[name]) anchors[name].visible = shot.show.includes(name);
   for (const c of cards) c.update(n, camera);
+  breath.update(n, view.rest ?? true, fps);
+  // Transitions (blink, sting, match) and the whip smear frame are drawn last, in ink.
+  const tr = transitionAt(spec.transitions, n);
+  if (tr?.type === 'match' && anchors[tr.anchor]) {
+    const q = anchors[tr.anchor].getWorldPosition(new THREE.Vector3()).project(camera);
+    tr.centre = [(q.x + 1) / 2, (q.y + 1) / 2];
+  }
+  passes.trans.setState(tr, view.smear ? { streak: view.streak } : null);
   kit.update?.(n, { camera, fps, shot });
   hands.update(n, n - shot.start, (f) => shotAt(spec, f).hands ?? null, fps);
   hullUniforms.uBoil.value = (Math.floor(n / 2) * 0.6180339) % 1 * 100;
@@ -150,7 +165,7 @@ async function renderFrame(n) {
   renderer.setClearColor(palette.fog, 1);
   composer.render();
   await gpuDone();
-  return { n, shot: shot.index, ...cameraPose(camera) };
+  return { n, shot: shot.index, preset: view.preset ?? null, ...cameraPose(camera) };
 }
 
 window.inktime = {

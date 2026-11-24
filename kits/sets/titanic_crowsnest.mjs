@@ -41,6 +41,8 @@ export const HOOK = { fov: [30, 84, 72], landHold: 2 };
 // card: the stick card in units of 0.01 D (3.2 D wide, 4.1 D tall, feet 0.2 D above the bottom). The edge pose (back three-quarter,
 // leaning right, face on the shadow side) puts its lit features (cap brim tip, shoulder edge, scarf tail) in the rightmost
 // 0.25 D of the silhouette (right = the silhouette's right edge), which is what the left 12-20% of frame must show.
+// Lee: 30 deg right of the lookout's forward (0.5 m ahead of the eye, 0.29 m right), inside the basket.
+export const LEE = { forward: 0.5 };
 export const FLEET = { x: -0.4, forward: 0.4, pose: 'edge',
   card: {width: 320, height: 410, brim: [220, 250, 60, 75], shoulder: [239, 261, 150, 190], scarf: [239, 255, 154, 204], right: 261} };
 
@@ -1171,8 +1173,13 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   cameraAnchor(g, anchors, 'cam_lookout', eye, { yaw: 0, pitch: LOOKOUT.pitch, fov: LOOKOUT.fov });
   // The dolly may never bring the eye closer than LOOKOUT.minRim to the rim.
   anchors.cam_lookout.userData.maxDolly = LOOKOUT.back - LOOKOUT.minRim;
-  anchorAt(g, anchors, 'mast_top', new THREE.Vector3(0, topY, SHIP.mastZ));
-  anchorAt(g, anchors, 'lee_spot', new THREE.Vector3(0.45, F, bz + 0.15));
+  // forestay_top: the point on the forestay 60 deg above the eye line, ahead of the eye (about 2.7 m ahead, 4.7 m up), where the
+  // forestay rises toward the mast head above the nest.
+  const stayRise = (topY - 0.6 - (SHIP.forecastleY + 0.6)) / (SHIP.mastZ - (SHIP.bowZ + 0.8)); // metres up per metre aft
+  const stayAhead = ((topY - 0.6 + stayRise * (eye.z - SHIP.mastZ)) - eye.y) / (Math.tan(60 * DEG) + stayRise);
+  anchorAt(g, anchors, 'forestay_top', new THREE.Vector3(0, eye.y + stayAhead * Math.tan(60 * DEG), eye.z - stayAhead));
+  // Lee stands 30 deg right of the lookout's forward, inside the basket (Fleet is on the left).
+  anchorAt(g, anchors, 'lee_spot', new THREE.Vector3(eye.x + LEE.forward * Math.tan(30 * DEG), F, eye.z - LEE.forward));
   // Fleet stands front-left so that from cam_lookout his card fills the left FLEET.cover of frame width.
   anchorAt(g, anchors, 'fleet_spot', new THREE.Vector3(eye.x + FLEET.x, F, eye.z - FLEET.forward));
   anchorAt(g, anchors, 'guide_spot', new THREE.Vector3(-(R - 0.12), F + 1.42, bz - 0.1));
@@ -1296,6 +1303,6 @@ function swing(a, b, angle) {
 }
 
 export const ANCHORS = [
-  'aerial', 'berg_crest', 'iceberg_glow', 'cam_lookout', 'mast_top', 'lee_spot', 'fleet_spot', 'guide_spot', 'sea',
+  'aerial', 'berg_crest', 'iceberg_glow', 'cam_lookout', 'forestay_top', 'lee_spot', 'fleet_spot', 'guide_spot', 'sea',
   'bell', 'phone', 'locker', 'padlock', 'deck', 'iceberg_dark', 'iceberg_rim',
 ];

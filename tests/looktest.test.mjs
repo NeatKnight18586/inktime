@@ -137,10 +137,9 @@ test('looktest scene spec', () => {
   assert.equal(spec.shots[0].frames, 72);
   assert.equal(spec.shots[0].camera.preset, 'dive');
   assert.equal(spec.shots[0].camera.anchor, 'aerial');
-  assert.equal(spec.shots[1].frames, 240);
+  assert.equal(spec.shots[1].frames, 72);
   assert.equal(spec.shots[1].camera.anchor, 'cam_lookout');
-  assert.equal(spec.shots[1].camera.yawDrift, 3);
-  assert.equal(frameCount(spec), 312);
+  assert.equal(frameCount(spec), 480);
   assert.equal(shotAt(spec, 71).camera.anchor, 'aerial');
   assert.equal(shotAt(spec, 72).camera.anchor, 'cam_lookout');
   assert.equal(resolveTarget('tests/looktest.json').name, 'looktest');
@@ -572,7 +571,7 @@ const handColors = () => ({ lit: new THREE.Color('#EFCEA0'), shadow: new THREE.C
 test('hands: SVG hands and the quad are gone; poses are tiny JSON; assets are credited', () => {
   assert.ok(!existsSync(new URL('../engine/rig/hands.mjs', import.meta.url)));
   assert.ok(!existsSync(new URL('../cast/hands/rail_grip.svg', import.meta.url)));
-  assert.deepEqual(Object.keys(poses), ['rail_grip', 'padlock_hold']);
+  assert.deepEqual(Object.keys(poses), ['rail_grip', 'padlock_hold', 'rattle', 'pocket', 'phone_reach', 'slapped', 'point']);
   for (const p of Object.values(poses)) {
     assert.deepEqual(Object.keys(p.curl).sort(), ['index', 'middle', 'pinky', 'ring', 'thumb']);
     assert.ok(p.spread >= 0 && p.spread <= 1 && p.thumbOppose >= 0 && p.thumbOppose <= 1 && p.wrist.length === 3);

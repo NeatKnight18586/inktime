@@ -199,13 +199,16 @@ export function check(summary) {
 }
 
 // skip: targets that do not apply (an insert frame: p5, dark40) are listed as n/a and never missed.
-export function report(label, s, skip = []) {
+// Shots whose preset is dive or rise are reported but never judged on luma, dark40, p95 and motion.
+export const HOOK_PRESETS = ['dive', 'rise'];
+export const HOOK_SKIP = ['lumaMean', 'dark40', 'p95', 'motion'];
+export function report(label, s, skip = [], note = 'insert') {
   const misses = check(s).filter((k) => !skip.includes(k));
   const lines = [`${label} (${s.frames} frames)`];
   for (const k of Object.keys(TARGETS)) {
     const v = s[k];
     const val = v === null || v === undefined ? 'n/a' : FMT[k](v);
-    lines.push(`  ${k.padEnd(9)} ${val.padStart(8)}   target ${TFMT[k].padEnd(9)} ${skip.includes(k) ? 'n/a (insert)' : v === null || v === undefined ? '' : misses.includes(k) ? 'MISS' : 'ok'}`);
+    lines.push(`  ${k.padEnd(9)} ${val.padStart(8)}   target ${TFMT[k].padEnd(9)} ${skip.includes(k) ? `n/a (${note})` : v === null || v === undefined ? '' : misses.includes(k) ? 'MISS' : 'ok'}`);
   }
   return { text: lines.join('\n'), misses };
 }
@@ -247,7 +250,7 @@ async function main() {
     let still = null;
     const before = cams?.[index - 1];
     if (pose && before && (before.shot ?? 0) === shot) still = isStill(before, pose);
-    frames.push({ index, shot, mean: st.mean, dark: st.dark, sat: st.sat, motion: st.motion, hist: st.hist, still });
+    frames.push({ index, shot, hook: HOOK_PRESETS.includes(pose?.preset), mean: st.mean, dark: st.dark, sat: st.sat, motion: st.motion, hist: st.hist, still });
     prev = st.luma;
     lastLuma = st.luma;
     prevShot = shot;
@@ -266,14 +269,20 @@ async function main() {
   const misses = [];
   if (shots.length > 1) {
     for (const s of shots) {
-      const r = report(`shot ${s}`, summarize(frames.filter((f) => f.shot === s)), skip);
+      const sf = frames.filter((f) => f.shot === s);
+      const hook = sf.every((f) => f.hook);
+      const r = report(`shot ${s}${hook ? ' (dive/rise: reported, not judged)' : ''}`, summarize(sf), hook ? [...skip, ...HOOK_SKIP] : skip, hook ? 'hook' : 'insert');
       out.push(r.text);
       misses.push(...r.misses.map((m) => `shot ${s} ${m}`));
     }
   }
-  const all = report('overall', summarize(frames), skip);
+  // The whole film is judged without its dive and rise shots on the four exempt targets.
+  const judged = frames.filter((f) => !f.hook);
+  const hooks = frames.length - judged.length;
+  const all = report(hooks ? 'overall (dive/rise shots excluded from luma, dark40, p95, motion)' : 'overall', summarize(hooks ? judged : frames), skip);
   out.push(all.text);
   misses.push(...all.misses.map((m) => `overall ${m}`));
+  if (hooks) out.push(report('overall incl. dive/rise (reported, not judged)', summarize(frames), [...skip, ...HOOK_SKIP], 'hook').text);
   out.push(misses.length ? `MISSES: ${misses.join(', ')}` : 'all targets met');
   if (isStillImage && lastLuma) {
     const grid = notanGrid(lastLuma, w, h);

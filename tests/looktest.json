@@ -16,13 +16,116 @@
       ]
     },
     {
-      "frames": 240,
+      "frames": 72,
       "camera": {
         "anchor": "cam_lookout",
-        "yawDrift": 3,
-        "yawDriftSeconds": 10
+        "preset": "lookdown",
+        "from": "base",
+        "to": {
+          "yaw": 0,
+          "pitch": -38
+        },
+        "held": false
       },
       "hands": "rail_grip"
+    },
+    {
+      "frames": 72,
+      "camera": {
+        "anchor": "cam_lookout",
+        "preset": "glance",
+        "from": {
+          "yaw": 0,
+          "pitch": -38
+        },
+        "to": {
+          "anchor": "lee_spot",
+          "lift": 1.3
+        },
+        "fov": 52,
+        "soundFrame": 144,
+        "delayFrames": 8,
+        "held": false
+      },
+      "hands": "rail_grip"
+    },
+    {
+      "frames": 72,
+      "camera": {
+        "anchor": "cam_lookout",
+        "preset": "lookup",
+        "from": {
+          "anchor": "lee_spot",
+          "lift": 1.3
+        },
+        "to": "forestay_top",
+        "fov0": 52,
+        "fov": 52,
+        "held": false
+      }
+    },
+    {
+      "frames": 72,
+      "camera": {
+        "anchor": "cam_lookout",
+        "preset": "glance",
+        "from": "base",
+        "to": "sea",
+        "fov": 84,
+        "held": false
+      }
+    },
+    {
+      "frames": 8,
+      "camera": {
+        "anchor": "cam_lookout",
+        "preset": "whip",
+        "from": "sea",
+        "to": "iceberg_dark",
+        "fov0": 84
+      },
+      "show": [
+        "iceberg_rim",
+        "iceberg_glow"
+      ]
+    },
+    {
+      "frames": 16,
+      "camera": {
+        "anchor": "cam_lookout",
+        "preset": "snap",
+        "to": "iceberg_dark",
+        "fov0": 84
+      },
+      "show": [
+        "iceberg_rim",
+        "iceberg_glow"
+      ]
+    },
+    {
+      "frames": 72,
+      "camera": {
+        "anchor": "cam_lookout",
+        "preset": "held",
+        "object": "padlock"
+      },
+      "hands": "padlock_hold"
+    },
+    {
+      "frames": 24,
+      "camera": {
+        "anchor": "aerial",
+        "preset": "rise"
+      },
+      "show": [
+        "iceberg_rim"
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "type": "blink",
+      "at": 284
     }
   ],
   "cards": [
@@ -33,6 +136,32 @@
       "blink": true,
       "light": "nest",
       "facing": 180
+    },
+    {
+      "cast": "lee",
+      "track": [
+        {
+          "at": 0,
+          "pose": "idle"
+        },
+        {
+          "at": 152,
+          "pose": "talk"
+        },
+        {
+          "at": 216,
+          "pose": "scoff"
+        }
+      ],
+      "anchor": "lee_spot",
+      "blink": true,
+      "facing": -75,
+      "speak": [
+        [
+          152,
+          216
+        ]
+      ]
     }
   ]
 }
