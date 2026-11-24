@@ -1,7 +1,7 @@
 {
   "status": "failed",
-  "commit": "b6e4f4a1db615a40e249af78de432d2295665709",
-  "job": "audio",
-  "step": "Commit words.json",
-  "run_url": "https://github.com/NeatKnight18586/inktime/actions/runs/45407748389"
+  "commit": "ca4f73a25a267d93978975d6f2234fe65e0f1bfa",
+  "job": "plan",
+  "step": "Run node tools/plan.mjs \"$TARGET\" \"$SHARDS\"",
+  "run_url": "https://github.com/NeatKnight18586/inktime/actions/runs/45409026405"
 }
