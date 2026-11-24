@@ -37,3 +37,8 @@
  "loop": {"lastLine":"L11","firstLine":"L1"}
 }
 Times: "L<n>:<w>" is the start of word w (0-based) of line Ln from words.json; a number is seconds; "+8f" after a time adds frames (e.g. "L3:0+8f"). Anchors are named Object3Ds exported by the set kit. A shot lasts until the next shot starts.
+
+# Phase 5 additions (bake and gates)
+- tools/bake.mjs <dir> -> out/plan.json (one entry per frame; the engine applies plan[n] only). tools/check.mjs <dir> -> review/<id>/gates.txt (exit 1 on FAIL). tools/preview.mjs renders the 14 preview frames.
+- Extra episode.json fields the bake reads: "duration" (seconds; default = last word end + "tail" 0.4), "cards":[{cast, anchor, facing, light, blink, track:[[time,pose]], speak:[[t0,t1]]}], "transitions":[{type, at}], sfxWords entries may carry a 4th element {size, lift, hold}, shot "show":[anchors], shot "params" is passed to the camera preset (plus "soundAt": time of the sound the head turns to). Times may be "15+8f" or "12-4f".
+- Ids starting with "_" are scratch episodes (no voice): length, frame-1 sound/caption and loop-word gates are WARN, variety is skipped, and CI skips the audio jobs.

@@ -1,0 +1,287 @@
+{
+ "id": "_looktest",
+ "title": "Look test walkthrough (no voice)",
+ "fps": 24,
+ "seed": "looktest",
+ "look": "titanic_night",
+ "set": "titanic_crowsnest",
+ "cast": [
+  "fleet",
+  "lee",
+  "guide"
+ ],
+ "hookType": "instruction",
+ "duration": 20,
+ "shots": [
+  {
+   "id": "S1",
+   "start": 0,
+   "preset": "dive",
+   "params": {
+    "anchor": "aerial"
+   },
+   "show": [
+    "iceberg_rim"
+   ],
+   "light": "night"
+  },
+  {
+   "id": "S2",
+   "start": 3,
+   "preset": "lookdown",
+   "params": {
+    "anchor": "cam_lookout",
+    "from": "base",
+    "to": {
+     "yaw": -10,
+     "pitch": -38
+    },
+    "dur": 2.5,
+    "leanRelease": 59,
+    "held": false
+   },
+   "hands": [
+    [
+     3,
+     "rail_grip"
+    ]
+   ],
+   "light": "night"
+  },
+  {
+   "id": "S3",
+   "start": 6,
+   "preset": "glance",
+   "fov": 52,
+   "params": {
+    "anchor": "cam_lookout",
+    "from": {
+     "yaw": -10,
+     "pitch": -38
+    },
+    "to": {
+     "anchor": "lee_spot",
+     "lift": 1.1
+    },
+    "delayFrames": 8,
+    "lean": 0,
+    "held": false,
+    "soundAt": 6
+   },
+   "light": "night"
+  },
+  {
+   "id": "S4",
+   "start": 9,
+   "preset": "lookup",
+   "fov": 52,
+   "params": {
+    "anchor": "cam_lookout",
+    "from": {
+     "anchor": "lee_spot",
+     "lift": 1.1
+    },
+    "to": "forestay_top",
+    "fov0": 52,
+    "lean": 0,
+    "held": false
+   },
+   "light": "night"
+  },
+  {
+   "id": "S5",
+   "start": 12,
+   "preset": "glance",
+   "fov": 90,
+   "params": {
+    "anchor": "cam_lookout",
+    "from": "base",
+    "to": "sea",
+    "held": false
+   },
+   "light": "night"
+  },
+  {
+   "id": "S6",
+   "start": 15,
+   "preset": "whip",
+   "params": {
+    "anchor": "cam_lookout",
+    "from": "sea",
+    "to": "iceberg_dark",
+    "fov0": 90
+   },
+   "show": [
+    "iceberg_rim",
+    "iceberg_glow"
+   ],
+   "light": "night"
+  },
+  {
+   "id": "S7",
+   "start": "15+8f",
+   "preset": "snap",
+   "params": {
+    "anchor": "cam_lookout",
+    "to": "iceberg_dark",
+    "fov0": 90
+   },
+   "show": [
+    "iceberg_rim",
+    "iceberg_glow"
+   ],
+   "light": "night"
+  },
+  {
+   "id": "S8",
+   "start": "16+4f",
+   "preset": "held",
+   "params": {
+    "anchor": "cam_lookout",
+    "object": "padlock"
+   },
+   "hands": [
+    [
+     "16+4f",
+     "padlock_hold"
+    ]
+   ],
+   "light": "night"
+  },
+  {
+   "id": "S9",
+   "start": 19,
+   "preset": "rise",
+   "params": {
+    "anchor": "aerial"
+   },
+   "show": [
+    "iceberg_rim"
+   ],
+   "light": "night"
+  }
+ ],
+ "cards": [
+  {
+   "cast": "fleet",
+   "anchor": "fleet_spot",
+   "blink": true,
+   "light": "nest",
+   "facing": 180,
+   "track": [
+    [
+     0,
+     "idle"
+    ],
+    [
+     4,
+     "squint"
+    ],
+    [
+     "15+12f",
+     "bell_ring"
+    ]
+   ]
+  },
+  {
+   "cast": "lee",
+   "anchor": "lee_spot",
+   "blink": true,
+   "facing": -65,
+   "track": [
+    [
+     0,
+     "idle"
+    ],
+    [
+     6,
+     "talk"
+    ],
+    [
+     "7+12f",
+     "scoff"
+    ]
+   ],
+   "speak": [
+    [
+     6,
+     "7+12f"
+    ]
+   ]
+  },
+  {
+   "cast": "guide",
+   "anchor": "guide_spot",
+   "blink": true,
+   "track": [
+    [
+     0,
+     "stare"
+    ],
+    [
+     7,
+     "facepalm"
+    ],
+    [
+     15,
+     "slap"
+    ]
+   ]
+  }
+ ],
+ "transitions": [
+  {
+   "type": "blink",
+   "at": "12-4f"
+  }
+ ],
+ "countdown": [
+  [
+   3,
+   40
+  ],
+  [
+   19,
+   20
+  ]
+ ],
+ "sfxWords": [
+  [
+   3,
+   "CREAK",
+   "forestay_top",
+   {
+    "size": 0.5
+   }
+  ],
+  [
+   "15+12f",
+   "DING-DING-DING",
+   "bell",
+   {
+    "size": 0.12,
+    "lift": 0.25
+   }
+  ],
+  [
+   "17+12f",
+   "RATTLE",
+   "padlock",
+   {
+    "size": 0.07,
+    "lift": 0.07
+   }
+  ]
+ ],
+ "moneyShot": {
+  "shot": "S7",
+  "hold": 0.8
+ },
+ "plant": {
+  "anchor": "forestay_top",
+  "frames": [
+   0,
+   48
+  ]
+ }
+}

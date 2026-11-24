@@ -83,7 +83,7 @@ async function loadSvg(url) {
 export async function makeSfx(scene, events, anchors, { seed = 'sfx', held = {} } = {}) {
   const items = [];
   for (const ev of events ?? []) {
-    const v = pickVariant(seed, ev);
+    const v = ev.variant ?? pickVariant(seed, ev);
     const { tex, aspect } = await loadSvg(`/sfx-words/${ev.word}/v${v}.svg`);
     const mat = sfxMaterial(tex);
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
@@ -92,7 +92,7 @@ export async function makeSfx(scene, events, anchors, { seed = 'sfx', held = {} 
     mesh.frustumCulled = false;
     mesh.layers.set(LAYERS.CARD_BODY);
     scene.add(mesh);
-    items.push({ ev, mesh, mat, aspect, variant: v, tilt: sfxTilt(seed, ev) });
+    items.push({ ev, mesh, mat, aspect, variant: v });
   }
   const p = new THREE.Vector3();
   return {
@@ -100,22 +100,26 @@ export async function makeSfx(scene, events, anchors, { seed = 'sfx', held = {} 
     prepass(on) {
       for (const it of items) it.mat.uniforms.uPrepass.value = on ? 1 : 0;
     },
-    // shot: the current shot (its camera.object names a held object, which then is the sound source).
-    update(n, camera, shot) {
-      for (const it of items) {
-        const s = sfxState(it.ev, n);
-        it.mesh.visible = !!s;
-        if (!s) continue;
-        const src = shot?.camera?.object === it.ev.anchor && held[it.ev.anchor] ? held[it.ev.anchor] : anchors[it.ev.anchor];
-        if (!src) throw new Error(`sound word anchor "${it.ev.anchor}" missing`);
-        src.updateWorldMatrix(true, false);
-        src.getWorldPosition(p);
-        p.y += it.ev.lift ?? 0;
+    // active: the baked plan entry's sound words [{ i, pos | held, lift, tilt, size, scale, opacity }] (tools/bake.mjs).
+    // A word whose source is the held object sits on it (its anchor name is the key in `held`).
+    update(n, camera, active = []) {
+      const on = new Set(active.map((a) => a.i));
+      items.forEach((it, i) => {
+        it.mesh.visible = on.has(i);
+      });
+      for (const a of active) {
+        const it = items[a.i];
+        if (a.held) {
+          const src = held[it.ev.anchor];
+          src.updateWorldMatrix(true, false);
+          src.getWorldPosition(p);
+          p.y += a.lift ?? 0;
+        } else p.set(...a.pos);
         it.mesh.position.copy(p);
-        it.mesh.quaternion.copy(camera.quaternion).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), it.tilt));
-        const h = (it.ev.size ?? SIZE) * s.scale;
+        it.mesh.quaternion.copy(camera.quaternion).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), a.tilt));
+        const h = a.size * a.scale;
         it.mesh.scale.set(h * it.aspect, h, 1);
-        it.mat.uniforms.uFade.value = s.fade;
+        it.mat.uniforms.uFade.value = a.opacity;
       }
     },
   };

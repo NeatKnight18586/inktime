@@ -35,7 +35,8 @@ export function blendPose(a, b, w) {
 }
 
 // Pose weights at frame n for a stateless render: pose changes blend over BLEND_FRAMES, on twos.
-export function poseAtFrame(n, poseAt, poses) {
+// handsPlan: { name, from?, w? } (the baked form: names and a blend weight), or null when no hand is shown.
+export function handsPlan(n, poseAt) {
   const ne = n - (n % 2);
   const cur = poseAt(ne);
   if (!cur) return null;
@@ -43,11 +44,15 @@ export function poseAtFrame(n, poseAt, poses) {
     const here = poseAt(Math.max(0, ne - d));
     const before = poseAt(Math.max(0, ne - d - 1));
     if (ne - d - 1 >= 0 && before !== here) {
-      if (!before) return poses[cur];
-      return blendPose(poses[before], poses[cur], (d + 1) / BLEND_FRAMES);
+      if (!before) return { name: cur };
+      return { name: cur, from: before, w: (d + 1) / BLEND_FRAMES };
     }
   }
-  return poses[cur];
+  return { name: cur };
+}
+export const resolveHands = (h, poses) => (!h ? null : h.from ? blendPose(poses[h.from], poses[h.name], h.w) : poses[h.name]);
+export function poseAtFrame(n, poseAt, poses) {
+  return resolveHands(handsPlan(n, poseAt), poses);
 }
 
 const SKIN_VERT = /* glsl */ `
@@ -411,14 +416,18 @@ export async function makeHands(camera, tint, palette, poses) {
     // lean: 0..1 (engine/rig/pov.mjs). The hand stays where it grips the rim in the world: when the eye is less far forward it is
     // farther ahead and a little lower in camera space.
     update(n, m, poseAt, fps = 24, lean = 1) {
-      const pose = poseAtFrame(n, poseAt, poses);
+      this.apply(handsPlan(n, poseAt), m, fps, lean, poseAt(n));
+    },
+    // Baked form (tools/bake.mjs): h = { name, from?, w? } | null; cur = the unblended pose name at this frame.
+    apply(h, m, fps = 24, lean = 1, cur = h?.name) {
+      const pose = resolveHands(h, poses);
       holder.visible = !!pose;
       for (const r of Object.values(rigs)) r.group.visible = false;
       if (!pose) return;
       const rig = rigs[pose.hand ?? 'right'];
       rig.group.visible = true;
       rig.setPose(pose);
-      const L = poseAt(n) === 'rail_grip' ? lean : 1; // only the rim grip follows the lean
+      const L = cur === 'rail_grip' ? lean : 1; // only the rim grip follows the lean
       const k = Math.floor(m / 2);
       const bob = 0.003 * Math.sin(k * 0.52) + 0.0015 * Math.sin(k * 1.31);
       const lag = breathLag(m - (m % 2), fps);

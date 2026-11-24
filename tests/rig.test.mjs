@@ -1,4 +1,5 @@
-// POV rig: presets, transitions, breath puffs, and the 480-frame walkthrough (tests/looktest.json).
+// POV rig: presets, transitions, breath puffs, and the 480-frame walkthrough (episodes/_looktest).
+import { loadSpec } from '../tools/timeline.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -15,7 +16,7 @@ import { isStill, poseDelta } from '../tools/measure.mjs';
 import { rng, hashSeed } from '../tools/rng.mjs';
 
 const look = JSON.parse(readFileSync(new URL('../engine/looks/titanic_night.json', import.meta.url)));
-const spec = JSON.parse(readFileSync(new URL('./looktest.json', import.meta.url)));
+const spec = loadSpec('episodes/_looktest');
 const FPS = 24;
 
 function walk() {
@@ -51,7 +52,7 @@ test('walkthrough: 480 frames, shots as authored', () => {
   assert.equal(totalFrames(spec), 480);
   assert.equal(frames.length, 480);
   const at = (s) => shotAt(spec, Math.round(s * FPS)).camera.preset;
-  assert.deepEqual([0, 3, 6, 9, 12, 15, 15.4, 16, 19].map(at), ['dive', 'lookdown', 'glance', 'lookup', 'glance', 'whip', 'snap', 'held', 'rise']);
+  assert.deepEqual([0, 3, 6, 9, 12, 15, 15.4, 16.2, 19].map(at), ['dive', 'lookdown', 'glance', 'lookup', 'glance', 'whip', 'snap', 'held', 'rise']);
   assert.deepEqual(spec.transitions, [{ type: 'blink', at: 284 }]);
   assert.equal(spec.shots[4].camera.fov, 90);
   assert.equal(spec.shots[2].camera.fov, 52);
@@ -461,7 +462,7 @@ test('framing rule: in POV shots character cards never cover the centre 40% of t
 test('held shots: the object comes to you (eye stays at 1.62 m, object 0.45 m in front and 0.25 m below the eye, camera 12 deg down)', () => {
   assert.deepEqual([HELD.forward, HELD.down, HELD.tilt], [0.45, 0.25, 12]);
   const held = frames.filter((f) => spec.shots[f.shot].camera.preset === 'held');
-  assert.equal(held.length, 72);
+  assert.equal(held.length, 68);
   for (const f of held) {
     assert.ok(Math.abs(f.pos[1] - f.spots.cam_lookout[1]) <= 0.005, 'the eye stays standing at the lookout eye height');
     assert.ok(Math.hypot(f.pos[0] - f.spots.cam_lookout[0], f.pos[2] - f.spots.cam_lookout[2]) < 0.005, 'the camera does not move toward the object');
