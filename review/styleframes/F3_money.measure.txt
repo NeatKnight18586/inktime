@@ -1,14 +1,14 @@
 F3_money: Money shot: subjective snap zoom to vFOV 20, iceberg at 457 m centred at 40% height, the bow out of frame (insert: p5 and dark40 do not apply)
 measure out/styleframes/F3_money.png: 1 frames at 270x480 (no cams.json: still frames n/a)
 overall (1 frames)
-  lumaMean      92.3   target 70-95     ok
-  dark40        4.6%   target 6-30%     n/a (insert)
-  p5              54   target <=25      n/a (insert)
-  p95            117   target >=170     MISS
-  sat          0.308   target 0.30-0.50 ok
+  lumaMean      95.4   target 70-95     MISS
+  dark40        2.8%   target 6-30%     n/a (insert)
+  p5              55   target <=25      n/a (insert)
+  p95            118   target >=170     MISS
+  sat          0.314   target 0.30-0.50 ok
   motion         n/a   target 1.5-6%    
   still          n/a   target <=10%     
   stillRun       n/a   target <=19      
-MISSES: overall p95
-notan 18x32 (cuts 60/140): dark 11.5%  mid 88.5%  light 0.0%   dark-mass target 20-55% WARN
-notan brightest cluster: 66 cells, centre cell (2.5, 5.0), peak luma 118; nearest focus anchor 4 cells away, target <= 1 WARN
+MISSES: overall lumaMean, overall p95
+notan 18x32 (cuts 60/140): dark 9.0%  mid 89.2%  light 1.7%   dark-mass target 20-55% WARN
+notan brightest cluster: 6 cells, centre cell (8.5, 11.7), peak luma 201; nearest focus anchor 0 cells away, target <= 1 ok

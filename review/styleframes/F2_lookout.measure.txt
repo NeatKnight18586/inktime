@@ -1,14 +1,14 @@
 F2_lookout: Lookout at 2 s: the hands and the deck lamps are the brightest; Fleet dark at the left (focus: hands and deck lamps)
 measure out/styleframes/F2_lookout.png: 1 frames at 270x480 (no cams.json: still frames n/a)
 overall (1 frames)
-  lumaMean      83.0   target 70-95     ok
-  dark40       15.6%   target 6-30%     ok
+  lumaMean      81.3   target 70-95     ok
+  dark40       16.6%   target 6-30%     ok
   p5              20   target <=25      ok
-  p95            175   target >=170     ok
-  sat          0.300   target 0.30-0.50 ok
+  p95            174   target >=170     ok
+  sat          0.303   target 0.30-0.50 ok
   motion         n/a   target 1.5-6%    
   still          n/a   target <=10%     
   stillRun       n/a   target <=19      
 all targets met
-notan 18x32 (cuts 60/140): dark 23.8%  mid 70.3%  light 5.9%   dark-mass target 20-55% ok
-notan brightest cluster: 3 cells, centre cell (12.3, 27.0), peak luma 179; nearest focus anchor 1 cells away, target <= 1 ok
+notan 18x32 (cuts 60/140): dark 24.8%  mid 70.1%  light 5.0%   dark-mass target 20-55% ok
+notan brightest cluster: 1 cells, centre cell (16.0, 26.0), peak luma 177; nearest focus anchor 2 cells away, target <= 1 WARN
