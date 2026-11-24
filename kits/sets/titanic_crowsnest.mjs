@@ -29,7 +29,7 @@ export const MASTHEAD = { aft: 0.25, aimZ: -120, aimY: 18, angle: 20 * (Math.PI 
 // Hatched basket interior: 45 deg ink lines in screen space, 3 px spacing, line width in px (coverage = width / spacing = 40%).
 export const HATCH_NEST = { spacing: 3, width: 1.2 };
 // Tick, the guide (cast/guide/README.md): where it floats relative to the eye.
-export const GUIDE = { bearing: -25, dist: 1.1, up: 0.3 };
+export const GUIDE = { bearing: -25, dist: 1.1, up: 0.15 };
 export const LOOKOUT = { back: 1.2, pitch: -16, fov: 90, minRim: 0.45 };
 // The ship steams ahead (-Z) at 22 knots; everything aboard (and the camera anchors) rides ship_root.
 export const SHIP_SPEED = 11.3; // spec 0.75 / -14 showed 11 props; adjusted within the allowed range
