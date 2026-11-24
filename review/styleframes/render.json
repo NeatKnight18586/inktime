@@ -1,8 +1,9 @@
 {
   "status": "stills",
-  "commit": "643885d3675b4009286e9c0374a1dbb35bb3cf41",
+  "commit": "e8207479d197eecb87b7be24a3e55a513930a3e7",
   "frames": [
+    "F1_aerial",
     "F2_lookout",
-    "F3_iceberg"
+    "F3_money"
   ]
 }
