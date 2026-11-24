@@ -451,7 +451,6 @@ export async function makeTick(scene, spec, anchors, palette, { tint, seed = 'ti
   if (!anchor) throw new Error(`guide anchor "${spec.anchor}" missing`);
   const cast = palette.json.cast;
   const poses = await (await fetch('/cast/guide/poses.json')).json();
-  const track = spec.track ?? [{ at: 0, pose: spec.pose ?? 'idle' }];
   const light = { key: palette.hex(cast.key), shade: palette.hex(cast.shade), rim: palette.hex(cast.rim) };
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(TICK_CARD.w * PX_PER_D);
@@ -529,7 +528,6 @@ export async function makeTick(scene, spec, anchors, palette, { tint, seed = 'ti
     const b = anchor.getWorldPosition(new THREE.Vector3());
     return Math.atan2(e.x - b.x, e.z - b.z);
   };
-  const blinks = spec.blink === false ? new Set() : blinkFrames(`${seed}:guide${spec.anchor}${(spec.offset ?? []).join(',')}`, frames);
   const offset = new THREE.Vector3(...(spec.offset ?? [0, 0, 0]));
   const base = new THREE.Vector3();
   const api = {
@@ -543,10 +541,12 @@ export async function makeTick(scene, spec, anchors, palette, { tint, seed = 'ti
     prepass(on) {
       card.material = on ? prepassMat : mat;
     },
-    update(n, camera) {
-      anchor.updateWorldMatrix(true, false);
-      anchor.getWorldPosition(base).add(offset);
-      const { pose: p0, name, start } = tickPoseAt(poses, track, n);
+    // e = the baked plan entry { anchor, pose, name, start, ring, blink } (tools/bake.mjs).
+    update(n, camera, e) {
+      const at = anchors[e.anchor] ?? anchor;
+      at.updateWorldMatrix(true, false);
+      at.getWorldPosition(base).add(offset);
+      const { pose: p0, name, start } = e;
       const drift = poses[name]?.drift;
       if (drift) base.addScaledVector(new THREE.Vector3(...drift), Math.max(0, n - start) / 24);
       base.y += bobAt(n);
@@ -556,7 +556,7 @@ export async function makeTick(scene, spec, anchors, palette, { tint, seed = 'ti
       if (n % 2 === 0 || !api.last) {
         const pose = { ...p0, ...(spec.face ? { hands: handsOf({ ...p0, hands: undefined, face: spec.face }) } : {}) };
         const look = faceTurn(facingFor(), base, camera.position, 1);
-        const st = { pose, angle: look.angle, look, light: { ...light, cam: lightInCamera(cast.keyDir, camera) }, ring: countdownAt(countdown, Math.floor(n / 2) * 2), blink: blinks.has(n), seed: `${seed}:guide`, n };
+        const st = { pose, angle: look.angle, look, light: { ...light, cam: lightInCamera(cast.keyDir, camera) }, ring: e.ring, blink: e.blink, seed: `${seed}:guide`, n };
         drawTick(ctx, canvas.width, canvas.height, st);
         tex.needsUpdate = true;
         api.last = { n, ...bb, pose: name, ring: st.ring, shift: look.shift };

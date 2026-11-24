@@ -3,6 +3,7 @@
 import { readFileSync, existsSync, statSync, appendFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadSpec } from './timeline.mjs';
 import { resolve } from 'node:path';
 
 export function resolveTarget(target) {
@@ -32,9 +33,14 @@ export function shardRanges(frames, shards) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const [target = 'tests/looktest.json', shards = '8'] = process.argv.slice(2);
-  const { file, name } = resolveTarget(target);
-  const frames = frameCount(JSON.parse(readFileSync(file, 'utf8')));
+  const [target = 'episodes/_looktest', shards = '8'] = process.argv.slice(2);
+  let { file, name } = resolveTarget(target);
+  let frames;
+  if (basename(file) === 'episode.json') {
+    // Episode targets render the baked plan (tools/bake.mjs writes it to <dir>/out/plan.json).
+    frames = frameCount(loadSpec(dirname(file)));
+    file = join(dirname(file), 'out', 'plan.json');
+  } else frames = frameCount(JSON.parse(readFileSync(file, 'utf8')));
   const matrix = shardRanges(frames, Number(shards));
   const lines = [`name=${name}`, `scene=${file}`, `frames=${frames}`, `matrix=${JSON.stringify(matrix)}`];
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, lines.join('\n') + '\n');

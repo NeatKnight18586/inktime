@@ -1,5 +1,6 @@
 // Phase 3: Tick (the guide), its countdown ring, the lettering generator, sound words and the phone hand.
 // Tick's six-trick snapshots live in tests/tick.snapshot.json; regenerate with UPDATE_SNAPSHOT=1 node --test tests/guide.test.mjs.
+import { loadSpec } from '../tools/timeline.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -15,7 +16,7 @@ const url = (p) => new URL(p, import.meta.url);
 const night = JSON.parse(readFileSync(url('../engine/looks/titanic_night.json')));
 const day = JSON.parse(readFileSync(url('../engine/looks/day.json')));
 const poses = JSON.parse(readFileSync(url('../cast/guide/poses.json')));
-const spec = JSON.parse(readFileSync(url('./looktest.json')));
+const spec = loadSpec('episodes/_looktest');
 const snapPath = url('./tick.snapshot.json');
 const snap = {};
 const round = (v) => (Array.isArray(v) ? v.map(round) : typeof v === 'number' ? Math.round(v * 1e4) / 1e4 : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, round(x)])) : v);
@@ -288,7 +289,7 @@ test('sound words: pop in over 3 frames (0.6 -> 1.15 -> 1.0), hold, fade over 6 
     const v = pickVariant(spec.seed, e);
     assert.ok(v >= 1 && v <= 3 && v === pickVariant(spec.seed, e));
   }
-  assert.deepEqual(spec.sfx.map((e) => [e.word, e.at, e.anchor]), [['CREAK', 72, 'forestay_top'], ['DING-DING-DING', 372, 'bell'], ['RATTLE', 408, 'padlock']]);
+  assert.deepEqual(spec.sfx.map((e) => [e.word, e.at, e.anchor]), [['CREAK', 72, 'forestay_top'], ['DING-DING-DING', 372, 'bell'], ['RATTLE', 420, 'padlock']]);
   // Solid cutout: opaque, depth written, alpha < 0.5 discarded, the dissolve discards (never blends); renders in the prepass.
   const m = sfxMaterial(null);
   assert.equal(m.transparent, false);

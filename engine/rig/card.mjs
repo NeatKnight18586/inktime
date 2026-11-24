@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { LAYERS, setLayer } from '../look/layers.mjs';
 import { drawStick } from '../cast/stick.mjs';
-import { CARD, D_METRES, figure, billboardAngles, lightInCamera, faceTurn, drawOrder, proxyYaw, poseAt, breathAt, mouthAt, blinkFrames } from '../cast/stickmath.mjs';
+import { CARD, D_METRES, figure, billboardAngles, lightInCamera, faceTurn, drawOrder, proxyYaw, blinkFrames } from '../cast/stickmath.mjs';
 
 export { blinkFrames };
 export const CARD_HEIGHT = CARD.h * D_METRES; // plane height in metres (3.5 D figure = 1.75 m, 1 D = 0.5 m)
@@ -38,8 +38,6 @@ export async function makeCard(scene, spec, anchors, palette, { tint, seed = 'ca
   const cast = palette.json.cast;
   if (!cast) throw new Error(`look ${palette.name}: no "cast" block (key light for characters)`);
   const params = await (await fetch(`/cast/${spec.cast}/char.json`)).json();
-  const poses = await (await fetch(`/cast/${spec.cast}/poses.json`)).json();
-  const track = spec.track ?? [{ at: 0, pose: spec.pose ?? 'idle' }];
   const nest = spec.light === 'nest' ? { lit: cast.nest.lit, dark: cast.nest.dark } : null;
   const light = { key: palette.hex(cast.key), shade: palette.hex(cast.shade), rim: palette.hex(cast.rim) };
   const facing = (spec.facing ?? 0) * DEG;
@@ -106,12 +104,10 @@ export async function makeCard(scene, spec, anchors, palette, { tint, seed = 'ca
   card.layers.set(LAYERS.CARD_BODY);
   scene.add(group);
   const base = new THREE.Vector3();
-  const blinks = spec.blink === false ? new Set() : blinkFrames(`${seed}:${spec.cast}`, frames);
   const api = {
     group,
     card,
     proxy,
-    blinks,
     mat,
     prepassMat,
     last: null,
@@ -119,23 +115,23 @@ export async function makeCard(scene, spec, anchors, palette, { tint, seed = 'ca
     prepass(on) {
       card.material = on ? prepassMat : mat;
     },
-    // Pose state and drawing on twos; blinks by frame; billboard follows the camera on ones.
-    update(n, camera) {
+    // Drawing on twos from the baked plan entry e = { pose, mouth, blink, breath } (tools/bake.mjs); the billboard follows the camera on ones.
+    update(n, camera, e) {
       anchor.updateWorldMatrix(true, false);
       anchor.getWorldPosition(base);
       group.position.copy(base);
       const bb = billboardAngles(base, camera.position, h);
       card.rotation.set(bb.pitch, bb.yaw, 0);
       if (n % 2 === 0 || !api.last) {
-        const { pose: p0 } = poseAt(poses, track, n);
+        const p0 = e.pose;
         const k = Math.floor(n / 2);
         const pose = { ...p0 };
         if (p0.shake) pose.lean = (p0.lean ?? 0) + p0.shake * (k % 2 ? 1 : -1);
-        pose.mouth = mouthAt(n, p0, spec.speak);
+        pose.mouth = e.mouth;
         const look = faceTurn(facing, base, camera.position, p0.look ?? 0);
         const turn = Math.cos(look.angle);
         const order = drawOrder(look.angle);
-        const fig = figure(pose, breathAt(n), turn);
+        const fig = figure(pose, e.breath, turn);
         const st = {
           fig,
           pose,
@@ -147,7 +143,7 @@ export async function makeCard(scene, spec, anchors, palette, { tint, seed = 'ca
           seed: `${seed}:${spec.cast}`,
           nest,
           litBrim: !!nest?.lit.includes('brim'),
-          blink: blinks.has(n),
+          blink: e.blink,
           mouth: pose.mouth,
           skin: params.skin,
           shirt: params.shirt,

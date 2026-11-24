@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: Scene or episode path
-        default: tests/looktest.json
+        description: Episode folder (episodes/<id>) or a scene JSON
+        default: episodes/_looktest
         required: true
       shards:
         description: Number of render shards
         default: '8'
       full:
-        description: Full render (false = preview)
+        description: Full render (false = cheap preview of an episode folder)
         type: boolean
         default: true
       stills:
@@ -31,7 +31,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TARGET: ${{ inputs.target || 'tests/looktest.json' }}
+  INPUT_TARGET: ${{ inputs.target }}
   SHARDS: ${{ inputs.shards || '8' }}
   FFMPEG_KEY: ffmpeg-static-b6.0-linux-x64
 
@@ -42,34 +42,46 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
-      episode: ${{ steps.ep.outputs.dir }}
+      episode: ${{ steps.ep.outputs.voiced == 'true' && steps.ep.outputs.dir || '' }}
+      dir: ${{ steps.ep.outputs.dir }}
+      target: ${{ steps.ep.outputs.target }}
       name: ${{ steps.ep.outputs.name }}
       waiting: ${{ steps.ep.outputs.waiting }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
+          fetch-depth: 0
       - id: ep
+        env:
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
         run: |
+          TARGET=$(node tools/target.mjs)
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
           dir=""
           case "$TARGET" in episodes/*) dir=$(echo "$TARGET" | cut -d/ -f1-2);; esac
           echo "dir=$dir" >> "$GITHUB_OUTPUT"
           echo "name=$(basename "$dir")" >> "$GITHUB_OUTPUT"
+          # Scratch episodes (ids starting with _) have no voice: no alignment, no sfx synthesis, no mix.
+          voiced=false
+          if [ -n "$dir" ] && [ "$(basename "$dir" | cut -c1)" != "_" ]; then voiced=true; fi
+          echo "voiced=$voiced" >> "$GITHUB_OUTPUT"
           waiting=false
           if [ -n "$dir" ] && [ ! -f "$dir/episode.json" ]; then waiting=true; fi
           echo "waiting=$waiting" >> "$GITHUB_OUTPUT"
       - name: upload audio/voice.mp3
-        if: ${{ steps.ep.outputs.dir != '' }}
+        if: ${{ steps.ep.outputs.voiced == 'true' }}
         run: test -f "${{ steps.ep.outputs.dir }}/audio/voice.mp3" || { echo "upload audio/voice.mp3"; exit 1; }
-      - if: ${{ steps.ep.outputs.dir != '' }}
+      - if: ${{ steps.ep.outputs.voiced == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - if: ${{ steps.ep.outputs.dir != '' }}
+      - if: ${{ steps.ep.outputs.voiced == 'true' }}
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - if: ${{ steps.ep.outputs.dir != '' }}
+      - if: ${{ steps.ep.outputs.voiced == 'true' }}
         uses: actions/cache@v4
         with:
           path: |
@@ -77,25 +89,25 @@ jobs:
             ~/.cache/huggingface
           key: whisper-small.en-faster-whisper-v1
       - id: ffcache
-        if: ${{ steps.ep.outputs.dir != '' }}
+        if: ${{ steps.ep.outputs.voiced == 'true' }}
         uses: actions/cache@v4
         with:
           path: .ffmpeg
           key: ${{ env.FFMPEG_KEY }}
-      - if: ${{ steps.ep.outputs.dir != '' && steps.ffcache.outputs.cache-hit != 'true' }}
+      - if: ${{ steps.ep.outputs.voiced == 'true' && steps.ffcache.outputs.cache-hit != 'true' }}
         run: node tools/get-ffmpeg.mjs .ffmpeg
-      - if: ${{ steps.ep.outputs.dir != '' }}
+      - if: ${{ steps.ep.outputs.voiced == 'true' }}
         run: echo "$PWD/.ffmpeg" >> "$GITHUB_PATH"
-      - if: ${{ steps.ep.outputs.dir != '' }}
+      - if: ${{ steps.ep.outputs.voiced == 'true' }}
         run: pip install faster-whisper
       - name: Align voice
-        if: ${{ steps.ep.outputs.dir != '' }}
+        if: ${{ steps.ep.outputs.voiced == 'true' }}
         run: node tools/align.mjs "${{ steps.ep.outputs.dir }}"
       - name: Sound effects
-        if: ${{ steps.ep.outputs.dir != '' }}
+        if: ${{ steps.ep.outputs.voiced == 'true' }}
         run: node tools/sfx.mjs "${{ steps.ep.outputs.dir }}"
       - name: Commit words.json
-        if: ${{ steps.ep.outputs.dir != '' }}
+        if: ${{ steps.ep.outputs.voiced == 'true' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -117,7 +129,7 @@ jobs:
           mkdir -p "review/$NAME"
           printf '{\n  "status": "waiting",\n  "commit": "%s",\n  "reason": "episodes/%s/episode.json is missing; audio aligned, render skipped",\n  "run_url": "%s/%s/actions/runs/%s"\n}\n' "$GITHUB_SHA" "$NAME" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "review/$NAME/render.json"
           node tools/publish-renders.mjs "$NAME" "review/$NAME/render.json=render.json"
-      - if: ${{ steps.ep.outputs.dir != '' }}
+      - if: ${{ steps.ep.outputs.voiced == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: audio-words
@@ -127,7 +139,7 @@ jobs:
             ${{ steps.ep.outputs.dir }}/audio/voice_edit.wav
           if-no-files-found: ignore
           retention-days: 7
-      - if: ${{ steps.ep.outputs.dir != '' }}
+      - if: ${{ steps.ep.outputs.voiced == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: audio-sfx
@@ -142,6 +154,7 @@ jobs:
     outputs:
       go: ${{ steps.gate.outputs.go }}
       stills: ${{ steps.gate.outputs.stills }}
+      mode: ${{ steps.gate.outputs.mode }}
       name: ${{ steps.plan.outputs.name }}
       scene: ${{ steps.plan.outputs.scene }}
       frames: ${{ steps.plan.outputs.frames }}
@@ -156,27 +169,43 @@ jobs:
           MSG: ${{ github.event.head_commit.message }}
           BEFORE: ${{ github.event.before }}
           STILLS_IN: ${{ inputs.stills }}
+          FULL_IN: ${{ inputs.full }}
+          EPDIR: ${{ needs.audio.outputs.dir }}
         run: |
           go=false
           stills=false
+          mode=full
           if [ "$STILLS_IN" = "true" ] || { [ "$EVENT" = "push" ] && printf '%s' "$MSG" | grep -qF '[stills]'; }; then stills=true
-          elif [ "$EVENT" != "push" ]; then go=true
+          elif [ "$EVENT" != "push" ]; then
+            go=true
+            if [ "$FULL_IN" != "true" ]; then mode=preview; fi
           elif printf '%s' "$MSG" | grep -qF '[render]'; then go=true
-          elif ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then go=true
-          elif git diff --name-only "$BEFORE" "$GITHUB_SHA" | grep -qE '^(engine|kits|cast|episodes)/|^tests/looktest\.json$'; then go=true
+          elif ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then go=true; mode=preview
+          elif git diff --name-only "$BEFORE" "$GITHUB_SHA" | grep -qE '^(engine|kits|cast|episodes|tools)/'; then go=true; mode=preview
           fi
+          # Only episode folders can be previewed; a scene JSON target always renders in full.
+          if [ -z "$EPDIR" ]; then mode=full; fi
           echo "go=$go" >> "$GITHUB_OUTPUT"
           echo "stills=$stills" >> "$GITHUB_OUTPUT"
-          echo "render: $go, stills: $stills"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "render: $go ($mode), stills: $stills"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Aligned words (voiced episodes)
+        if: ${{ needs.audio.outputs.episode != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: audio-words
+          path: ${{ needs.audio.outputs.episode }}/audio
       - id: plan
+        env:
+          TARGET: ${{ needs.audio.outputs.target }}
         run: node tools/plan.mjs "$TARGET" "$SHARDS"
 
   render:
     needs: [plan, audio]
-    if: ${{ needs.plan.outputs.go == 'true' }}
+    if: ${{ needs.plan.outputs.go == 'true' && needs.plan.outputs.mode == 'full' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     container:
@@ -208,6 +237,9 @@ jobs:
       - if: steps.ffcache.outputs.cache-hit != 'true'
         run: node tools/get-ffmpeg.mjs .ffmpeg
       - run: echo "$PWD/.ffmpeg" >> "$GITHUB_PATH"
+      - name: Bake the plan (episode targets)
+        if: ${{ needs.audio.outputs.dir != '' }}
+        run: node tools/bake.mjs "${{ needs.audio.outputs.dir }}"
       - name: Render frames ${{ matrix.start }}-${{ matrix.end }}
         run: |
           T0=$(date +%s)
@@ -237,6 +269,7 @@ jobs:
       NAME: ${{ needs.plan.outputs.name }}
       FRAMES: ${{ needs.plan.outputs.frames }}
       EP: ${{ needs.audio.outputs.episode }}
+      DIR: ${{ needs.audio.outputs.dir }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - run: echo "JOB_T0=$(date +%s)" >> "$GITHUB_ENV"
@@ -244,6 +277,11 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
       - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - id: ffcache
         uses: actions/cache@v4
         with:
@@ -310,10 +348,18 @@ jobs:
           '
           node tools/measure.mjs "out/$NAME.mp4" --cams out/cams.json | tee "review/$NAME/measure.txt"
           { echo; echo '```'; cat "review/$NAME/measure.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: "Gates (full render, motion and loudness)"
+        if: ${{ env.DIR != '' }}
+        run: |
+          set +e
+          MIX=""
+          if [ -n "$EP" ]; then MIX="--mix $EP/out/mix.wav"; fi
+          node tools/check.mjs "$DIR" --full "review/$NAME/measure.txt" $MIX --index
+          echo "GATES_RC=$?" >> "$GITHUB_ENV"
       - name: Status
         run: |
           RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          MP4=$([ "$NAME" = "looktest" ] && echo "looktest.mp4" || echo "final.mp4")
+          MP4=$([ -z "$EP" ] && echo "$NAME.mp4" || echo "final.mp4")
           echo "MP4=$MP4" >> "$GITHUB_ENV"
           node -e '
             const fs = require("fs");
@@ -323,8 +369,10 @@ jobs:
             const segs = fs.readdirSync("segs").filter((f) => /^seg-\d+\.json$/.test(f)).map((f) => JSON.parse(fs.readFileSync("segs/" + f)));
             const renderS = segs.reduce((s, x) => s + x.render_seconds, 0);
             const jobS = segs.reduce((s, x) => s + x.job_seconds, 0) + (Date.now() / 1000 - +JOB_T0);
+            const gated = process.env.GATES_RC === "1";
             const r = {
-              status: "done",
+              status: gated ? "failed" : "done",
+              ...(gated ? { job: "assemble", step: "gates (see gates.txt)" } : {}),
               commit: GITHUB_SHA,
               run_url: runUrl,
               mp4_url: raw(mp4),
@@ -343,7 +391,89 @@ jobs:
           VIDEO="out/$NAME.mp4=$MP4"
           if [ -n "$EP" ]; then VIDEO="out/final.mp4=final.mp4 out/clean.mp4=clean.mp4 $EP/out/captions.srt=captions.srt"; fi
           node tools/publish-renders.mjs "$NAME" $VIDEO "review/$NAME/contact.jpg=contact.jpg" \
-            "review/$NAME/measure.txt=measure.txt" "review/$NAME/render.json=render.json"
+            "review/$NAME/measure.txt=measure.txt" "review/$NAME/render.json=render.json" $( [ -f "review/$NAME/gates.txt" ] && echo "review/$NAME/gates.txt=gates.txt" )
+
+  # Cheap preview of an episode folder: bake -> gates (a FAIL stops the run) -> 14 frames -> contact sheet -> measure -> publish.
+  preview:
+    needs: [plan, audio]
+    if: ${{ needs.plan.outputs.go == 'true' && needs.plan.outputs.mode == 'preview' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.1-noble
+      options: --ipc=host
+    env:
+      DIR: ${{ needs.audio.outputs.dir }}
+      NAME: ${{ needs.audio.outputs.name }}
+      EP: ${{ needs.audio.outputs.episode }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - id: ffcache
+        uses: actions/cache@v4
+        with:
+          path: .ffmpeg
+          key: ${{ env.FFMPEG_KEY }}
+      - if: steps.ffcache.outputs.cache-hit != 'true'
+        run: node tools/get-ffmpeg.mjs .ffmpeg
+      - run: echo "$PWD/.ffmpeg" >> "$GITHUB_PATH"
+      - name: Aligned words (voiced episodes)
+        if: ${{ needs.audio.outputs.episode != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: audio-words
+          path: ${{ needs.audio.outputs.episode }}/audio
+      - name: Bake and check
+        run: |
+          set +e
+          node tools/check.mjs "$DIR"
+          echo "RC1=$?" >> "$GITHUB_ENV"
+      - name: Render the preview frames, contact sheet, measure
+        if: ${{ env.RC1 == '0' }}
+        run: node tools/preview.mjs "$DIR"
+      - name: Gates with the measured stills
+        if: ${{ env.RC1 == '0' }}
+        run: |
+          set +e
+          node tools/check.mjs "$DIR" --stills "$DIR/out/stills" --index
+          echo "RC2=$?" >> "$GITHUB_ENV"
+      - name: Publish to the renders branch
+        run: |
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          RAW="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/raw/renders/renders/$NAME"
+          FAILED=false
+          if [ "$RC1" != "0" ] || [ "${RC2:-0}" != "0" ]; then FAILED=true; fi
+          node -e '
+            const [failed, run, raw] = process.argv.slice(1);
+            const r = failed === "true"
+              ? { status: "failed", commit: process.env.GITHUB_SHA, job: "preview", step: "gates (see gates.txt)", run_url: run }
+              : { status: "preview", commit: process.env.GITHUB_SHA, run_url: run, contact_url: raw + "/contact.jpg", gates_url: raw + "/gates.txt", measure_url: raw + "/measure.txt" };
+            require("fs").writeFileSync(`review/${process.env.NAME}/render.json`, JSON.stringify(r, null, 2) + "\n");
+          ' "$FAILED" "$RUN_URL" "$RAW"
+          PAIRS="review/$NAME/render.json=render.json review/$NAME/gates.txt=gates.txt"
+          for f in contact.jpg measure.txt urls.txt; do if [ -f "review/$NAME/$f" ]; then PAIRS="$PAIRS review/$NAME/$f=$f"; fi; done
+          node tools/publish-renders.mjs "$NAME" $PAIRS
+          { echo "### $NAME preview"; echo; echo '```'; cat "review/$NAME/gates.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit episodes/index.json
+        if: ${{ env.RC1 == '0' && env.RC2 == '0' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add episodes/index.json
+          git diff --cached --quiet || git commit -m "index: $NAME [skip ci]"
+          for i in 1 2 3 4; do
+            git pull --rebase -q origin "${{ github.ref_name }}" && git push -q origin "HEAD:${{ github.ref_name }}" && exit 0
+            sleep $(( i * 5 ))
+          done
+          exit 1
 
   # Style frames: only the frames in tests/styleframes.json, full quality, no video. Published to renders/styleframes/.
   stills:
@@ -384,7 +514,7 @@ jobs:
           node tools/publish-renders.mjs styleframes $PAIRS
 
   status-failed:
-    needs: [audio, plan, render, assemble, stills]
+    needs: [audio, plan, render, assemble, stills, preview]
     if: ${{ failure() }}
     runs-on: ubuntu-latest
     env:

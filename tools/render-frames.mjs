@@ -1,10 +1,13 @@
 // Frame capture. Usage: node tools/render-frames.mjs --scene <path> --start <n> --end <n> --out <dir>
+// --scene is a baked plan (episodes/<id>/out/plan.json), an episode folder, or a legacy scene JSON (baked here). --frames 0,60,90 renders just those frames.
 // Renders frames start..end-1 (end exclusive) to <out>/%05d.png, numbered by global frame index.
 // Also writes the per-frame camera pose to --cams (default out/cams.json), merged with any existing entries.
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { chromium } from 'playwright';
 import { startServer } from './serve.mjs';
+import { bakeSpec, planJson } from './bake.mjs';
+import { loadSpec } from './timeline.mjs';
 
 function args(argv) {
   const o = {};
@@ -27,7 +30,19 @@ const browser = await chromium.launch({
 let code = 0;
 try {
   const errors = [];
-  const scenePath = '/' + a.scene.replace(/^\.?\//, '');
+  const list = a.frames ? a.frames.split(',').map(Number) : null;
+  const want = list ? [Math.min(...list), Math.max(...list) + 1] : [Number(a.start ?? 0), a.end === undefined ? null : Number(a.end)];
+  let scene = a.scene;
+  if (!/plan\.json$/.test(scene)) {
+    // Legacy scene JSON or an episode folder: bake the frames this run needs.
+    const spec = existsSync(join(scene, 'episode.json')) ? loadSpec(scene) : JSON.parse(readFileSync(scene, 'utf8'));
+    const total = spec.shots.reduce((n, x) => n + x.frames, 0);
+    const doc = await bakeSpec(spec, { range: [want[0], Math.min(want[1] ?? total, total)] });
+    scene = join('out', 'plans', `${spec.name ?? 'scene'}-${want[0]}.json`);
+    mkdirSync(dirname(scene), { recursive: true });
+    writeFileSync(scene, planJson(doc));
+  }
+  const scenePath = '/' + scene.replace(/^\.?\//, '');
   let page = null;
   let info = null;
   // (Re)open the engine and load the scene. Every frame derives from its index, so a reload is safe.
@@ -46,8 +61,8 @@ try {
   };
   await open();
   const total = await page.evaluate(() => window.inktime.frameCount);
-  const start = Number(a.start ?? 0);
-  const end = Math.min(Number(a.end ?? total), total);
+  const start = want[0];
+  const end = Math.min(want[1] ?? total, total);
   mkdirSync(a.out, { recursive: true });
   const camsPath = a.cams ?? 'out/cams.json';
   let cams = { frames: {} };
@@ -58,10 +73,11 @@ try {
       cams = { frames: {} };
     }
   }
-  cams.scene = a.scene;
+  cams.scene = scene;
   cams.fps = 24;
   const t0 = performance.now();
   for (let n = start; n < end; n++) {
+    if (list && !list.includes(n)) continue;
     const grab = () =>
       page.evaluate(async (k) => {
         const pose = await window.inktime.renderFrame(k);
@@ -80,7 +96,7 @@ try {
     const { url, pose } = got;
     cams.frames[n] = pose;
     writeFileSync(join(a.out, `${String(n).padStart(5, '0')}.png`), Buffer.from(url.slice(url.indexOf(',') + 1), 'base64'));
-    if ((n - start) % 100 === 0) console.log(`frame ${n} (${((performance.now() - t0) / 1000 / (n - start + 1)).toFixed(2)} s/frame)`);
+    if (!list && (n - start) % 100 === 0) console.log(`frame ${n} (${((performance.now() - t0) / 1000 / (n - start + 1)).toFixed(2)} s/frame)`);
   }
   mkdirSync(dirname(camsPath), { recursive: true });
   writeFileSync(camsPath, JSON.stringify(cams));

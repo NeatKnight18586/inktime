@@ -62,8 +62,7 @@ export function paniniPass() {
         gl_FragColor = texture2D(tDiffuse, clamp(uv, vec2(0.0), vec2(1.0)));
       }`,
   });
-  pass.setCamera = (camera, on) => {
-    const s = paniniStrength(camera.fov);
+  pass.setCamera = (camera, on, s = paniniStrength(camera.fov)) => {
     pass.enabled = on && s > 0;
     pass.uniforms.uS.value = s;
     const ey = Math.tan((camera.fov * Math.PI) / 360);

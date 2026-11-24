@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { loadSpec } from '../tools/timeline.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
@@ -19,7 +20,7 @@ import { rng, hashSeed } from '../tools/rng.mjs';
 import { shardRanges, resolveTarget, frameCount } from '../tools/plan.mjs';
 
 const look = JSON.parse(readFileSync(new URL('../engine/looks/titanic_night.json', import.meta.url)));
-const spec = JSON.parse(readFileSync(new URL('./looktest.json', import.meta.url)));
+const spec = loadSpec('episodes/_looktest');
 
 function buildScene(seed = 'looktest') {
   const scene = new THREE.Scene();
@@ -143,7 +144,7 @@ test('looktest scene spec', () => {
   assert.equal(frameCount(spec), 480);
   assert.equal(shotAt(spec, 71).camera.anchor, 'aerial');
   assert.equal(shotAt(spec, 72).camera.anchor, 'cam_lookout');
-  assert.equal(resolveTarget('tests/looktest.json').name, 'looktest');
+  assert.equal(resolveTarget('episodes/_looktest').name, '_looktest');
 });
 
 test('shard plan covers every frame once', () => {
