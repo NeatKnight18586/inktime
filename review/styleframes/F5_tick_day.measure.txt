@@ -1,14 +1,14 @@
 F5_tick_day: Tick close-up in day light: the four expressions top to bottom (calm 10:10, alert 12:00, sad 8:20, worried 9:15), countdown ring at 34/40 (focus: the faces)
 measure out/styleframes/F5_tick_day.png: 1 frames at 270x480 (no cams.json: still frames n/a)
 overall (1 frames)
-  lumaMean     174.3   target 70-95     n/a (insert)
-  dark40       12.9%   target 6-45%     n/a (insert)
+  lumaMean     183.0   target 70-95     n/a (insert)
+  dark40        9.2%   target 6-45%     n/a (insert)
   p5              20   target <=25      n/a (insert)
-  p95            241   target >=170     n/a (insert)
-  sat          0.227   target 0.22-0.50 n/a (insert)
+  p95            239   target >=170     n/a (insert)
+  sat          0.232   target 0.22-0.50 n/a (insert)
   motion         n/a   target 1.5-6%    
   still          n/a   target <=10%     
   stillRun       n/a   target <=19      
 all targets met
-notan 18x32 (cuts 60/140): dark 3.5%  mid 24.8%  light 71.7%   dark-mass target 20-55% WARN
-notan brightest cluster: 13 cells, centre cell (8.6, 19.5), peak luma 244; nearest focus anchor 1 cells away, target <= 1 ok
+notan 18x32 (cuts 60/140): dark 3.0%  mid 15.5%  light 81.6%   dark-mass target 20-55% WARN
+notan brightest cluster: 10 cells, centre cell (8.5, 26.6), peak luma 243; nearest focus anchor 0 cells away, target <= 1 ok
