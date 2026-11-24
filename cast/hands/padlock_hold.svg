@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="420" viewBox="0 0 360 420">
+  <!-- "You" right hand holding the brass padlock up to the eye, XIII style. Realistic proportions.
+       Skin lit #EFCEA0, shadow #8B7C67; outline 8 px, creases 2-3 px; navy wool cuff with knit hatching. -->
+  <defs>
+    <clipPath id="palm"><path d="M110 250 C112 210 150 196 196 200 C240 204 262 236 258 280 L240 330 C200 340 150 330 124 300 C112 286 108 268 110 250 Z"/></clipPath>
+    <clipPath id="fingers">
+      <path d="M232 168 L268 160 Q284 162 280 178 L240 196 Z"/>
+      <path d="M236 200 L280 192 Q296 196 290 212 L242 226 Z"/>
+      <path d="M238 230 L278 226 Q292 232 284 246 L242 254 Z"/>
+    </clipPath>
+    <clipPath id="cuff"><path d="M206 330 L280 276 L360 300 L360 420 L262 420 Z"/></clipPath>
+  </defs>
+  <!-- padlock: brass body (lamp), steel shackle -->
+  <path d="M136 130 L136 92 C136 52 206 52 206 92 L206 130" fill="none" stroke="#141414" stroke-width="20" stroke-linecap="round"/>
+  <path d="M136 130 L136 92 C136 52 206 52 206 92 L206 130" fill="none" stroke="#4A5A6A" stroke-width="9" stroke-linecap="round"/>
+  <rect x="110" y="124" width="124" height="112" rx="14" fill="#E8A64B" stroke="#141414" stroke-width="8"/>
+  <path d="M114 196 L230 196 L230 228 Q230 232 220 232 L124 232 Q114 232 114 222 Z" fill="#B47A38"/>
+  <path d="M172 160 m-10 0 a10 10 0 1 0 20 0 a10 10 0 1 0 -20 0 M168 168 L164 196 L180 196 L176 168" fill="#141414"/>
+  <!-- palm and heel of the hand under the lock -->
+  <path d="M110 250 C112 210 150 196 196 200 C240 204 262 236 258 280 L240 330 C200 340 150 330 124 300 C112 286 108 268 110 250 Z" fill="#EFCEA0"/>
+  <g clip-path="url(#palm)"><path d="M100 260 C140 300 190 320 250 318 L250 360 L100 360 Z" fill="#8B7C67"/></g>
+  <path d="M110 250 C112 210 150 196 196 200 C240 204 262 236 258 280 L240 330 C200 340 150 330 124 300 C112 286 108 268 110 250 Z" fill="none" stroke="#141414" stroke-width="8" stroke-linejoin="round"/>
+  <!-- thumb over the front of the lock -->
+  <path d="M128 262 C112 236 108 210 120 190 C130 176 152 180 154 196 C156 214 150 236 152 258 Z" fill="#EFCEA0" stroke="#141414" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M122 214 Q134 220 148 214" stroke="#141414" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M120 230 C124 244 130 254 140 260 L128 262 Z" fill="#8B7C67"/>
+  <!-- fingers curled around the right side of the lock -->
+  <g stroke="#141414" stroke-width="8" stroke-linejoin="round">
+    <path d="M232 168 L268 160 Q284 162 280 178 L240 196 Z" fill="#EFCEA0"/>
+    <path d="M236 200 L280 192 Q296 196 290 212 L242 226 Z" fill="#EFCEA0"/>
+    <path d="M238 230 L278 226 Q292 232 284 246 L242 254 Z" fill="#EFCEA0"/>
+  </g>
+  <g clip-path="url(#fingers)"><path d="M230 186 L300 170 L300 260 L230 260 L240 250 L286 240 L240 222 L288 206 L238 192 Z" fill="#8B7C67"/></g>
+  <g stroke="#141414" stroke-width="8" stroke-linejoin="round" fill="none">
+    <path d="M232 168 L268 160 Q284 162 280 178 L240 196"/>
+    <path d="M236 200 L280 192 Q296 196 290 212 L242 226"/>
+    <path d="M238 230 L278 226 Q292 232 284 246 L242 254"/>
+  </g>
+  <g stroke="#141414" stroke-width="2.5" fill="none" stroke-linecap="round">
+    <path d="M258 166 Q262 172 260 180"/><path d="M262 198 Q266 204 264 212"/><path d="M260 228 Q264 234 262 242"/>
+    <path d="M160 300 Q190 310 222 302"/>
+  </g>
+  <!-- navy wool cuff with knit hatching -->
+  <path d="M206 330 L280 276 L360 300 L360 420 L262 420 Z" fill="#1B2A41"/>
+  <g clip-path="url(#cuff)" stroke="#4A5A6A" stroke-width="2.5" fill="none">
+    <path d="M214 338 L288 284"/><path d="M224 348 L298 294"/><path d="M234 358 L308 304"/><path d="M244 368 L318 314"/>
+    <path d="M254 378 L328 324"/><path d="M264 388 L338 334"/><path d="M274 398 L348 344"/><path d="M284 408 L358 354"/>
+    <path d="M294 418 L368 364"/>
+  </g>
+  <path d="M206 330 L280 276 L360 300 L360 420 L262 420 Z" fill="none" stroke="#141414" stroke-width="8" stroke-linejoin="round"/>
+</svg>

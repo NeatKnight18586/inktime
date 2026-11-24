@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { toonMaterial } from './toon.mjs';
+import { toonMaterial, DEFAULT_RAMP } from './toon.mjs';
 
 export const GUIDE_ACCENT = '#E8336D';
 
@@ -10,36 +10,38 @@ export function makePalette(json, name = 'look') {
   for (const hex of Object.values(json.colors)) {
     if (hex.toUpperCase() === GUIDE_ACCENT) throw new Error(`look ${name}: guide accent in palette`);
   }
-  const hex = (v) => (json.colors[v] ?? v);
-  const color = (v) => new THREE.Color(hex(v));
+  const hexOf = (v) => (v === 'ink' ? json.ink : v === 'paper' ? json.paper : json.colors[v] ?? v);
+  const color = (v) => new THREE.Color(hexOf(v));
   const shadowTo = color(json.shadowTo);
+  const ramp = { ...DEFAULT_RAMP, ...(json.ramp ?? {}) };
   const cache = new Map();
   const palette = {
     name,
     json,
-    hex,
+    ramp,
+    hex: hexOf,
+    hexOf,
     color,
     ink: new THREE.Color(json.ink),
     paper: new THREE.Color(json.paper),
     fog: color(json.fog),
     shadowTo,
-    // Mix two palette colours (or hex values) in sRGB; t=0 gives a, t=1 gives b.
+    // Mix two palette colours (names or hex); t=0 gives a, t=1 gives b (linear working space).
     mix(a, b, t) {
-      const ca = new THREE.Color(a in json.colors || a === 'ink' || a === 'paper' ? palette.hexOf(a) : a);
-      const cb = new THREE.Color(b in json.colors || b === 'ink' || b === 'paper' ? palette.hexOf(b) : b);
-      return ca.lerp(cb, t);
+      return color(a).lerp(color(b), t);
     },
-    hexOf(v) {
-      if (v === 'ink') return json.ink;
-      if (v === 'paper') return json.paper;
-      return hex(v);
+    // sRGB-space mix, returned as hex (for SVG/canvas work).
+    mixHex(a, b, t) {
+      const ca = new THREE.Color().setStyle(hexOf(a), THREE.NoColorSpace);
+      const cb = new THREE.Color().setStyle(hexOf(b), THREE.NoColorSpace);
+      return '#' + ca.lerp(cb, t).getHexString(THREE.NoColorSpace);
     },
-    // Shared toon material per colour key; shadows shift toward shadowTo.
-    toon(key, opts) {
-      const id = typeof key === 'string' && !opts ? key : null;
+    // Shared toon material per colour key (+ paint); shadows shift toward shadowTo.
+    toon(key, opts = {}) {
+      const id = typeof key === 'string' ? `${key}|${opts.paint ?? ''}|${opts.fog ?? ''}` : null;
       if (id && cache.has(id)) return cache.get(id);
-      const c = key instanceof THREE.Color ? key : new THREE.Color(palette.hexOf(key));
-      const m = toonMaterial(c, shadowTo, opts);
+      const c = key instanceof THREE.Color ? key : color(key);
+      const m = toonMaterial(c, shadowTo, { ramp, ...opts });
       if (id) cache.set(id, m);
       return m;
     },

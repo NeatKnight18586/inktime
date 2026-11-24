@@ -1,7 +1,8 @@
 // Frame capture. Usage: node tools/render-frames.mjs --scene <path> --start <n> --end <n> --out <dir>
 // Renders frames start..end-1 (end exclusive) to <out>/%05d.png, numbered by global frame index.
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+// Also writes the per-frame camera pose to --cams (default out/cams.json), merged with any existing entries.
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { join, dirname } from 'node:path';
 import { chromium } from 'playwright';
 import { startServer } from './serve.mjs';
 
@@ -40,15 +41,29 @@ try {
   const start = Number(a.start ?? 0);
   const end = Math.min(Number(a.end ?? total), total);
   mkdirSync(a.out, { recursive: true });
+  const camsPath = a.cams ?? 'out/cams.json';
+  let cams = { frames: {} };
+  if (existsSync(camsPath)) {
+    try {
+      cams = JSON.parse(readFileSync(camsPath, 'utf8'));
+    } catch {
+      cams = { frames: {} };
+    }
+  }
+  cams.scene = a.scene;
+  cams.fps = 24;
   const t0 = performance.now();
   for (let n = start; n < end; n++) {
-    const url = await page.evaluate(async (k) => {
-      await window.inktime.renderFrame(k);
-      return document.getElementById('view').toDataURL('image/png');
+    const { url, pose } = await page.evaluate(async (k) => {
+      const pose = await window.inktime.renderFrame(k);
+      return { url: document.getElementById('view').toDataURL('image/png'), pose };
     }, n);
+    cams.frames[n] = pose;
     writeFileSync(join(a.out, `${String(n).padStart(5, '0')}.png`), Buffer.from(url.slice(url.indexOf(',') + 1), 'base64'));
     if ((n - start) % 100 === 0) console.log(`frame ${n} (${((performance.now() - t0) / 1000 / (n - start + 1)).toFixed(2)} s/frame)`);
   }
+  mkdirSync(dirname(camsPath), { recursive: true });
+  writeFileSync(camsPath, JSON.stringify(cams));
   const secs = (performance.now() - t0) / 1000;
   console.log(`rendered ${end - start} frames ${start}-${end - 1} of ${info.frames} in ${secs.toFixed(1)} s`);
   if (errors.length) console.log(`page errors: ${errors.length}, first: ${errors[0]}`);

@@ -90,7 +90,7 @@ jobs:
       - name: Render frames ${{ matrix.start }}-${{ matrix.end }}
         run: |
           T0=$(date +%s)
-          node tools/render-frames.mjs --scene "${{ needs.plan.outputs.scene }}" --start ${{ matrix.start }} --end ${{ matrix.end }} --out frames
+          node tools/render-frames.mjs --scene "${{ needs.plan.outputs.scene }}" --start ${{ matrix.start }} --end ${{ matrix.end }} --out frames --cams seg/cams-${{ matrix.index }}.json
           echo "RENDER_S=$(( $(date +%s) - T0 ))" >> "$GITHUB_ENV"
       - name: Encode segment
         run: |
@@ -132,11 +132,21 @@ jobs:
           for f in $(ls segs/seg-*.mp4 | sed -E 's/.*seg-([0-9]+)\.mp4/\1/' | sort -n); do echo "file '$PWD/segs/seg-$f.mp4'" >> list.txt; done
           ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt \
             -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -movflags +faststart "out/$NAME.mp4"
-      - name: Contact sheet
+      - name: Contact sheet (5x2)
         run: |
           mkdir -p "review/$NAME"
-          SEL=$(node -e 'const n=+process.argv[1];console.log(Array.from({length:8},(_,i)=>`eq(n,${Math.round(i*(n-1)/7)})`).join("+"))' "$FRAMES")
-          ffmpeg -hide_banner -loglevel error -y -i "out/$NAME.mp4" -vf "select='$SEL',scale=270:480,tile=4x2" -frames:v 1 -fps_mode vfr -q:v 3 "review/$NAME/contact.jpg"
+          SEL=$(node -e 'const n=+process.argv[1];console.log(Array.from({length:10},(_,i)=>`eq(n,${Math.round(i*(n-1)/9)})`).join("+"))' "$FRAMES")
+          ffmpeg -hide_banner -loglevel error -y -i "out/$NAME.mp4" -vf "select='$SEL',scale=270:480,tile=5x2" -frames:v 1 -fps_mode vfr -q:v 3 "review/$NAME/contact.jpg"
+      - name: Measure
+        run: |
+          node -e '
+            const fs = require("fs");
+            const merged = { frames: {} };
+            for (const f of fs.readdirSync("segs").filter((x) => /^cams-\d+\.json$/.test(x))) Object.assign(merged.frames, JSON.parse(fs.readFileSync("segs/" + f)).frames);
+            fs.writeFileSync("out/cams.json", JSON.stringify(merged));
+          '
+          node tools/measure.mjs "out/$NAME.mp4" --cams out/cams.json | tee "review/$NAME/measure.txt"
+          { echo; echo '```'; cat "review/$NAME/measure.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - name: Publish pre-release
         run: |
           TAG="preview-$NAME-${{ github.run_number }}"
@@ -151,7 +161,7 @@ jobs:
           WALL=$(( $(date +%s) - $(date -d "$STARTED" +%s) ))
           node -e '
             const fs = require("fs");
-            const segs = fs.readdirSync("segs").filter((f) => f.endsWith(".json")).map((f) => JSON.parse(fs.readFileSync("segs/" + f)));
+            const segs = fs.readdirSync("segs").filter((f) => /^seg-\d+\.json$/.test(f)).map((f) => JSON.parse(fs.readFileSync("segs/" + f)));
             const frames = +process.env.FRAMES;
             const renderS = segs.reduce((s, x) => s + x.render_seconds, 0);
             const jobS = segs.reduce((s, x) => s + x.job_seconds, 0) + (Date.now() / 1000 - +process.env.JOB_T0);
@@ -173,8 +183,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "review/$NAME/contact.jpg"
-          git commit -m "review: $NAME [skip ci]"
+          git add "review/$NAME/contact.jpg" "review/$NAME/measure.txt"
+          git commit -m "review: $NAME contact + measure [skip ci]"
           git add "review/$NAME/render.json"
           git commit -m "review: $NAME render.json [skip ci]"
           for i in 1 2 3 4; do

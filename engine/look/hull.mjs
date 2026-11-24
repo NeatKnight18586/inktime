@@ -6,15 +6,34 @@ import { LAYERS } from './layers.mjs';
 export const hullUniforms = {
   uRes: { value: new THREE.Vector2(1080, 1920) },
   uFocal: { value: 1321 }, // pixels per world unit at distance 1
+  uBoil: { value: 0 }, // re-seeded every 2 frames
 };
 
-// STYLE: thickness 1.5-3% of object size; line width 3 px within 3 m, 1 px beyond 40 m.
+// STYLE ink hierarchy: silhouettes 6-8 px (7 nominal) x distance scale: 1 within 5 m, 0.6 at 30 m, 0.35 beyond 200 m.
+export const SILHOUETTE_PX = 7;
+export function inkScale(d) {
+  if (d <= 5) return 1;
+  if (d <= 30) return 1 - 0.4 * ((d - 5) / 25);
+  if (d <= 200) return 0.6 - 0.25 * ((d - 30) / 170);
+  return 0.35;
+}
+export const INK_SCALE_GLSL = /* glsl */ `
+float inkScale(float d) {
+  if (d <= 5.0) return 1.0;
+  if (d <= 30.0) return 1.0 - 0.4 * ((d - 5.0) / 25.0);
+  if (d <= 200.0) return 0.6 - 0.25 * ((d - 30.0) / 170.0);
+  return 0.35;
+}`;
+
+// Thickness is capped at 1.5-3% of object size so small props keep thin lines.
 const HULL_FRACTION = 0.022;
 
 const vertexShader = /* glsl */ `
 uniform vec2 uRes;
 uniform float uFocal;
 uniform float uWorld;
+uniform float uBoil;
+${INK_SCALE_GLSL}
 void main() {
   mat4 m = modelMatrix;
   #ifdef USE_INSTANCING
@@ -24,7 +43,9 @@ void main() {
   vec3 wn = normalize(mat3(m) * normal);
   vec4 vp = viewMatrix * wp;
   float d = max(-vp.z, 0.01);
-  float maxPx = mix(3.0, 1.0, smoothstep(3.0, 40.0, d));
+  // Outer half of the silhouette width; seeded +-20% variation along the line (brush).
+  float vary = 1.0 + 0.2 * (fract(sin(dot(wp.xyz + uBoil, vec3(12.9898, 78.233, 37.719))) * 43758.5453) * 2.0 - 1.0);
+  float maxPx = 0.5 * ${SILHOUETTE_PX.toFixed(1)} * inkScale(d) * vary;
   float px = clamp(uWorld * uFocal / d, 0.0, maxPx);
   vec4 clip = projectionMatrix * vp;
   vec3 vn = mat3(viewMatrix) * wn;

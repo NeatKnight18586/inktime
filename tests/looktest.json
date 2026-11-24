@@ -6,7 +6,7 @@
   "set": "titanic_crowsnest",
   "shots": [
     { "frames": 48, "camera": { "anchor": "aerial" }, "show": ["iceberg_rim"] },
-    { "frames": 240, "camera": { "anchor": "cam_lookout", "yawDrift": 3, "yawDriftSeconds": 10, "breathing": true } }
+    { "frames": 240, "camera": { "anchor": "cam_lookout", "yawDrift": 3, "yawDriftSeconds": 10 }, "hands": "rail_grip" }
   ],
-  "cards": [{ "cast": "fleet", "pose": "idle", "anchor": "fleet_spot" }]
+  "cards": [{ "cast": "fleet", "pose": "idle", "anchor": "fleet_spot", "blink": true }]
 }

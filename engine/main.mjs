@@ -9,8 +9,11 @@ import { misregPass } from './post/misreg.mjs';
 import { edgesPass } from './post/edges.mjs';
 import { grainPass } from './post/grain.mjs';
 import { paniniPass } from './post/panini.mjs';
-import { poseCamera, shotAt, totalFrames } from './rig/camera.mjs';
+import { poseCamera, shotAt, totalFrames, cameraPose } from './rig/camera.mjs';
 import { makeCard } from './rig/card.mjs';
+import { makeHands } from './rig/hands.mjs';
+import { installHaze, hazeColorHex } from './look/haze.mjs';
+import { bakeCorners } from './look/paint.mjs';
 import { rng, hashSeed } from '../tools/rng.mjs';
 
 const W = 1080;
@@ -30,6 +33,7 @@ renderer.setSize(W, H, false);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.NoToneMapping;
 
+installHaze();
 const res = new THREE.Vector2(W, H);
 const normalMat = new THREE.MeshNormalMaterial();
 const state = { spec: null, scene: null, camera: null, anchors: null, cards: [], composer: null, passes: null, normalRT: null };
@@ -52,15 +56,24 @@ async function load(scenePath) {
   const palette = await loadLook(spec.look);
   const scene = new THREE.Scene();
   scene.userData.palette = palette;
-  scene.fog = new THREE.Fog(palette.fog, spec.fog?.near ?? 300, spec.fog?.far ?? 4500);
+  const look = palette.json;
+  const hazeHex = hazeColorHex(look);
+  // Depth haze: 3 bands (0 / 30 / 60%), band edges at haze.near and haze.far.
+  scene.fog = new THREE.Fog(new THREE.Color(hazeHex), look.haze.near, look.haze.far);
   const kit = await import(`/kits/sets/${spec.set}.mjs`);
-  const { anchors } = kit.build(scene, rng(hashSeed(`${spec.seed ?? spec.name}:set`)));
+  const built = kit.build(scene, rng(hashSeed(`${spec.seed ?? spec.name}:set`)));
+  const anchors = built.anchors;
   addHulls(scene);
-  const cards = [];
-  for (const c of spec.cards ?? []) cards.push(await makeCard(scene, c, anchors, palette));
-
+  bakeCorners(scene);
   spec.frames = totalFrames(spec);
+  // Scene tint: cards and hands are multiplied by it.
+  const tint = new THREE.Color(1, 1, 1).lerp(palette.color(look.tint.color), look.tint.mix).multiplyScalar(look.tint.value);
+  const cards = [];
+  for (const c of spec.cards ?? []) cards.push(await makeCard(scene, c, anchors, palette, { tint, seed: spec.seed, frames: spec.frames }));
+
   const camera = new THREE.PerspectiveCamera(72, W / H, NEAR, FAR);
+  scene.add(camera);
+  const hands = await makeHands(camera, tint);
 
   state.normalRT?.dispose();
   const normalRT = new THREE.WebGLRenderTarget(W, H, { type: THREE.UnsignedByteType });
@@ -72,7 +85,7 @@ async function load(scenePath) {
   composer.addPass(new RenderPass(scene, camera));
   composer.addPass(new OutputPass());
   const misreg = misregPass({ depthTexture: normalRT.depthTexture, near: NEAR, far: FAR, res });
-  const edges = edgesPass({ normalTexture: normalRT.texture, depthTexture: normalRT.depthTexture, near: NEAR, far: FAR, res, ink: palette.json.ink, seed: `${spec.seed}:boil` });
+  const edges = edgesPass({ normalTexture: normalRT.texture, depthTexture: normalRT.depthTexture, near: NEAR, far: FAR, res, ink: palette.json.ink, haze: { color: hazeHex, near: look.haze.near, far: look.haze.far, bands: look.haze.bands }, seed: `${spec.seed}:boil` });
   const panini = paniniPass();
   const grain = grainPass({ res, paper: palette.json.paper, seed: `${spec.seed}:grain` });
   composer.addPass(misreg);
@@ -81,12 +94,12 @@ async function load(scenePath) {
   composer.addPass(grain);
   const showable = new Set((spec.shots ?? []).flatMap((s) => s.show ?? []));
 
-  Object.assign(state, { spec, scene, camera, anchors, cards, composer, normalRT, passes: { misreg, edges, panini, grain }, palette, showable });
+  Object.assign(state, { kit: built, hands, spec, scene, camera, anchors, cards, composer, normalRT, passes: { misreg, edges, panini, grain }, palette, showable });
   return { frames: spec.frames, anchors: Object.keys(anchors) };
 }
 
 async function renderFrame(n) {
-  const { spec, scene, camera, anchors, cards, composer, normalRT, passes, palette, showable } = state;
+  const { kit, hands, spec, scene, camera, anchors, cards, composer, normalRT, passes, palette, showable } = state;
   if (!spec) throw new Error('renderFrame before load');
   const fps = spec.fps ?? 24;
   const shot = shotAt(spec, n);
@@ -94,6 +107,9 @@ async function renderFrame(n) {
   passes.panini.setCamera(camera, view.panini);
   for (const name of showable) if (anchors[name]) anchors[name].visible = shot.show.includes(name);
   for (const c of cards) c.update(n, camera);
+  kit.update?.(n, { camera, fps, shot });
+  hands.update(n, shot.hands ?? null);
+  hullUniforms.uBoil.value = (Math.floor(n / 2) * 0.6180339) % 1 * 100;
   hullUniforms.uRes.value.copy(res);
   hullUniforms.uFocal.value = H / (2 * Math.tan((camera.fov * Math.PI) / 360));
   passes.edges.setFrame(n);
@@ -123,6 +139,7 @@ async function renderFrame(n) {
   renderer.setClearColor(palette.fog, 1);
   composer.render();
   await gpuDone();
+  return { n, shot: shot.index, ...cameraPose(camera) };
 }
 
 window.inktime = {

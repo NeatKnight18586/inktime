@@ -24,7 +24,10 @@ const ICEBERG_DIST = 1500;
 export const ICEBERG_Z = SHIP.mastZ - ICEBERG_DIST;
 // FIX 1.1 framing. back: eye distance behind the inner face of the front rim (allowed 0.60-0.90 m).
 export const LOOKOUT = { back: 0.65, pitch: -16, fov: 72 }; // spec 0.75 / -14 showed 11 props; adjusted within the allowed range
-export const AERIAL = { astern: 200, starboard: 150, up: 180, pitch: -27, fov: 84, panini: true };
+// Phase 1b aerial: on the line iceberg -> ship midpoint, extended 250 m astern, 60 m to starboard; aimed at midship.
+export const AERIAL = { astern: 250, starboard: 60, up: 180, pitch: -27, fov: 84, panini: true };
+// Fleet card position relative to the cam_lookout eye (metres): left and forward.
+export const FLEET = { x: -0.36, forward: 0.5 };
 
 // Hull half-width at z: pointed bow, parallel middle body, rounded stern.
 export function halfWidth(z) {
@@ -165,123 +168,280 @@ function anchorAt(group, anchors, name, pos, look, up) {
 }
 
 // ---------------------------------------------------------------- sky + sea
+// sRGB hex helpers for posterized fills.
+function hexScale(hex, k) {
+  const n = parseInt(hex.slice(1), 16);
+  const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((x) => Math.min(255, Math.round(x * k)));
+  return '#' + c.map((x) => x.toString(16).padStart(2, '0')).join('');
+}
+function hexMix(a, b, t) {
+  const na = parseInt(a.slice(1), 16);
+  const nb = parseInt(b.slice(1), 16);
+  const c = [16, 8, 0].map((s) => Math.round(((na >> s) & 255) * (1 - t) + ((nb >> s) & 255) * t));
+  return '#' + c.map((x) => x.toString(16).padStart(2, '0')).join('');
+}
+
+// Animated parts registered during build (rigging sway, lamp flicker).
+const anim = { stays: null, ropes: [], lamps: [] };
+// Shared per-frame uniforms for the set's animated shaders.
+const fxUniforms = {
+  uFocal: { value: 1321 },
+  uT: { value: 0 },
+  uT2: { value: 0 },
+  uTwos: { value: 0 },
+  uFlicker: { value: 1 },
+};
+
 function buildSky(scene, rng, pal) {
   const group = new THREE.Group();
   group.name = 'sky';
-  const zenith = pal.mix('navy', 'ink', 0.45);
-  const horizon = pal.color('navy');
-  const band = pal.color('frost');
-  const bandN = new THREE.Vector3(0.32, 0.62, 0.72).normalize();
+  const sky = pal.json.sky;
+  const zen = pal.hexOf(sky.zenith);
+  const hor = hexScale(pal.hexOf(sky.horizon), 1 + sky.horizonLift);
+  const mid = hexMix(zen, hor, 0.5);
+  // Posterized 3-band vertical gradient: horizon band (steel lifted 25%), middle, zenith navy.
   const dome = new THREE.Mesh(
     new THREE.SphereGeometry(6000, 48, 24),
     new THREE.ShaderMaterial({
       side: THREE.BackSide,
       depthWrite: false,
-      uniforms: { uZenith: { value: zenith }, uHorizon: { value: horizon }, uBand: { value: band }, uBandN: { value: bandN } },
-      vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+      uniforms: {
+        uZenith: { value: new THREE.Color(zen) },
+        uMid: { value: new THREE.Color(mid) },
+        uHorizon: { value: new THREE.Color(hor) },
+        uBands: { value: new THREE.Vector2(sky.bands[0], sky.bands[1]) },
+      },
+      vertexShader: `varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
       fragmentShader: `
-        uniform vec3 uZenith, uHorizon, uBand, uBandN; varying vec3 vDir;
-        float h(vec3 p){ return fract(sin(dot(p, vec3(127.1,311.7,74.7))) * 43758.5453); }
-        float n3(vec3 p){ vec3 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
-          return mix(mix(mix(h(i),h(i+vec3(1,0,0)),f.x),mix(h(i+vec3(0,1,0)),h(i+vec3(1,1,0)),f.x),f.y),
-                     mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z); }
+        uniform vec3 uZenith, uMid, uHorizon; uniform vec2 uBands; varying vec3 vDir;
         void main(){
-          vec3 d = normalize(vDir);
-          float e = clamp(d.y, 0.0, 1.0);
-          vec3 c = mix(uHorizon, uZenith, pow(e, 0.6));
-          float b = dot(d, uBandN);
-          float mw = exp(-b*b/0.012) * (0.45 + 0.55 * n3(d*9.0)) * (0.7 + 0.3 * n3(d*23.0));
-          c = mix(c, uBand, mw * 0.07 * smoothstep(-0.02, 0.15, d.y));
+          float e = degrees(asin(clamp(normalize(vDir).y, -1.0, 1.0)));
+          vec3 c = e < uBands.x ? uHorizon : (e < uBands.y ? uMid : uZenith);
           gl_FragColor = vec4(c, 1.0);
         }`,
     })
   );
   dome.renderOrder = -10;
+  dome.name = 'sky_dome';
   group.add(dome);
 
-  // 4000 stars, 1-3 px; a third crowd the Milky Way band.
+  // 4000 stars, 1-3 px, only above 15 deg elevation; 5% twinkle on twos.
   const N = 4000;
   const R = 5800;
+  const minY = Math.sin(sky.starMinElevation * DEG);
   const pos = new Float32Array(N * 3);
   const size = new Float32Array(N);
   const bright = new Float32Array(N);
-  const a1 = new THREE.Vector3(1, 0, 0).cross(bandN).normalize();
-  const a2 = new THREE.Vector3().crossVectors(bandN, a1).normalize();
+  const tw = new Float32Array(N);
   const v = new THREE.Vector3();
   let i = 0;
   while (i < N) {
-    if (rng() < 0.34) {
-      const th = rng() * Math.PI * 2;
-      const off = (rng() + rng() + rng() - 1.5) * 0.12;
-      v.copy(a1).multiplyScalar(Math.cos(th)).addScaledVector(a2, Math.sin(th)).addScaledVector(bandN, off).normalize();
-    } else {
-      const y = rng();
-      const th = rng() * Math.PI * 2;
-      const r = Math.sqrt(1 - y * y);
-      v.set(r * Math.cos(th), y, r * Math.sin(th));
-    }
-    if (v.y < 0.004) continue;
+    const y = minY + (1 - minY) * rng();
+    const th = rng() * Math.PI * 2;
+    const r = Math.sqrt(1 - y * y);
+    v.set(r * Math.cos(th), y, r * Math.sin(th));
     pos.set([v.x * R, v.y * R, v.z * R], i * 3);
     const s = rng();
     size[i] = s < 0.7 ? 1 : s < 0.94 ? 2 : 3;
-    bright[i] = 0.35 + 0.65 * rng() ** 1.5;
+    bright[i] = 0.45 + 0.55 * rng() ** 1.5;
+    tw[i] = rng() < sky.twinkle ? 1 + rng() * 50 : 0;
     i++;
   }
-  const starMat = (mirror) =>
-    new THREE.ShaderMaterial({
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      uniforms: { uColor: { value: pal.color('frost') }, uGain: { value: mirror ? 0.55 : 1.0 } },
-      vertexShader: `attribute float aSize; attribute float aBright; varying float vB;
-        void main(){ vB = aBright; gl_PointSize = aSize; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
-      fragmentShader: `uniform vec3 uColor; uniform float uGain; varying float vB; void main(){ gl_FragColor = vec4(uColor * vB * uGain, 1.0); }`,
-    });
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   geo.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
   geo.setAttribute('aBright', new THREE.BufferAttribute(bright, 1));
-  const stars = new THREE.Points(geo, starMat(false));
-  stars.name = 'stars';
-  stars.renderOrder = 1;
-  stars.frustumCulled = false;
-  // Faint star reflections: the same field mirrored under the translucent sea.
-  const reflected = new THREE.Points(geo, starMat(true));
-  reflected.scale.y = -1;
-  reflected.renderOrder = -1;
-  reflected.frustumCulled = false;
-  reflected.name = 'star_reflections';
-  group.add(stars, reflected);
-
-  // Thin haze band at the horizon.
-  const haze = new THREE.Mesh(
-    new THREE.CylinderGeometry(5200, 5200, 160, 96, 1, true),
+  geo.setAttribute('aTwinkle', new THREE.BufferAttribute(tw, 1));
+  const stars = new THREE.Points(
+    geo,
     new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
-      side: THREE.BackSide,
-      uniforms: { uColor: { value: pal.color('frost') } },
-      vertexShader: `varying float vH; void main(){ vH = uv.y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
-      fragmentShader: `uniform vec3 uColor; varying float vH; void main(){ float a = 0.11 * pow(1.0 - vH, 2.2); gl_FragColor = vec4(uColor, a); }`,
+      blending: THREE.AdditiveBlending,
+      uniforms: { uColor: { value: pal.color('frost') }, uTwos: fxUniforms.uTwos },
+      vertexShader: `attribute float aSize; attribute float aBright; attribute float aTwinkle; uniform float uTwos; varying float vB;
+        void main(){
+          float t = aTwinkle > 0.0 ? 0.3 + 0.7 * fract(sin(aTwinkle * 12.9898 + uTwos * 78.233) * 43758.5453) : 1.0;
+          vB = aBright * t; gl_PointSize = aSize; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+      fragmentShader: `uniform vec3 uColor; varying float vB; void main(){ gl_FragColor = vec4(uColor * vB, 1.0); }`,
     })
   );
-  haze.position.y = 80 - 20;
-  haze.renderOrder = 2;
-  haze.name = 'haze';
-  group.add(haze);
-
-  // Flat calm sea, translucent so reflections show faintly.
-  const sea = new THREE.Mesh(
-    new THREE.PlaneGeometry(20000, 20000),
-    new THREE.MeshBasicMaterial({ color: pal.mix('navy', 'ink', 0.22), transparent: true, opacity: 0.8, depthWrite: true })
-  );
-  sea.rotation.x = -Math.PI / 2;
-  sea.renderOrder = 0;
-  sea.name = 'sea';
-  group.add(sea);
+  stars.name = 'stars';
+  stars.renderOrder = 1;
+  stars.frustumCulled = false;
+  group.add(stars);
+  group.add(buildSea(pal));
   setLayer(group, LAYERS.FX);
   scene.add(group);
   return group;
+}
+
+// Banded steel-navy sea, low swell (0.3 m, 8 s period), frost glint dashes drifting with the swell,
+// hard-edged lamp pools under the porthole rows.
+export const SWELL = { amp: 0.3, period: 8, length: (9.81 * 8 * 8) / (2 * Math.PI), dir: [0.6, -0.8] };
+function buildSea(pal) {
+  const uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib.fog]);
+  Object.assign(uniforms, {
+    uT: fxUniforms.uT,
+    uFlicker: fxUniforms.uFlicker,
+    uNavy: { value: pal.color('navy') },
+    uSteel: { value: pal.color('steel') },
+    uFrost: { value: pal.color('frost') },
+    uLamp: { value: pal.color('lamp') },
+    uDir: { value: new THREE.Vector2(...SWELL.dir).normalize() },
+    uSwell: { value: new THREE.Vector3(SWELL.amp, (2 * Math.PI) / SWELL.length, (2 * Math.PI) / SWELL.period) },
+    uHalfBeam: { value: SHIP.halfBeam },
+    uPortZ: { value: new THREE.Vector2(-84, 108) },
+  });
+  const mat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: true,
+    fog: true,
+    uniforms,
+    vertexShader: `
+      uniform float uT; uniform vec2 uDir; uniform vec3 uSwell;
+      varying vec3 vW; varying float vPhase;
+      #include <fog_pars_vertex>
+      void main(){
+        vec4 w = modelMatrix * vec4(position, 1.0);
+        float ph = dot(w.xz, uDir) * uSwell.y - uT * uSwell.z;
+        w.y += uSwell.x * sin(ph);
+        vW = w.xyz; vPhase = ph;
+        vec4 mvPosition = viewMatrix * w;
+        gl_Position = projectionMatrix * mvPosition;
+        #include <fog_vertex>
+      }`,
+    fragmentShader: `
+      uniform float uT; uniform float uFlicker; uniform vec2 uDir; uniform vec3 uSwell;
+      uniform vec3 uNavy, uSteel, uFrost, uLamp; uniform float uHalfBeam; uniform vec2 uPortZ;
+      varying vec3 vW; varying float vPhase;
+      #include <fog_pars_fragment>
+      float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      void main(){
+        float s = 0.5 + 0.5 * sin(vPhase);
+        float b = floor(s * 2.999);
+        vec3 c = b < 0.5 ? uNavy : (b < 1.5 ? mix(uNavy, uSteel, 0.5) : uSteel);
+        float dist = length(vW.xz - cameraPosition.xz);
+        // Glint dashes along the crests, advected with the swell.
+        vec2 q = vec2(dot(vW.xz, uDir), dot(vW.xz, vec2(-uDir.y, uDir.x)));
+        q.x -= uT * uSwell.z / uSwell.y;
+        vec2 cs = vec2(3.0, 9.0);
+        vec2 cell = floor(q / cs);
+        vec2 f = fract(q / cs);
+        float dash = step(0.8, h2(cell)) * step(abs(f.x - 0.5), 0.07) * step(abs(f.y - 0.5), 0.2) * step(0.55, s) * step(dist, 900.0);
+        c = mix(c, uFrost, dash);
+        // Porthole pools: 3 hard rings per porthole, just off the hull side.
+        float dx = abs(vW.x) - uHalfBeam;
+        if (dx > 0.0 && dx < 4.0 && vW.z > uPortZ.x && vW.z < uPortZ.y) {
+          float zc = floor((vW.z - uPortZ.x) / 2.7 + 0.5) * 2.7 + uPortZ.x;
+          float r = length(vec2(dx - 1.3, (vW.z - zc) * 0.85));
+          float pool = r < 0.55 ? 1.0 : (r < 1.1 ? 0.55 : (r < 1.7 ? 0.25 : 0.0));
+          c = mix(c, uLamp, pool * 0.8 * uFlicker);
+        }
+        gl_FragColor = vec4(c, 0.88);
+        #include <fog_fragment>
+      }`,
+  });
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(12000, 12000, 400, 400), mat);
+  sea.rotation.x = -Math.PI / 2;
+  sea.renderOrder = 0;
+  sea.name = 'sea';
+  sea.frustumCulled = false;
+  return sea;
+}
+
+// ---------------------------------------------------------------- lamp sprites
+// Lit portholes and windows: lamp squares in 2 px ink frames (screen-facing points, at least minPx wide).
+function lampSquares(positions, pal, { world = 0.45, minPx = 5, maxPx = 18, name = 'lamps' } = {}) {
+  const geo = new THREE.BufferGeometry().setFromPoints(positions);
+  const pts = new THREE.Points(
+    geo,
+    new THREE.ShaderMaterial({
+      uniforms: { uFocal: fxUniforms.uFocal, uFlicker: fxUniforms.uFlicker, uLamp: { value: pal.color('lamp') }, uInk: { value: pal.color('ink') }, uWorld: { value: world }, uPx: { value: new THREE.Vector2(minPx, maxPx) } },
+      vertexShader: `uniform float uFocal; uniform float uWorld; uniform vec2 uPx; varying float vSize;
+        void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          vSize = clamp(uWorld * uFocal / max(-mv.z, 0.1), uPx.x, uPx.y); gl_PointSize = vSize; gl_Position = projectionMatrix * mv; }`,
+      fragmentShader: `uniform vec3 uLamp; uniform vec3 uInk; uniform float uFlicker; varying float vSize;
+        void main(){ vec2 q = abs(gl_PointCoord - 0.5) * vSize; float m = max(q.x, q.y);
+          gl_FragColor = vec4(m > vSize * 0.5 - 2.0 ? uInk : uLamp * uFlicker, 1.0); }`,
+    })
+  );
+  pts.name = name;
+  pts.frustumCulled = false;
+  return pts;
+}
+
+// 2-step additive halo sprite around every lamp.
+function lampHalos(positions, pal, { world = 2.2, minPx = 6, maxPx = 160, name = 'halos', gain = 1 } = {}) {
+  const geo = new THREE.BufferGeometry().setFromPoints(positions);
+  const pts = new THREE.Points(
+    geo,
+    new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: { uFocal: fxUniforms.uFocal, uFlicker: fxUniforms.uFlicker, uLamp: { value: pal.color('lamp') }, uWorld: { value: world }, uPx: { value: new THREE.Vector2(minPx, maxPx) }, uGain: { value: gain } },
+      vertexShader: `uniform float uFocal; uniform float uWorld; uniform vec2 uPx;
+        void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = clamp(uWorld * uFocal / max(-mv.z, 0.1), uPx.x, uPx.y); gl_Position = projectionMatrix * mv; }`,
+      fragmentShader: `uniform vec3 uLamp; uniform float uFlicker; uniform float uGain;
+        void main(){ float r = length(gl_PointCoord - 0.5) * 2.0; if (r > 1.0) discard;
+          float a = r < 0.45 ? 0.32 : 0.12; gl_FragColor = vec4(uLamp * a * uFlicker * uGain, 1.0); }`,
+    })
+  );
+  pts.name = name;
+  pts.renderOrder = 4;
+  pts.frustumCulled = false;
+  return pts;
+}
+
+// Smoke from funnels 1-3 only (4 is a ventilation dummy): ink-outlined puffs, updated on twos, drifting aft.
+function smokePuffs(funnelTops, pal, rng) {
+  const pos = [];
+  const size = [];
+  const phase = [];
+  for (const top of funnelTops) {
+    for (let i = 0; i < 9; i++) {
+      pos.push(top.x + (rng() - 0.5) * 2, top.y, top.z);
+      size.push(4 + rng() * 3);
+      phase.push(i / 9 + rng() * 0.05);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('aSize', new THREE.Float32BufferAttribute(size, 1));
+  geo.setAttribute('aPhase', new THREE.Float32BufferAttribute(phase, 1));
+  const pts = new THREE.Points(
+    geo,
+    new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      uniforms: { uFocal: fxUniforms.uFocal, uT2: fxUniforms.uT2, uFill: { value: pal.mix('steel', 'frost', 0.45) }, uInk: { value: pal.color('ink') } },
+      vertexShader: `attribute float aSize; attribute float aPhase; uniform float uFocal; uniform float uT2;
+        varying float vSize; varying float vLife; varying float vSeed;
+        void main(){
+          float life = fract(aPhase + uT2 / 14.0);
+          vec3 p = position + vec3(0.0, life * 16.0, life * 70.0);
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          vSize = clamp(aSize * (0.6 + life * 1.6) * uFocal / max(-mv.z, 0.1), 3.0, 256.0);
+          vLife = life; vSeed = aPhase * 40.0;
+          gl_PointSize = vSize; gl_Position = projectionMatrix * mv; }`,
+      fragmentShader: `uniform vec3 uFill; uniform vec3 uInk; varying float vSize; varying float vLife; varying float vSeed;
+        void main(){
+          vec2 d = gl_PointCoord - 0.5;
+          float r = length(d) * 2.0 * (1.0 + 0.09 * sin(atan(d.y, d.x) * 5.0 + vSeed));
+          if (r > 1.0) discard;
+          float ring = 1.0 - 2.0 * 2.5 / vSize;
+          float a = 0.8 * (1.0 - smoothstep(0.6, 1.0, vLife));
+          if (a < 0.02) discard;
+          gl_FragColor = vec4(r > ring ? uInk : uFill, a);
+        }`,
+    })
+  );
+  pts.name = 'smoke';
+  pts.renderOrder = 3;
+  pts.frustumCulled = false;
+  return pts;
 }
 
 // ---------------------------------------------------------------- iceberg
@@ -305,7 +465,7 @@ function buildIceberg(scene, rng, pal, anchors) {
   }
   geo.computeVertexNormals();
   const z = ICEBERG_Z;
-  const berg = mesh(geo, pal.toon(pal.mix('navy', 'ink', 0.42), { fog: false }), 0, 0, z, 'iceberg_dark');
+  const berg = mesh(geo, pal.toon(pal.mix('navy', 'ink', 0.42), { paint: 'ice' }), 0, 0, z, 'iceberg_dark');
   scene.add(berg);
   anchors.iceberg_dark = berg;
   // Rim light: back-face shell pushed out in screen space, so the frost edge is at most uPx wide at any range.
@@ -350,12 +510,11 @@ function buildIceberg(scene, rng, pal, anchors) {
 function buildShip(scene, rng, pal) {
   const ship = new THREE.Group();
   ship.name = 'ship';
-  const hullMat = pal.toon(pal.mix('ink', 'navy', 0.5));
-  const frost = pal.toon('frost');
-  const steel = pal.toon('steel');
-  const lampMat = pal.toon('lamp');
+  const hullMat = pal.toon(pal.mix('ink', 'navy', 0.5), { paint: 'steel' });
+  const frost = pal.toon('frost', { paint: 'steel' });
+  const steel = pal.toon('steel', { paint: 'steel' });
+  const lampMat = pal.toon('lamp', { paint: 'steel' });
   const inkMat = pal.toon('ink');
-  const glow = new THREE.MeshBasicMaterial({ color: pal.color('lamp') });
   const fx = [];
 
   ship.add(mesh(extrudeHull(hullShape(SHIP.bowZ, SHIP.sternZ), -8, SHIP.hullTop), hullMat, 0, 0, 0, 'hull'));
@@ -373,11 +532,11 @@ function buildShip(scene, rng, pal) {
   ship.add(box(26, 0.6, 3, 0, 30.4, -60, frost, 'bridge_wings'));
   for (const z of [-30, 12, 48, 84]) ship.add(box(8, 2.6, 14, 0, 28, z, frost, 'deckhouse'));
 
-  // Four funnels: lamp body, ink tops, raked aft, with faint smoke.
+  // Four funnels: lamp body, ink tops, raked aft. Smoke from the first three only.
   const funnelZ = [-42, -6, 30, 66];
   const fBody = new THREE.CylinderGeometry(1, 1, 18, 28);
   const fTop = new THREE.CylinderGeometry(1.02, 1.02, 4, 28);
-  const puffGeo = new THREE.IcosahedronGeometry(1, 1);
+  const tops = [];
   funnelZ.forEach((z, k) => {
     const f = new THREE.Group();
     f.name = `funnel${k + 1}`;
@@ -388,20 +547,9 @@ function buildShip(scene, rng, pal) {
     f.position.set(0, 28, z);
     f.rotation.x = 4 * DEG;
     ship.add(f);
-    if (k < 3) {
-      for (let i = 0; i < 7; i++) {
-        const puff = new THREE.Mesh(
-          puffGeo,
-          new THREE.MeshBasicMaterial({ color: pal.color('frost'), transparent: true, opacity: 0.075 * (1 - i / 8), depthWrite: false })
-        );
-        const s = 3 + i * 1.6 + rng() * 1.5;
-        puff.scale.set(s, s * 0.7, s * 1.2);
-        puff.position.set((rng() - 0.5) * 3, 50 + i * 2.2, z + 3 + i * 6.5);
-        puff.renderOrder = 3;
-        fx.push(puff);
-      }
-    }
+    if (k < 3) tops.push(new THREE.Vector3(0, 28 + 22 * Math.cos(4 * DEG), z + 22 * Math.sin(4 * DEG)));
   });
+  fx.push(smokePuffs(tops, pal, rng));
 
   // Masts.
   ship.add(mesh(new THREE.CylinderGeometry(0.18, 0.32, 40, 12), steel, 0, 15 + 20, 104, 'mainmast'));
@@ -412,32 +560,34 @@ function buildShip(scene, rng, pal) {
     for (let z = -84; z < 108; z += 2.7) {
       for (const side of [1, -1]) {
         if (rng() < 0.22) continue;
-        port.push(at(side * (halfWidth(z) + 0.03), y + (rng() - 0.5) * 0.05, z, 0, side * Math.PI / 2, 0));
+        port.push(new THREE.Vector3(side * (halfWidth(z) + 0.12), y, z));
       }
     }
   }
   for (let z = -128; z < -86; z += 2.4) {
     for (const side of [1, -1]) {
       if (rng() < 0.3) continue;
-      const hw = halfWidth(z);
-      const slope = Math.atan2(halfWidth(z + 0.5) - halfWidth(z - 0.5), 1);
-      port.push(at(side * (hw + 0.04), 16.4, z, 0, side * (Math.PI / 2 - slope), 0));
+      port.push(new THREE.Vector3(side * (halfWidth(z) + 0.12), 16.4, z));
     }
   }
-  fx.push(instanced(new THREE.CircleGeometry(0.22, 10), glow, port, 'portholes'));
+  fx.push(lampSquares(port, pal, { world: 0.45, minPx: 5, maxPx: 16, name: 'portholes' }));
 
   // Deck lights and window rows on the superstructure.
   const win = [];
   for (const [y, z0, z1, x] of [[17.2, -70, 96, 12.53], [20.6, -70, 96, 12.53], [26.2, -60, 73, 11.53]]) {
     for (let z = z0; z < z1; z += 2.2) {
-      for (const side of [1, -1]) if (rng() > 0.18) win.push(at(side * x, y, z, 0, side * Math.PI / 2, 0));
+      for (const side of [1, -1]) if (rng() > 0.18) win.push(new THREE.Vector3(side * (x + 0.1), y, z));
     }
   }
-  for (let x = -6; x <= 6; x += 1.6) win.push(at(x, 29.6, -62.03, 0, Math.PI, 0));
-  fx.push(instanced(new THREE.PlaneGeometry(0.9, 0.7), glow, win, 'windows'));
+  // Lit bridge windows.
+  const bridgeWin = [];
+  for (let x = -6.4; x <= 6.4; x += 1.6) bridgeWin.push(new THREE.Vector3(x, 29.6, -62.15));
+  fx.push(lampSquares(win, pal, { world: 0.8, minPx: 5, maxPx: 20, name: 'windows' }));
+  fx.push(lampSquares(bridgeWin, pal, { world: 1.0, minPx: 7, maxPx: 24, name: 'bridge_windows' }));
   const dl = [];
-  for (let z = -60; z < 74; z += 4.5) for (const side of [1, -1]) dl.push(at(side * 11.3, 28.9, z));
-  fx.push(instanced(new THREE.SphereGeometry(0.16, 6, 4), glow, dl, 'deck_lights'));
+  for (let z = -60; z < 74; z += 4.5) for (const side of [1, -1]) dl.push(new THREE.Vector3(side * 11.3, 28.9, z));
+  fx.push(lampSquares(dl, pal, { world: 0.35, minPx: 4, maxPx: 12, name: 'deck_lights' }));
+  fx.push(lampHalos([...port, ...win, ...bridgeWin, ...dl], pal, { world: 2.0, minPx: 7, maxPx: 60, name: 'ship_halos', gain: 0.8 }));
 
   // Lifeboats.
   const boats = [];
@@ -484,7 +634,7 @@ function buildShip(scene, rng, pal) {
   fxGroup.add(...fx);
   setLayer(fxGroup, LAYERS.FX);
   const mirrorFx = new THREE.Group();
-  for (const o of fx) if (o.name === 'portholes' || o.name === 'windows' || o.name === 'deck_lights') mirrorFx.add(o.clone());
+  for (const o of fx) if (['portholes', 'windows', 'bridge_windows', 'ship_halos'].includes(o.name)) mirrorFx.add(o.clone());
   mirrorFx.scale.y = -1;
   setLayer(mirrorFx, LAYERS.MIRROR);
   scene.add(ship, fxGroup, mirror, mirrorFx);
@@ -496,11 +646,13 @@ function buildForecastle(scene, rng, pal, anchors) {
   const g = new THREE.Group();
   g.name = 'forecastle_kit';
   const Y = SHIP.forecastleY;
-  const steel = pal.toon('steel');
-  const frost = pal.toon('frost');
-  const navy = pal.toon('navy');
+  const L = pal.json.light;
+  const steel = pal.toon('steel', { paint: 'steel' });
+  const frost = pal.toon('frost', { paint: 'steel' });
+  const navy = pal.toon('navy', { paint: 'steel' });
   const inkMat = pal.toon('ink');
-  const plankMat = pal.toon(pal.mix('steel', 'frost', 0.18));
+  const plankMat = pal.toon(pal.mix('lamp', 'frost', 0.45), { paint: 'wood' });
+  const canvasMat = pal.toon('steel', { paint: 'canvas' });
   const glow = new THREE.MeshBasicMaterial({ color: pal.color('lamp') });
 
   // Planking: instanced fore-aft planks with dark seams between.
@@ -566,11 +718,12 @@ function buildForecastle(scene, rng, pal, anchors) {
   const fall = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1, 5), inkMat);
   fall.applyMatrix4(between(jibB, new THREE.Vector3(jibB.x, Y + 2.2, jibB.z)));
   g.add(fall);
+  anim.ropes.push({ obj: fall, a: jibB.clone(), b: new THREE.Vector3(jibB.x, Y + 2.2, jibB.z), phase: 0.7 });
   g.add(mesh(new THREE.TorusGeometry(0.16, 0.05, 6, 12), inkMat, jibB.x, Y + 2.05, jibB.z, 'crane_hook'));
 
   // No.1 hatch cover and a ventilator.
   g.add(mesh(new THREE.BoxGeometry(4.2, 0.55, 3.2), navy, 0, Y + 0.28, -109, 'hatch'));
-  g.add(mesh(new THREE.BoxGeometry(4.4, 0.08, 3.4), steel, 0, Y + 0.58, -109, 'hatch_tarp'));
+  g.add(mesh(new THREE.BoxGeometry(4.4, 0.08, 3.4), canvasMat, 0, Y + 0.58, -109, 'hatch_tarp'));
   for (const s of [1, -1]) {
     g.add(mesh(new THREE.CylinderGeometry(0.28, 0.28, 1.6, 12), frost, s * 7.5, Y + 0.8, -106, 'vent'));
     const cowl = mesh(new THREE.TorusGeometry(0.34, 0.18, 8, 14, Math.PI), frost, s * 7.5, Y + 1.6, -106.1, 'vent_cowl');
@@ -598,7 +751,8 @@ function buildForecastle(scene, rng, pal, anchors) {
   jack.name = 'jackstaff';
   g.add(jack);
 
-  // Two amber deck lamps.
+  // Two amber deck lamps: lamp lights with 3 hard pools, halo sprites, flicker on twos.
+  const lampPos = [];
   for (const s of [1, -1]) {
     const lx = s * 4.4;
     const lz = -126.5;
@@ -610,10 +764,15 @@ function buildForecastle(scene, rng, pal, anchors) {
     const cage = mesh(new THREE.TorusGeometry(0.19, 0.02, 4, 12), inkMat, lx, Y + 2.38, lz, 'lamp_cage');
     cage.rotation.x = Math.PI / 2;
     g.add(cage);
-    const light = new THREE.PointLight(pal.color('lamp'), 55, 32, 2);
+    const light = new THREE.PointLight(pal.color('lamp'), L.lamp, L.lampRange, 2);
     light.position.set(lx, Y + 2.38, lz);
     g.add(light);
+    anim.lamps.push({ light, base: L.lamp, seed: s + 3 });
+    lampPos.push(light.position.clone());
   }
+  const halos = lampHalos(lampPos, pal, { world: 1.6, minPx: 8, maxPx: 200, name: 'deck_lamp_halos' });
+  halos.layers.set(LAYERS.FX);
+  g.add(halos);
   anchorAt(g, anchors, 'deck', new THREE.Vector3(0, Y, -112));
   scene.add(g);
 }
@@ -622,12 +781,15 @@ function buildForecastle(scene, rng, pal, anchors) {
 function buildMastAndNest(scene, rng, pal, anchors) {
   const g = new THREE.Group();
   g.name = 'crowsnest';
-  const steel = pal.toon('steel');
+  const L = pal.json.light;
+  const steel = pal.toon('steel', { paint: 'steel' });
   const frostMat = pal.toon('frost');
-  const navy = pal.toon('navy');
+  const navy = pal.toon('navy', { paint: 'steel' });
   const inkMat = pal.toon('ink');
   const lampMat = pal.toon('lamp');
-  const iceMat = pal.toon('ice');
+  const iceMat = pal.toon('ice', { paint: 'canvas' });
+  const railMat = pal.toon(pal.mix('lamp', 'navy', 0.45), { paint: 'rail' });
+  const oilMat = pal.toon('lamp', { paint: 'canvas' });
   const F = SHIP.nestFloorY;
   const bz = SHIP.basketZ;
   const R = SHIP.basketR;
@@ -638,9 +800,17 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   g.add(mesh(new THREE.CylinderGeometry(0.17, 0.3, mastH, 16), steel, 0, SHIP.forecastleY + mastH / 2, SHIP.mastZ, 'foremast'));
   g.add(mesh(new THREE.SphereGeometry(0.24, 10, 6), steel, 0, topY, SHIP.mastZ, 'mast_truck'));
   g.add(mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.25, 16), navy, 0, SHIP.forecastleY + 0.12, SHIP.mastZ, 'mast_collar'));
-  const masthead = mesh(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: pal.color('frost') }), 0, topY - 1.2, SHIP.mastZ - 0.25, 'masthead_light');
+  const masthead = mesh(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: pal.color('lamp') }), 0, topY - 1.2, SHIP.mastZ - 0.25, 'masthead_light');
   masthead.layers.set(LAYERS.FX);
   g.add(masthead);
+  // The masthead lamp lights the nest from above (3 hard pools).
+  const mastLight = new THREE.PointLight(pal.color('lamp'), L.masthead, L.mastheadRange, 2);
+  mastLight.position.copy(masthead.position);
+  g.add(mastLight);
+  anim.lamps.push({ light: mastLight, base: L.masthead, seed: 11 });
+  const mastHalo = lampHalos([masthead.position.clone()], pal, { world: 1.2, minPx: 8, maxPx: 200, name: 'masthead_halo' });
+  mastHalo.layers.set(LAYERS.FX);
+  g.add(mastHalo);
   // Mast ladder rungs below the nest.
   const rungs = [];
   for (let y = SHIP.forecastleY + 0.6; y < F - 0.2; y += 0.38) rungs.push(between(new THREE.Vector3(-0.22, y, SHIP.mastZ + 0.32), new THREE.Vector3(0.22, y, SHIP.mastZ + 0.32)));
@@ -656,40 +826,46 @@ function buildMastAndNest(scene, rng, pal, anchors) {
     stays.push([new THREE.Vector3(s * 0.15, topY - 0.8, SHIP.mastZ), new THREE.Vector3(s * 12.8, SHIP.forecastleY + 0.4, -104)]);
   }
   const stayGeo = new THREE.CylinderGeometry(0.022, 0.022, 1, 5);
-  g.add(instanced(stayGeo, inkMat, stays.map(([a, b]) => between(a, b)), 'stays'));
+  const stayMesh = instanced(stayGeo, inkMat, stays.map(([a, b]) => between(a, b)), 'stays');
+  stayMesh.frustumCulled = false;
+  g.add(stayMesh);
+  anim.stays = { mesh: stayMesh, list: stays.map(([a, b], i) => ({ a, b, phase: i * 1.7 })) };
 
   // Basket: open steel ring wall 1.8 m across, 1.0 m rim.
   const nest = new THREE.Group();
   nest.name = 'basket';
   nest.position.set(0, F, bz);
+  const capH = 0.05;
+  const wallH = SHIP.rimH - capH;
   const wall = new THREE.LatheGeometry(
-    [new THREE.Vector2(R - 0.04, 0), new THREE.Vector2(R, 0), new THREE.Vector2(R, SHIP.rimH), new THREE.Vector2(R - 0.04, SHIP.rimH), new THREE.Vector2(R - 0.04, 0)],
+    [new THREE.Vector2(R - 0.04, 0), new THREE.Vector2(R, 0), new THREE.Vector2(R, wallH), new THREE.Vector2(R - 0.04, wallH), new THREE.Vector2(R - 0.04, 0)],
     56
   );
   nest.add(mesh(wall, steel, 0, 0, 0, 'basket_wall'));
+  // Painted wooden cap rail on the rim (top at rimH).
+  const cap = new THREE.LatheGeometry(
+    [new THREE.Vector2(R - 0.06, wallH), new THREE.Vector2(R + 0.02, wallH), new THREE.Vector2(R + 0.02, SHIP.rimH), new THREE.Vector2(R - 0.06, SHIP.rimH), new THREE.Vector2(R - 0.06, wallH)],
+    72
+  );
+  nest.add(mesh(cap, railMat, 0, 0, 0, 'cap_rail'));
+  // Frost: small drifts in the corners where the floor meets the wall (hatch strokes live in the rail paint).
+  const drift = new THREE.SphereGeometry(1, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2);
+  for (let k = 0; k < 7; k++) {
+    const a = (k / 7) * Math.PI * 2 + rng() * 0.6;
+    const d = mesh(drift, frostMat, Math.sin(a) * (R - 0.1), 0, -Math.cos(a) * (R - 0.1), 'frost_drift');
+    d.scale.set(0.1 + rng() * 0.08, 0.04 + rng() * 0.03, 0.06 + rng() * 0.04);
+    d.rotation.y = -a;
+    nest.add(d);
+  }
   nest.add(mesh(new THREE.CylinderGeometry(R - 0.02, R - 0.1, 0.12, 40), navy, 0, -0.06, 0, 'basket_floor'));
-  for (const y of [0.08, SHIP.rimH - 0.08]) {
+  for (const y of [0.08, wallH - 0.06]) {
     const band = mesh(new THREE.TorusGeometry(R + 0.012, 0.016, 5, 56), navy, 0, y, 0, 'band');
     band.rotation.x = Math.PI / 2;
     nest.add(band);
   }
-  // Frost crust on the rim top (lumpy, seeded).
-  const crust = new THREE.TorusGeometry(R - 0.02, 0.034, 6, 96);
-  const cp = crust.getAttribute('position');
-  for (let i = 0; i < cp.count; i++) {
-    const x = cp.getX(i);
-    const y = cp.getY(i);
-    const a = Math.atan2(y, x);
-    const k = 1 + 0.35 * Math.sin(a * 23 + 1.3) * Math.sin(a * 7) + (rng() - 0.5) * 0.25;
-    cp.setZ(i, cp.getZ(i) * k);
-  }
-  crust.computeVertexNormals();
-  const crustM = mesh(crust, frostMat, 0, SHIP.rimH + 0.01, 0, 'frost_crust');
-  crustM.rotation.x = Math.PI / 2;
-  nest.add(crustM);
   // Instanced rivet rows, inside and out.
   const rivets = [];
-  for (const y of [0.16, 0.55, 0.94]) {
+  for (const y of [0.16, 0.5, wallH - 0.1]) {
     for (let k = 0; k < 64; k++) {
       const a = (k / 64) * Math.PI * 2;
       for (const r of [R + 0.004, R - 0.044]) rivets.push(at(Math.sin(a) * r, y, -Math.cos(a) * r));
@@ -783,6 +959,7 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   scarfShape.closePath();
   const scarfGeo = new THREE.ExtrudeGeometry(scarfShape, { depth: 0.025, bevelEnabled: false });
   hook.add(mesh(scarfGeo, iceMat, 0, 0.0, 0.035, 'scarf'));
+  anim.ropes.push({ obj: null, group: hook, phase: 2.1, swing: true });
   const stripes = mesh(new THREE.BoxGeometry(0.15, 0.025, 0.03), navy, 0.0, -0.2, 0.048, 'scarf_stripe');
   stripes.rotation.z = 0.12;
   hook.add(stripes);
@@ -791,9 +968,9 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   oil.name = 'oilskin';
   oil.position.set(0.42, 0, 0.42);
   oil.rotation.y = -0.4;
-  oil.add(mesh(new THREE.BoxGeometry(0.5, 0.07, 0.36), lampMat, 0, 0.035, 0));
-  oil.add(mesh(new THREE.BoxGeometry(0.48, 0.06, 0.3), lampMat, 0.02, 0.1, 0.01));
-  oil.add(mesh(new THREE.BoxGeometry(0.16, 0.03, 0.12), lampMat, -0.12, 0.145, -0.04));
+  oil.add(mesh(new THREE.BoxGeometry(0.5, 0.07, 0.36), oilMat, 0, 0.035, 0));
+  oil.add(mesh(new THREE.BoxGeometry(0.48, 0.06, 0.3), oilMat, 0.02, 0.1, 0.01));
+  oil.add(mesh(new THREE.BoxGeometry(0.16, 0.03, 0.12), oilMat, -0.12, 0.145, -0.04));
   nest.add(oil);
 
   g.add(nest);
@@ -805,7 +982,8 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   cameraAnchor(g, anchors, 'cam_lookout', eye, { yaw: 0, pitch: LOOKOUT.pitch, fov: LOOKOUT.fov });
   anchorAt(g, anchors, 'mast_top', new THREE.Vector3(0, topY, SHIP.mastZ));
   anchorAt(g, anchors, 'lee_spot', new THREE.Vector3(0.45, F, bz + 0.15));
-  anchorAt(g, anchors, 'fleet_spot', new THREE.Vector3(-0.3, F, bz - 0.55));
+  // Fleet stands front-left so that from cam_lookout his card fills the left FLEET.cover of frame width.
+  anchorAt(g, anchors, 'fleet_spot', new THREE.Vector3(eye.x + FLEET.x, F, eye.z - FLEET.forward));
   anchorAt(g, anchors, 'guide_spot', new THREE.Vector3(-(R - 0.12), F + 1.42, bz - 0.1));
 }
 
@@ -818,13 +996,12 @@ export function build(scene, rng) {
   anchorGroup.name = 'anchors';
   scene.add(anchorGroup);
 
-  // Lights: cold key from above-forward, no ambient (keeps the 3-step ramp honest).
-  const key = new THREE.DirectionalLight(pal.color('frost'), Math.PI * 0.9);
-  key.position.set(-0.45, 1, -0.6);
-  scene.add(key);
-  const fill = new THREE.DirectionalLight(pal.color('ice'), Math.PI * 0.12);
-  fill.position.set(0.6, 0.3, 0.8);
-  scene.add(fill);
+  // The ship is the key light (lamps, portholes). Fill: cool hemisphere, ice at 35%.
+  anim.stays = null;
+  anim.ropes = [];
+  anim.lamps = [];
+  const L = pal.json.light;
+  scene.add(new THREE.HemisphereLight(pal.color(L.fill), pal.color('navy'), L.fillIntensity));
 
   buildSky(scene, rng, pal);
   buildIceberg(scene, rng, pal, anchors);
@@ -832,12 +1009,52 @@ export function build(scene, rng) {
   buildForecastle(scene, rng, pal, anchors);
   buildMastAndNest(scene, rng, pal, anchors);
 
-  // Aerial: from the ship midpoint, astern (+z), to starboard (+x) and up; yawed to centre the iceberg.
+  // Aerial: the iceberg -> midship line (+z) extended 250 m astern, offset 60 m to starboard, 180 m up; aimed at midship.
   const aerialPos = new THREE.Vector3(AERIAL.starboard, AERIAL.up, AERIAL.astern);
-  const aerialYaw = Math.atan2(-(0 - aerialPos.x), -(ICEBERG_Z - aerialPos.z)) / DEG;
+  const aerialYaw = Math.atan2(-(0 - aerialPos.x), -(0 - aerialPos.z)) / DEG;
   cameraAnchor(anchorGroup, anchors, 'aerial', aerialPos, { yaw: aerialYaw, pitch: AERIAL.pitch, fov: AERIAL.fov, panini: AERIAL.panini });
   anchorAt(anchorGroup, anchors, 'sea', new THREE.Vector3(0, 0, SHIP.mastZ - 220));
-  return { anchors };
+  return { anchors, update };
+}
+
+const SWAY = { hz: 0.25, deg: 1.5 };
+const flick = (seed, k) => {
+  const x = Math.sin(seed * 91.7 + k * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+};
+
+// Per-frame state from the frame index only: sea, stars, smoke (on twos), lamp flicker (on twos), rigging sway.
+export function update(n, { camera, fps = 24 } = {}) {
+  const t = n / fps;
+  const k = Math.floor(n / 2);
+  fxUniforms.uT.value = t;
+  fxUniforms.uT2.value = (k * 2) / fps;
+  fxUniforms.uTwos.value = k;
+  if (camera) fxUniforms.uFocal.value = 1920 / (2 * Math.tan((camera.fov * Math.PI) / 360));
+  fxUniforms.uFlicker.value = 1 + 0.03 * (flick(1, k) * 2 - 1);
+  for (const l of anim.lamps) l.light.intensity = l.base * (1 + 0.03 * (flick(l.seed, k) * 2 - 1));
+  const ang = (ph) => SWAY.deg * DEG * Math.sin(2 * Math.PI * SWAY.hz * t + ph);
+  if (anim.stays) {
+    const { mesh: m, list } = anim.stays;
+    list.forEach(({ a, b, phase }, i) => m.setMatrixAt(i, between(a, swing(a, b, ang(phase)))));
+    m.instanceMatrix.needsUpdate = true;
+  }
+  for (const r of anim.ropes) {
+    if (r.obj) {
+      between(r.a, swing(r.a, r.b, ang(r.phase))).decompose(r.obj.position, r.obj.quaternion, r.obj.scale);
+    } else if (r.group) {
+      r.group.rotation.z = ang(r.phase);
+    }
+  }
+}
+
+// Rotate b about a, sideways (horizontal perpendicular to the line).
+function swing(a, b, angle) {
+  const d = new THREE.Vector3().subVectors(b, a);
+  let m = new THREE.Vector3().crossVectors(UP, d);
+  if (m.lengthSq() < 1e-8) m.set(1, 0, 0);
+  const axis = new THREE.Vector3().crossVectors(d, m).normalize();
+  return a.clone().add(d.applyAxisAngle(axis, angle));
 }
 
 export const ANCHORS = [

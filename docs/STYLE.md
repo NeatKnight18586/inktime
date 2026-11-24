@@ -4,17 +4,46 @@
 1080x1920, 24 fps, H.264 yuv420p. Episode 30–55 s, target 35–50 s.
 
 ## Look
-- Outlines: inverted hull on every mesh (back faces, ink #141414), thickness 1.5–3% of object size, plus a screen-space edge pass on depth and normals. Line width 3 px within 3 m of camera, falling to 1 px beyond 40 m.
-- Line boil: the edge pass re-jitters every 2 frames (±0.6 px, seeded).
+- Painted textures (engine/look/paint.mjs): seeded canvas textures, 512 px, cached per material. Each uses 2-3 flat values with hard edges (painted, never noise) plus 5% paper grain.
+  - wood: planks with 1-2 px ink seams, grain streaks, worn patches.
+  - steel: plate seams, rivet dots, rust/grime streaks running down from rivets, a darker bottom edge.
+  - rope and canvas: hatching.
+  - ice: faceted, with frost hatch strokes on the lit side.
+  - Corner darkening: one darker band in creases and corners (baked per vertex).
+  - Rim: a painted wooden cap rail; frost only as thin hatch strokes and small drifts in the corners (no "cake icing" frost).
+- Depth and motion, every frame:
+  - Three layers: foreground (hands, forestay, rim edge), middle (lit forecastle: lamps, windlass, bollards), background (sea, haze, iceberg).
+  - Rigging and ropes sway 0.25 Hz, plus or minus 1.5 deg.
+  - Camera base motion on every shot: dolly forward 0.06 m/s plus breathing sway (0.25 Hz, 0.15 deg pitch, 4 mm). Held shots also push FOV in by 1 deg/s. No frame is ever still.
 - Misregistration: the colour layer sits 1–2 px off the line layer, growing to 4 px with distance. This replaces depth-of-field. Never blur.
-- Shading: MeshToonMaterial, 3-step ramp (1.0 / 0.62 / 0.35 of base). Shadows shift toward the palette's darkest colour, never grey or black.
-- Paper grain: 5% multiply, re-seeded every 2 frames. Fog: linear, palette fog colour.
-- Depth: every shot has foreground, midground and background. At least 12 props in view. Every set has 3 story props (signs someone lives there).
+- Paper grain: 5% multiply, re-seeded every 2 frames.
+- Every shot has foreground, midground and background. At least 12 props in view. Every set has 3 story props (signs someone lives there).
 - Palette per look: 5 colours + ink #141414 + paper #F4EFE6. Guide accent #E8336D never appears in any palette.
+- Night targets (tools/measure.mjs, 270 px wide): luma mean 70-95; share < 40 at most 30%; p5 at most 12; p95 at least 170; saturation 0.30-0.50; motion median 1.5-6%; still frames at most 10%; longest still run at most 19 frames.
 
-## Characters (2D cards in 3D)
-- SVG cards: round white head, dot eyes, one-line mouth, bean torso, stick limbs 7 px, ink outline 5 px (at 1080 wide).
-- Identity by one prop + one palette colour, never by faces.
+## Light
+- The ship is the key light.
+- Sky: posterized 3-band vertical gradient, zenith navy #1B2A41 to a horizon band of steel #4A5A6A lifted 25% in value; stars only above 15 deg elevation; 5% of stars twinkle on twos.
+- Sea: banded steel-navy, low swell (0.3 m, 8 s period), short frost-coloured glint dashes that drift with the swell.
+- Key: every deck lamp and porthole is a lamp #E8A64B light with toon falloff in 3 hard-edged pools, plus a 2-step additive halo sprite; lamps flicker plus or minus 3% on twos. Fill: cool hemisphere light, ice #9FD3E0 at 35%.
+- Toon ramp, 3 steps: shadow = base x 0.55 tinted toward navy (never black), mid = base, lit = base mixed 40% toward the light colour. True black is ink only.
+- Depth haze in 3 bands, steel/ice blend: 0% at the camera, 60% at the horizon.
+- Ship exterior: rows of lit portholes (lamp squares in 2 px ink frames) and lit bridge windows, so the aerial reads as a glowing ship. Four funnels; smoke from the first three only (the fourth was a ventilation dummy): ink-outlined puffs on twos, drifting aft.
+
+## Ink
+- At 1080 px wide. Silhouettes (depth breaks) 6-8 px, scaled by distance: x1 within 5 m, x0.6 at 30 m, x0.35 beyond 200 m.
+- Creases (normal breaks) 2-3 px. Texture lines 1-2 px.
+- Seeded width variation of plus or minus 20% along each line and tapered ends, so it reads as brush. Boil every 2 frames (±0.6 px, seeded).
+- Ink #141414 near the camera, mixed toward the haze colour with distance.
+- Inverted hull on every mesh (back faces, ink) plus the screen-space pass on depth and normals.
+
+## Characters (hybrid cards in 3D)
+- Units are head diameters (D). Proportions: height 3.5 D; round paper-white #F4EFE6 head; capsule body 0.88 D wide; stick limbs 0.05 D; ink-nub hands 0.12 D.
+- Face: dot eyes 0.075 D, spaced 0.27 D, with a tiny highlight; tapered brows; a one-line mouth.
+- Outline 0.06 D brush, width varying plus or minus 25%.
+- Shading: a flat shadow tone plus 45 deg ink hatching (3 px spacing) on the side away from the key light; a 2 px rim in the key colour on the lit edge; the whole card multiplied by the scene tint.
+- Blinks: 2-3 frames closed, every 2-4 s, seeded.
+- Identity by one prop + one palette colour, never by faces. Fleet: peaked cap, amber scarf, navy coat.
 - Billboard on yaw only; flat ellipse contact shadow.
 - Animated on twos: pose state updates every 2nd frame. The camera moves on ones.
 - 8 poses each; change pose every 1.5–2.5 s while on screen.
@@ -23,7 +52,11 @@
 - Silent mime only "you" can see. Never speaks. On screen in POV except where a shot says otherwise, never off screen more than 8 s. Design: cast/guide/README.md.
 
 ## Hands (you)
-- SVG in camera space, bottom third. On screen at least 40% of POV time. Animated on twos.
+- XIII style. Realistic proportions, never cartoon nubs.
+- Two flat skin tones: lit = lamp #E8A64B mixed 55% toward paper #F4EFE6; shadow = lit x 0.7 toward navy. One hard-edged shadow shape per finger group.
+- Outline 8 px, knuckle creases 2-3 px; navy wool cuff with knit hatching.
+- Drawn as a camera-space quad in the bottom-right 25-35% of the frame, multiplied by the scene tint (engine/rig/hands.mjs).
+- On screen at least 40% of POV time. Animated on twos.
 
 ## Sound words
 - Hand-lettered SVG from tools/letter.mjs, 3 variants per word, never a font.
