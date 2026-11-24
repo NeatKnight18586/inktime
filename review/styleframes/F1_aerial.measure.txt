@@ -4,7 +4,7 @@ overall (1 frames)
   lumaMean      83.4   target 70-95     ok
   dark40       12.1%   target 6-30%     ok
   p5              20   target <=25      ok
-  p95            126   target >=170     MISS
+  p95            127   target >=170     MISS
   sat          0.299   target 0.30-0.50 MISS
   motion         n/a   target 1.5-6%    
   still          n/a   target <=10%     
