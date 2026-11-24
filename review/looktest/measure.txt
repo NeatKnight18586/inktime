@@ -1,0 +1,29 @@
+measure out/looktest.mp4: 288 frames at 270x480
+shot 0 (48 frames)
+  lumaMean      89.4   target 70-95     ok
+  dark40        2.1%   target 6-30%     MISS
+  p5              54   target <=25      MISS
+  p95            119   target >=170     MISS
+  sat          0.347   target 0.30-0.50 ok
+  motion       0.40%   target 1.5-6%    MISS
+  still         0.0%   target <=10%     ok
+  stillRun         0   target <=19      ok
+shot 1 (240 frames)
+  lumaMean      94.7   target 70-95     ok
+  dark40        6.9%   target 6-30%     ok
+  p5              38   target <=25      MISS
+  p95            193   target >=170     ok
+  sat          0.363   target 0.30-0.50 ok
+  motion       3.66%   target 1.5-6%    ok
+  still         0.0%   target <=10%     ok
+  stillRun         0   target <=19      ok
+overall (288 frames)
+  lumaMean      93.8   target 70-95     ok
+  dark40        6.1%   target 6-30%     ok
+  p5              38   target <=25      MISS
+  p95            191   target >=170     ok
+  sat          0.361   target 0.30-0.50 ok
+  motion       3.51%   target 1.5-6%    ok
+  still         0.0%   target <=10%     ok
+  stillRun         0   target <=19      ok
+MISSES: shot 0 dark40, shot 0 p5, shot 0 p95, shot 0 motion, shot 1 p5, overall p5
