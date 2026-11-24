@@ -1,7 +1,7 @@
 F1_aerial: Aerial frame 0: telephoto from the iceberg's crest, the ship three-quarter at 850 m (focus: ship midships)
 measure out/styleframes/F1_aerial.png: 1 frames at 270x480 (no cams.json: still frames n/a)
 overall (1 frames)
-  lumaMean      86.9   target 70-95     ok
+  lumaMean      87.0   target 70-95     ok
   dark40       12.1%   target 6-45%     ok
   p5              20   target <=25      ok
   p95            136   target >=170     MISS

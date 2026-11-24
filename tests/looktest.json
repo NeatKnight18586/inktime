@@ -134,7 +134,20 @@
   "cards": [
     {
       "cast": "fleet",
-      "pose": "edge",
+      "track": [
+        {
+          "at": 0,
+          "pose": "idle"
+        },
+        {
+          "at": 96,
+          "pose": "squint"
+        },
+        {
+          "at": 372,
+          "pose": "bell_ring"
+        }
+      ],
       "anchor": "fleet_spot",
       "blink": true,
       "light": "nest",
@@ -148,12 +161,12 @@
           "pose": "idle"
         },
         {
-          "at": 152,
+          "at": 144,
           "pose": "talk"
         },
         {
-          "at": 216,
-          "pose": "idle"
+          "at": 180,
+          "pose": "scoff"
         }
       ],
       "anchor": "lee_spot",
@@ -161,10 +174,61 @@
       "facing": -65,
       "speak": [
         [
-          152,
-          216
+          144,
+          180
         ]
       ]
+    },
+    {
+      "cast": "guide",
+      "track": [
+        {
+          "at": 0,
+          "pose": "stare"
+        },
+        {
+          "at": 168,
+          "pose": "facepalm"
+        },
+        {
+          "at": 360,
+          "pose": "slap"
+        }
+      ],
+      "anchor": "guide_spot",
+      "blink": true
+    }
+  ],
+  "countdown": [
+    {
+      "at": 72,
+      "value": 40
+    },
+    {
+      "at": 456,
+      "value": 20
+    }
+  ],
+  "sfx": [
+    {
+      "word": "CREAK",
+      "at": 72,
+      "anchor": "forestay_top",
+      "size": 0.5
+    },
+    {
+      "word": "DING-DING-DING",
+      "at": 372,
+      "anchor": "bell",
+      "size": 0.12,
+      "lift": 0.25
+    },
+    {
+      "word": "RATTLE",
+      "at": 408,
+      "anchor": "padlock",
+      "size": 0.07,
+      "lift": 0.07
     }
   ]
 }

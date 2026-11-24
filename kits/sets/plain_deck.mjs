@@ -50,6 +50,9 @@ export function build(scene) {
   // Characters stand 1.4 m apart; the camera sits at a 3/4 angle (about 36 deg off their line of sight).
   anchorAt(scene, anchors, 'fleet_spot', new THREE.Vector3(-0.7, 0, 0));
   anchorAt(scene, anchors, 'lee_spot', new THREE.Vector3(0.7, 0, 0));
+  // Tick close-up (stills F5): Tick floats at guide_spot, the camera straight in front at 2.4 m.
+  anchorAt(scene, anchors, 'guide_spot', new THREE.Vector3(0, 1.25, 0));
+  anchorAt(scene, anchors, 'cam_tick', new THREE.Vector3(0, 1.25, 2.4), { yaw: 0, pitch: 0, fov: 52, panini: false });
   anchorAt(scene, anchors, 'cam_day', new THREE.Vector3(2.6, 1.5, 3.6), { yaw: 35.8, pitch: -5.1, fov: 52, panini: false });
   return { anchors, keyLight: sun, update() {} };
 }

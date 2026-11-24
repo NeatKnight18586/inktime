@@ -14,6 +14,8 @@ import { makeShotCam } from './rig/shotcam.mjs';
 import { transitionPass, transitionAt } from './post/transitions.mjs';
 import { makeBreath } from './rig/breath.mjs';
 import { makeCard } from './rig/card.mjs';
+import { makeTick } from './cast/tick.mjs';
+import { makeSfx } from './sfxwords.mjs';
 import { makeHands, breathLag } from './rig/hands3d.mjs';
 import { heldObjectCamera, HELD } from './rig/presets.mjs';
 import { installHaze, hazeColorHex } from './look/haze.mjs';
@@ -77,7 +79,8 @@ async function load(scenePath) {
   const tint = new THREE.Color(1, 1, 1).lerp(palette.color(look.tint.color), look.tint.mix).multiplyScalar(look.tint.value);
   const cards = [];
   const keyLight = built.keyLight ?? null;
-  for (const c of spec.cards ?? []) cards.push(await makeCard(scene, c, anchors, palette, { tint, seed: spec.seed, frames: spec.frames, keyLight }));
+  // The guide (Tick) is a card too, but it never casts a lamp shadow: its shadow is a decal on the nearest surface.
+  for (const c of spec.cards ?? []) cards.push(c.cast === 'guide' ? await makeTick(scene, c, anchors, palette, { tint, seed: spec.seed, frames: spec.frames, countdown: spec.countdown ?? null }) : await makeCard(scene, c, anchors, palette, { tint, seed: spec.seed, frames: spec.frames, keyLight }));
   // Surfaces the shadow proxy can fall on (toon solids) receive its shadow.
   if (cards.length && keyLight) scene.traverse((o) => { if (o.isMesh && o.layers.isEnabled(LAYERS.SOLID) && !o.userData.isHull) o.receiveShadow = true; });
 
@@ -98,6 +101,7 @@ async function load(scenePath) {
   heldObj.visible = false;
   camera.add(heldObj);
   addHulls(heldObj);
+  const sfx = await makeSfx(scene, spec.sfx ?? [], anchors, { seed: spec.seed, held: { padlock: heldObj } });
   const shotCam = makeShotCam({ spec, anchors, kit: built, camera, fps: spec.fps ?? 24 });
 
   state.normalRT?.dispose();
@@ -121,12 +125,12 @@ async function load(scenePath) {
   composer.addPass(trans);
   const showable = new Set((spec.shots ?? []).flatMap((s) => s.show ?? []));
 
-  Object.assign(state, { heldObj, kit: built, hands, spec, scene, camera, anchors, cards, composer, normalRT, passes: { misreg, edges, panini, grain, trans }, breath, shotCam, palette, showable });
+  Object.assign(state, { sfx, heldObj, kit: built, hands, spec, scene, camera, anchors, cards, composer, normalRT, passes: { misreg, edges, panini, grain, trans }, breath, shotCam, palette, showable });
   return { frames: spec.frames, anchors: Object.keys(anchors) };
 }
 
 async function renderFrame(n) {
-  const { kit, hands, spec, scene, camera, anchors, cards, composer, normalRT, passes, palette, showable, breath, shotCam, heldObj } = state;
+  const { sfx, kit, hands, spec, scene, camera, anchors, cards, composer, normalRT, passes, palette, showable, breath, shotCam, heldObj } = state;
   if (!spec) throw new Error('renderFrame before load');
   const fps = spec.fps ?? 24;
   const shot = shotAt(spec, n);
@@ -156,6 +160,7 @@ async function renderFrame(n) {
     heldObj.position.set(0.05, p[1] + bob + breathLag(m - (m % 2), fps).lift, p[2]);
     heldObj.rotation.set(0.25, -0.5, 0.15);
   }
+  sfx.update(n, camera, shot);
   hullUniforms.uBoil.value = (Math.floor(n / 2) * 0.6180339) % 1 * 100;
   hullUniforms.uRes.value.copy(res);
   hullUniforms.uFocal.value = H / (2 * Math.tan((camera.fov * Math.PI) / 360));
@@ -176,9 +181,11 @@ async function renderFrame(n) {
   scene.overrideMaterial = null;
   // Cards are solid occluders in the line layer: cutout depth + normals, so nothing behind a body shows through its ink.
   for (const c of cards) c.prepass(true);
+  sfx.prepass(true);
   camera.layers.set(LAYERS.CARD_BODY);
   renderer.render(scene, camera);
   for (const c of cards) c.prepass(false);
+  sfx.prepass(false);
   camera.layers.set(LAYERS.HULL);
   renderer.render(scene, camera);
   renderer.autoClear = true;

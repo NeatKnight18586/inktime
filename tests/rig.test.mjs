@@ -34,7 +34,7 @@ function walk() {
     scene.updateMatrixWorld(true);
     const view = sc.pose(n);
     update(n, { camera, fps: FPS, shot });
-    const spots = Object.fromEntries(['fleet_spot', 'lee_spot', 'cam_lookout'].map((k) => [k, kit.anchors[k].getWorldPosition(new THREE.Vector3()).toArray()]));
+    const spots = Object.fromEntries(['fleet_spot', 'lee_spot', 'cam_lookout', 'guide_spot', 'forestay_top', 'bell', 'padlock'].map((k) => [k, kit.anchors[k].getWorldPosition(new THREE.Vector3()).toArray()]));
     frames.push({ n, spots, shot: shot.index, preset: view.preset, pos: camera.position.toArray(), quat: camera.quaternion.toArray(), fov: camera.fov, smear: view.smear, panini: view.panini });
   }
   void kitMod;
@@ -213,9 +213,11 @@ import { LOOKOUT, FLEET, LEE, BLOCK, SHIP } from '../kits/sets/titanic_crowsnest
 import { paniniStrength, paniniNdc } from '../engine/post/panini.mjs';
 import { HELD, heldObjectCamera } from '../engine/rig/presets.mjs';
 import { figure, D_METRES, poseAt, faceTurn } from '../engine/cast/stickmath.mjs';
+import { tickPoseAt, tickSilhouette, bobAt, TICK } from '../engine/cast/tick.mjs';
+import { sfxState, sfxCorners, pickVariant, sfxTilt, SIZE as SFX_SIZE } from '../engine/sfxwords.mjs';
 
 const DEGR = Math.PI / 180;
-const poseSets = { fleet: JSON.parse(readFileSync(new URL('../cast/fleet/poses.json', import.meta.url))), lee: JSON.parse(readFileSync(new URL('../cast/lee/poses.json', import.meta.url))) };
+const poseSets = { fleet: JSON.parse(readFileSync(new URL('../cast/fleet/poses.json', import.meta.url))), lee: JSON.parse(readFileSync(new URL('../cast/lee/poses.json', import.meta.url))), guide: JSON.parse(readFileSync(new URL('../cast/guide/poses.json', import.meta.url))) };
 
 test('lens: POV default vFOV 90 (about 59 deg horizontal in 9:16), Panini ramp 0 at 78, 0.5 at 90, 0.7 at 100', () => {
   assert.equal(LOOKOUT.fov, 90);
@@ -262,6 +264,7 @@ test("crow's nest blocking: eye 0.52 m from the rear wall and 0.2 m clear of the
 
 // The card figure's screen span (0..1 of the frame width, Panini applied) for a card at frame f; null if it is behind the camera.
 function cardSpan(cardSpec, f) {
+  if (cardSpec.cast === 'guide') return tickSpan(cardSpec, f);
   const track = cardSpec.track ?? [{ at: 0, pose: cardSpec.pose }];
   const pose = poseAt(poseSets[cardSpec.cast], track, f.n).pose;
   const base = new THREE.Vector3(...f.spots[cardSpec.anchor]);
@@ -308,9 +311,135 @@ function cardSpan(cardSpec, f) {
   return { lo, hi, loPt };
 }
 
+// Tick's screen points (Panini applied): the silhouette (face, ring, crown, arms) on a camera-facing card at guide_spot + bob.
+function camOf(f) {
+  const cam = new THREE.PerspectiveCamera(f.fov, 1080 / 1920, 0.05, 9000);
+  cam.position.fromArray(f.pos);
+  cam.quaternion.fromArray(f.quat);
+  cam.updateMatrixWorld(true);
+  return cam;
+}
+const toScreen = (p, cam) => {
+  if (p.clone().applyMatrix4(cam.matrixWorldInverse).z >= -0.05) return null;
+  const q = p.clone().project(cam);
+  const [nx, ny] = paniniNdc(q.x, q.y, cam.fov, cam.aspect);
+  return [(nx + 1) / 2, (1 - ny) / 2];
+};
+function tickWorld(cardSpec, f) {
+  const pose = tickPoseAt(poseSets.guide, cardSpec.track, f.n).pose;
+  const base = new THREE.Vector3(...f.spots[cardSpec.anchor]);
+  base.y += bobAt(f.n);
+  const cam = camOf(f);
+  const toCam = new THREE.Vector3(cam.position.x - base.x, 0, cam.position.z - base.z).normalize();
+  const right = new THREE.Vector3(toCam.z, 0, -toCam.x);
+  return { cam, base, pts: tickSilhouette(pose).map(([x, y]) => base.clone().addScaledVector(right, x * D_METRES).add(new THREE.Vector3(0, y * D_METRES, 0))) };
+}
+function tickSpan(cardSpec, f) {
+  const { cam, pts } = tickWorld(cardSpec, f);
+  let lo = 2;
+  let hi = -1;
+  let loPt = null;
+  for (const p of pts) {
+    const s = toScreen(p, cam);
+    if (!s || s[1] < -0.05 || s[1] > 1.05) continue;
+    if (s[0] < lo) loPt = [p.x, p.y];
+    lo = Math.min(lo, s[0]);
+    hi = Math.max(hi, s[0]);
+  }
+  return { lo, hi, loPt };
+}
+// Character face discs on screen: the head centre and a 0.4 D radius (eyes, brows, mouth).
+function faceDiscs(f) {
+  const cam = camOf(f);
+  const out = [];
+  for (const c of spec.cards) {
+    if (c.cast === 'guide') continue;
+    const track = c.track ?? [{ at: 0, pose: c.pose }];
+    const pose = poseAt(poseSets[c.cast], track, f.n).pose;
+    const base = new THREE.Vector3(...f.spots[c.anchor]);
+    if (faceTurn(c.facing * DEGR, base, cam.position).back) continue; // the back of the head: no face to cover
+    const fig = figure(pose, 0, 1);
+    const centre = base.clone().add(new THREE.Vector3(0, fig.headC.y * D_METRES, 0));
+    const s = toScreen(centre, cam);
+    if (!s) continue;
+    const up = toScreen(centre.clone().add(new THREE.Vector3(0, 0.4 * D_METRES, 0)), cam);
+    if (!up) continue;
+    out.push({ cast: c.cast, c: s, r: Math.hypot((up[0] - s[0]) * 1080, (up[1] - s[1]) * 1920), dist: centre.distanceTo(cam.position) });
+  }
+  return out;
+}
+const onScreen = (d) => d.c[0] * 1080 + d.r > 0 && d.c[0] * 1080 - d.r < 1080 && d.c[1] * 1920 + d.r > 0 && d.c[1] * 1920 - d.r < 1920; // the face disc touches the frame
+
+test('Tick never occludes a character face, casts no lamp shadow, and is on screen in the lookout band', () => {
+  const g = spec.cards.find((c) => c.cast === 'guide');
+  assert.ok(g, 'Tick is in the looktest');
+  let checked = 0;
+  let seen = 0;
+  for (const f of frames) {
+    const shot = spec.shots[f.shot];
+    if (['dive', 'rise', 'whip', 'snap'].includes(shot.camera.preset)) continue;
+    const { cam, base, pts } = tickWorld(g, f);
+    const tc = toScreen(base, cam);
+    if (!tc || tc[0] < -0.2 || tc[0] > 1.2 || tc[1] < -0.2 || tc[1] > 1.2) continue;
+    const sp = pts.map((p) => toScreen(p, cam)).map((p) => (p ? [p[0] * 1080, p[1] * 1920] : null));
+    if (sp.some((p) => !p)) continue;
+    if (sp.some(([x, y]) => x > 0 && x < 1080 && y > 0 && y < 1920)) seen++;
+    for (const d of faceDiscs(f)) {
+      if (!onScreen(d)) continue;
+      checked++;
+      const fc = [d.c[0] * 1080, d.c[1] * 1920];
+      // Tick's silhouette as a polygon hull of its points: the face disc must stay clear of every point and of the face disc.
+      const tr = Math.max(...sp.slice(0, 16).map(([x, y]) => Math.hypot(x - tc[0] * 1080, y - tc[1] * 1920)));
+      const gap = Math.hypot(fc[0] - tc[0] * 1080, fc[1] - tc[1] * 1920) - tr - d.r;
+      const armGap = Math.min(...sp.slice(17).map(([x, y]) => Math.hypot(x - fc[0], y - fc[1]) - d.r));
+      assert.ok(gap > 0 && armGap > 0, `frame ${f.n}: Tick over ${d.cast}'s face (gap ${gap.toFixed(0)} px, arms ${armGap.toFixed(0)} px)`);
+    }
+  }
+  console.log(`Tick: on screen in ${seen} POV frames; ${checked} face checks`);
+  assert.ok(checked > 50 && seen > 100);
+  const tick = readFileSync(new URL('../engine/cast/tick.mjs', import.meta.url), 'utf8');
+  assert.match(tick, /card.castShadow = false/);
+  assert.ok(!/castShadow = true/.test(tick), 'Tick never casts a shadow-map shadow');
+});
+
+test('sound words: one at a time, never over a character face', () => {
+  let checked = 0;
+  for (const ev of spec.sfx) {
+    const svg = readFileSync(new URL(`../sfx-words/${ev.word}/v${pickVariant(spec.seed, ev)}.svg`, import.meta.url), 'utf8');
+    const [, w, h] = svg.match(/width="(\d+)" height="(\d+)"/);
+    const aspect = Number(w) / Number(h);
+    for (const other of spec.sfx) if (other !== ev) assert.ok(!frames.some((f) => sfxState(ev, f.n) && sfxState(other, f.n)), `${ev.word} and ${other.word} overlap in time`);
+    for (const f of frames) {
+      const s = sfxState(ev, f.n);
+      if (!s) continue;
+      const shot = spec.shots[f.shot];
+      const cam = camOf(f);
+      let centre;
+      if (shot.camera.object === ev.anchor) {
+        const p = heldObjectCamera(-HELD.tilt);
+        centre = new THREE.Vector3(0.05, p[1], p[2]).applyMatrix4(cam.matrixWorld);
+      } else centre = new THREE.Vector3(...f.spots[ev.anchor]);
+      centre.y += ev.lift ?? 0;
+      const q = sfxCorners(centre, cam.quaternion, ev.size ?? SFX_SIZE, aspect, s.scale, sfxTilt(spec.seed, ev)).map((p) => toScreen(p, cam));
+      if (q.some((p) => !p)) continue;
+      const xs = q.map((p) => p[0] * 1080);
+      const ys = q.map((p) => p[1] * 1920);
+      for (const d of faceDiscs(f)) {
+        if (!onScreen(d)) continue;
+        checked++;
+        const fc = [d.c[0] * 1080, d.c[1] * 1920];
+        const dx = Math.max(Math.min(...xs) - fc[0], 0, fc[0] - Math.max(...xs));
+        const dy = Math.max(Math.min(...ys) - fc[1], 0, fc[1] - Math.max(...ys));
+        assert.ok(Math.hypot(dx, dy) > d.r, `frame ${f.n}: ${ev.word} covers ${d.cast}'s face`);
+      }
+    }
+  }
+  console.log(`sound words: ${checked} face checks`);
+});
+
 test('framing rule: in POV shots character cards never cover the centre 40% of the frame width, except in glance shots aimed at that character', () => {
   let checked = 0;
-  const worst = { fleet: [9, -9], lee: [9, -9] };
+  const worst = { fleet: [9, -9], lee: [9, -9], guide: [9, -9] };
   for (const f of frames) {
     const shot = spec.shots[f.shot];
     // Tolerance 0.01 of the width (10 px): the silhouette bounds are conservative to about that much. The aerial hook is not a POV shot; a whip (8 frames, smeared) and the snap (vFOV 20, cards out of frame) are exempt.
@@ -325,7 +454,7 @@ test('framing rule: in POV shots character cards never cover the centre 40% of t
       assert.ok(span.hi <= 0.3 + 0.01 || span.lo >= 0.7 - 0.01, `frame ${f.n}: ${c.cast} spans ${span.lo.toFixed(3)}-${span.hi.toFixed(3)} of the width (limiting point ${span.loPt?.map((v) => v.toFixed(2))} D; spot-eye ${[0, 1, 2].map((i) => (f.spots[c.anchor][i] - f.pos[i]).toFixed(2))}; fov ${f.fov})`);
     }
   }
-  console.log(`centre-40% rule: ${checked} card-frames checked; fleet spans ${worst.fleet.map((v) => v.toFixed(2)).join('-')}, lee ${worst.lee.map((v) => v.toFixed(2)).join('-')}`);
+  console.log(`centre-40% rule: ${checked} card-frames checked; fleet spans ${worst.fleet.map((v) => v.toFixed(2)).join('-')}, lee ${worst.lee.map((v) => v.toFixed(2)).join('-')}, Tick ${worst.guide.map((v) => v.toFixed(2)).join('-')}`);
   assert.ok(checked > 400);
 });
 

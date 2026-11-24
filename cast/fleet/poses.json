@@ -46,12 +46,12 @@
   },
   "squint": {
     "armL": [
-      8,
-      16
-    ],
-    "armR": [
       50,
       115
+    ],
+    "armR": [
+      8,
+      16
     ],
     "legL": [
       3,
@@ -180,5 +180,29 @@
     "eyes": "squint",
     "brows": "frown",
     "mouth": "shout"
+  },
+  "bell_ring": {
+    "armL": [
+      160,
+      12
+    ],
+    "armR": [
+      10,
+      14
+    ],
+    "legL": [
+      5,
+      0
+    ],
+    "legR": [
+      -4,
+      4
+    ],
+    "tilt": -8,
+    "lean": -3,
+    "shake": 2.5,
+    "eyes": "wide",
+    "brows": "raised",
+    "mouth": "o"
   }
 }

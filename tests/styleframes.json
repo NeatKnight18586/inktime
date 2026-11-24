@@ -25,7 +25,7 @@
     },
     {
       "id": "F2_lookout",
-      "title": "Lookout at 2 s: the hands and the deck lamps are the brightest; Fleet dark at the left (focus: hands and deck lamps)",
+      "title": "Lookout at 2 s: the hands and the deck lamps are the brightest; Fleet dark at the left, Tick floating above his head line (focus: hands and deck lamps)",
       "at": 48,
       "camera": {
         "anchor": "cam_lookout",
@@ -42,6 +42,12 @@
           "blink": true,
           "light": "nest",
           "facing": 180
+        },
+        {
+          "cast": "guide",
+          "pose": "idle",
+          "anchor": "guide_spot",
+          "blink": true
         }
       ],
       "focus": [
@@ -57,6 +63,16 @@
           0.88,
           0.8
         ]
+      ],
+      "countdown": [
+        {
+          "at": 0,
+          "value": 40
+        },
+        {
+          "at": 456,
+          "value": 20
+        }
       ]
     },
     {
@@ -133,6 +149,107 @@
         [
           0.62,
           0.5
+        ]
+      ]
+    },
+    {
+      "id": "F5_tick_day",
+      "title": "Tick close-up in day light: the four expressions top to bottom (calm 10:10, alert 12:00, sad 8:20, worried 9:15), countdown ring at 34/40 (focus: the faces)",
+      "at": 30,
+      "look": "day",
+      "set": "plain_deck",
+      "camera": {
+        "anchor": "cam_tick",
+        "preset": "held",
+        "held": false
+      },
+      "cards": [
+        {
+          "cast": "guide",
+          "pose": "idle",
+          "face": "calm",
+          "anchor": "guide_spot",
+          "offset": [
+            0,
+            0.76,
+            0
+          ],
+          "facing": 20,
+          "blink": false
+        },
+        {
+          "cast": "guide",
+          "pose": "idle",
+          "face": "alert",
+          "anchor": "guide_spot",
+          "offset": [
+            0,
+            0.25,
+            0
+          ],
+          "facing": 20,
+          "blink": false
+        },
+        {
+          "cast": "guide",
+          "pose": "idle",
+          "face": "sad",
+          "anchor": "guide_spot",
+          "offset": [
+            0,
+            -0.26,
+            0
+          ],
+          "facing": 20,
+          "blink": false
+        },
+        {
+          "cast": "guide",
+          "pose": "idle",
+          "face": "worried",
+          "anchor": "guide_spot",
+          "offset": [
+            0,
+            -0.77,
+            0
+          ],
+          "facing": 20,
+          "blink": false
+        }
+      ],
+      "countdown": [
+        {
+          "at": 0,
+          "value": 40
+        },
+        {
+          "at": 100,
+          "value": 20
+        }
+      ],
+      "skip": [
+        "p5",
+        "dark40",
+        "p95",
+        "lumaMean",
+        "sat"
+      ],
+      "focus": [
+        [
+          0.5,
+          0.2
+        ],
+        [
+          0.5,
+          0.4
+        ],
+        [
+          0.5,
+          0.6
+        ],
+        [
+          0.5,
+          0.8
         ]
       ]
     }
