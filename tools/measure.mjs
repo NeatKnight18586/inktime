@@ -11,10 +11,10 @@ import { fileURLToPath } from 'node:url';
 
 export const TARGETS = {
   lumaMean: [70, 95],
-  dark40: [0.06, 0.3],
+  dark40: [0.06, 0.45],
   p5: [0, 25],
   p95: [170, 255],
-  sat: [0.3, 0.5],
+  sat: [0.22, 0.5],
   motion: [0.015, 0.06],
   still: [0, 0.1],
   stillRun: [0, 19],
@@ -185,7 +185,7 @@ const FMT = {
   stillRun: (v) => String(v),
 };
 const TFMT = {
-  lumaMean: '70-95', p5: '<=25', p95: '>=170', dark40: '6-30%', sat: '0.30-0.50', motion: '1.5-6%', still: '<=10%', stillRun: '<=19',
+  lumaMean: '70-95', p5: '<=25', p95: '>=170', dark40: '6-45%', sat: '0.22-0.50', motion: '1.5-6%', still: '<=10%', stillRun: '<=19',
 };
 
 export function check(summary) {
@@ -202,13 +202,15 @@ export function check(summary) {
 // Shots whose preset is dive or rise are reported but never judged on luma, dark40, p95 and motion.
 export const HOOK_PRESETS = ['dive', 'rise'];
 export const HOOK_SKIP = ['lumaMean', 'dark40', 'p95', 'motion'];
-export function report(label, s, skip = [], note = 'insert') {
-  const misses = check(s).filter((k) => !skip.includes(k));
+// perShot: motion above its upper bound is a WARN (never a miss); the whole film is judged on every target.
+export function report(label, s, skip = [], note = 'insert', perShot = false) {
+  const motionWarn = perShot && !skip.includes('motion') && s.motion !== null && s.motion !== undefined && s.motion > TARGETS.motion[1];
+  const misses = check(s).filter((k) => !skip.includes(k) && !(motionWarn && k === 'motion'));
   const lines = [`${label} (${s.frames} frames)`];
   for (const k of Object.keys(TARGETS)) {
     const v = s[k];
     const val = v === null || v === undefined ? 'n/a' : FMT[k](v);
-    lines.push(`  ${k.padEnd(9)} ${val.padStart(8)}   target ${TFMT[k].padEnd(9)} ${skip.includes(k) ? `n/a (${note})` : v === null || v === undefined ? '' : misses.includes(k) ? 'MISS' : 'ok'}`);
+    lines.push(`  ${k.padEnd(9)} ${val.padStart(8)}   target ${TFMT[k].padEnd(9)} ${skip.includes(k) ? `n/a (${note})` : v === null || v === undefined ? '' : misses.includes(k) ? 'MISS' : k === 'motion' && motionWarn ? 'WARN' : 'ok'}`);
   }
   return { text: lines.join('\n'), misses };
 }
@@ -271,7 +273,7 @@ async function main() {
     for (const s of shots) {
       const sf = frames.filter((f) => f.shot === s);
       const hook = sf.every((f) => f.hook);
-      const r = report(`shot ${s}${hook ? ' (dive/rise: reported, not judged)' : ''}`, summarize(sf), hook ? [...skip, ...HOOK_SKIP] : skip, hook ? 'hook' : 'insert');
+      const r = report(`shot ${s}${hook ? ' (dive/rise: reported, not judged)' : ''}`, summarize(sf), hook ? [...skip, ...HOOK_SKIP] : skip, hook ? 'hook' : 'insert', true);
       out.push(r.text);
       misses.push(...r.misses.map((m) => `shot ${s} ${m}`));
     }

@@ -71,7 +71,7 @@
         "preset": "glance",
         "from": "base",
         "to": "sea",
-        "fov": 84,
+        "fov": 90,
         "held": false
       }
     },
@@ -82,7 +82,7 @@
         "preset": "whip",
         "from": "sea",
         "to": "iceberg_dark",
-        "fov0": 84
+        "fov0": 90
       },
       "show": [
         "iceberg_rim",
@@ -95,7 +95,7 @@
         "anchor": "cam_lookout",
         "preset": "snap",
         "to": "iceberg_dark",
-        "fov0": 84
+        "fov0": 90
       },
       "show": [
         "iceberg_rim",
@@ -150,12 +150,12 @@
         },
         {
           "at": 216,
-          "pose": "scoff"
+          "pose": "idle"
         }
       ],
       "anchor": "lee_spot",
       "blink": true,
-      "facing": -75,
+      "facing": -65,
       "speak": [
         [
           152,

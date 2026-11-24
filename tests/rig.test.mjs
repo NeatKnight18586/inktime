@@ -34,7 +34,8 @@ function walk() {
     scene.updateMatrixWorld(true);
     const view = sc.pose(n);
     update(n, { camera, fps: FPS, shot });
-    frames.push({ n, shot: shot.index, preset: view.preset, pos: camera.position.toArray(), quat: camera.quaternion.toArray(), fov: camera.fov, smear: view.smear, panini: view.panini });
+    const spots = Object.fromEntries(['fleet_spot', 'lee_spot', 'cam_lookout'].map((k) => [k, kit.anchors[k].getWorldPosition(new THREE.Vector3()).toArray()]));
+    frames.push({ n, spots, shot: shot.index, preset: view.preset, pos: camera.position.toArray(), quat: camera.quaternion.toArray(), fov: camera.fov, smear: view.smear, panini: view.panini });
   }
   void kitMod;
   return frames;
@@ -52,7 +53,7 @@ test('walkthrough: 480 frames, shots as authored', () => {
   const at = (s) => shotAt(spec, Math.round(s * FPS)).camera.preset;
   assert.deepEqual([0, 3, 6, 9, 12, 15, 15.4, 16, 19].map(at), ['dive', 'lookdown', 'glance', 'lookup', 'glance', 'whip', 'snap', 'held', 'rise']);
   assert.deepEqual(spec.transitions, [{ type: 'blink', at: 284 }]);
-  assert.equal(spec.shots[4].camera.fov, 84);
+  assert.equal(spec.shots[4].camera.fov, 90);
   assert.equal(spec.shots[2].camera.fov, 52);
   assert.equal(spec.shots[2].hands, 'rail_grip');
   assert.equal(spec.shots[7].hands, 'padlock_hold');
@@ -130,11 +131,10 @@ test('glance 0.35-0.6 s, clamped to 90 deg/s with a 2-3 frame settle; lookup/loo
   assert.ok(up.target[1] > BASE.eye[1] + 50, 'tilts up');
 });
 
-test('kneel 0.9 m, held 0.45 m at 12 deg down, snap to vFOV 20 in 3 frames, witness 84, whip 8 frames with one smear frame', () => {
+test('kneel 0.9 m, held (object comes to you: eye stays, 12 deg down), snap to vFOV 20 in 3 frames, witness 84, whip 8 frames with one smear frame', () => {
   assert.ok(Math.abs(at('kneel', {}, 2).pos[1] - (BASE.eye[1] - EYE_HEIGHT + 0.9)) < 1e-9);
-  const o = [-0.56, 33.31, -100.51];
-  const h = at('held', { object: o }, 0);
-  assert.ok(Math.abs(Math.hypot(h.pos[0] - o[0], h.pos[2] - o[2]) - 0.45) < 1e-9);
+  const h = at('held', { object: [0, 0, 0] }, 0);
+  assert.deepEqual(h.pos, BASE.eye, 'held: the eye stays standing');
   const d = [h.target[0] - h.pos[0], h.target[1] - h.pos[1], h.target[2] - h.pos[2]];
   assert.ok(Math.abs((Math.atan2(d[1], Math.hypot(d[0], d[2])) * 180) / Math.PI + 12) < 1e-6, '12 deg down-tilt');
   assert.equal(at('snap', { toLook: { yaw: 0, pitch: 0 } }, 3 / FPS).fov, 20);
@@ -206,4 +206,143 @@ test('measure: dive and rise shots are reported but never judged on luma, dark40
   assert.deepEqual(r.misses, []);
   assert.match(r.text, /n\/a \(hook\)/);
   assert.ok(report('shot 1', s).misses.includes('p95'));
+});
+
+// ---- Fix 2.1: blocking, lens, framing rule, held object
+import { LOOKOUT, FLEET, LEE, BLOCK, SHIP } from '../kits/sets/titanic_crowsnest.mjs';
+import { paniniStrength, paniniNdc } from '../engine/post/panini.mjs';
+import { HELD, heldObjectCamera } from '../engine/rig/presets.mjs';
+import { figure, D_METRES, poseAt, faceTurn } from '../engine/cast/stickmath.mjs';
+
+const DEGR = Math.PI / 180;
+const poseSets = { fleet: JSON.parse(readFileSync(new URL('../cast/fleet/poses.json', import.meta.url))), lee: JSON.parse(readFileSync(new URL('../cast/lee/poses.json', import.meta.url))) };
+
+test('lens: POV default vFOV 90 (about 59 deg horizontal in 9:16), Panini ramp 0 at 78, 0.5 at 90, 0.7 at 100', () => {
+  assert.equal(LOOKOUT.fov, 90);
+  const hfov = (2 * Math.atan(Math.tan(45 * DEGR) * (1080 / 1920))) / DEGR;
+  assert.ok(Math.abs(hfov - 58.7) < 0.1, `h fov ${hfov}`);
+  assert.equal(paniniStrength(78), 0);
+  assert.equal(paniniStrength(52), 0);
+  assert.equal(paniniStrength(90), 0.5);
+  assert.equal(paniniStrength(100), 0.7);
+  assert.equal(paniniStrength(84), 0.25);
+  assert.equal(paniniStrength(110), 0.7);
+  const [x, y] = paniniNdc(0.8, 0.5, 90, 1080 / 1920);
+  assert.ok(Math.abs(x) <= 1 && Math.abs(y) <= 1);
+  assert.deepEqual(paniniNdc(0.3, 0.2, 52, 1080 / 1920), [0.3, 0.2], 'no Panini at inserts');
+  assert.equal(frames[72].fov, 90, 'the lookdown starts on the default lens');
+  assert.ok(Math.abs(frames[71].fov - 90) < 0.6, `the dive lands at vFOV 90 (${frames[71].fov})`);
+  assert.equal(frames[16 * 24 - 1].fov, 20, 'the snap stays at 20');
+  assert.equal(frames[8 * 24].fov, 52, 'the Lee glance insert stays at 52');
+});
+
+test("crow's nest blocking: eye 0.52 m from the rear wall and 0.2 m clear of the mast; Fleet left and Lee right against the front rim, 1.1 m, 35 deg", () => {
+  const scene = new THREE.Scene();
+  scene.userData.palette = makePalette(look, 'titanic_night');
+  const { anchors } = build(scene, rng(hashSeed('looktest:set')));
+  scene.updateMatrixWorld(true);
+  const eye = anchors.cam_lookout.position;
+  const rearWall = SHIP.basketZ + SHIP.basketR - 0.04;
+  assert.ok(Math.abs(rearWall - eye.z - 0.52) < 1e-9, `eye ${(rearWall - eye.z).toFixed(3)} m from the rear inner wall`);
+  assert.ok(Math.abs(eye.z - (SHIP.basketZ + 0.34)) < 1e-9);
+  const mastR = 0.3 - ((0.3 - 0.17) * (eye.y - SHIP.forecastleY)) / (SHIP.nestFloorY + 8 - SHIP.forecastleY);
+  assert.ok(SHIP.mastZ - mastR - eye.z >= 0.2 - 1e-3, 'mast clearance 0.2 m');
+  for (const [name, sign] of [['fleet_spot', -1], ['lee_spot', 1]]) {
+    const p = anchors[name].position;
+    const dx = p.x - eye.x;
+    const dz = eye.z - p.z;
+    assert.ok(Math.abs(Math.hypot(dx, dz) - 1.1) < 1e-9, `${name} ${Math.hypot(dx, dz)} m`);
+    assert.ok(Math.abs(Math.atan2(dx, dz) / DEGR - sign * 35) < 1e-6, `${name} bearing`);
+    const r = Math.hypot(p.x, p.z - SHIP.basketZ);
+    assert.ok(r > SHIP.basketR - 0.1 && r < SHIP.basketR - 0.04, `${name} against the front rim (radius ${r.toFixed(3)})`);
+  }
+  assert.equal(FLEET.x, -LEE.x);
+  assert.equal(BLOCK.dist, 1.1);
+});
+
+// The card figure's screen span (0..1 of the frame width, Panini applied) for a card at frame f; null if it is behind the camera.
+function cardSpan(cardSpec, f) {
+  const track = cardSpec.track ?? [{ at: 0, pose: cardSpec.pose }];
+  const pose = poseAt(poseSets[cardSpec.cast], track, f.n).pose;
+  const base = new THREE.Vector3(...f.spots[cardSpec.anchor]);
+  const cam = new THREE.PerspectiveCamera(f.fov, 1080 / 1920, 0.05, 9000);
+  cam.position.fromArray(f.pos);
+  cam.quaternion.fromArray(f.quat);
+  cam.updateMatrixWorld(true);
+  const t = faceTurn(cardSpec.facing * DEGR, base, cam.position);
+  const fig = figure(pose, 0, Math.cos(t.angle));
+  const pts = [];
+  const add = (p, r) => pts.push([p.x - r, p.y], [p.x + r, p.y], [p.x, p.y - r], [p.x, p.y + r]);
+  for (const k of ['armL', 'armR']) for (const j of Object.values(fig[k])) add(j, 0.1);
+  for (const k of ['legL', 'legR']) for (const j of Object.values(fig[k])) add(j, 0.17);
+  add(fig.headC, cardSpec.cast === 'fleet' ? 0.78 : 0.56); // head, hat (the peaked cap's brim reaches further)
+  for (const a of fig.bodyAxis) add(a, 0.44 + 0.02);
+  const toCam = new THREE.Vector3(cam.position.x - base.x, 0, cam.position.z - base.z).normalize();
+  const right = new THREE.Vector3(toCam.z, 0, -toCam.x);
+  let lo = 2;
+  let hi = -1;
+  let loPt = null;
+  for (const [x, y] of pts) {
+    const p = base.clone().addScaledVector(right, x * D_METRES);
+    p.y += y * D_METRES;
+    if (p.clone().applyMatrix4(cam.matrixWorldInverse).z >= -0.05) continue;
+    const q = p.clone().project(cam);
+    const [nx] = paniniNdc(q.x, q.y, cam.fov, cam.aspect);
+    if ((nx + 1) / 2 < lo) loPt = [x, y];
+    lo = Math.min(lo, (nx + 1) / 2);
+    hi = Math.max(hi, (nx + 1) / 2);
+  }
+  return { lo, hi, loPt };
+}
+
+test('framing rule: in POV shots character cards never cover the centre 40% of the frame width, except in glance shots aimed at that character', () => {
+  let checked = 0;
+  const worst = { fleet: [9, -9], lee: [9, -9] };
+  for (const f of frames) {
+    const shot = spec.shots[f.shot];
+    // The aerial hook is not a POV shot; a whip (8 frames, smeared) and the snap (vFOV 20, cards out of frame) are exempt.
+    if (['dive', 'rise', 'whip', 'snap'].includes(shot.camera.preset)) continue;
+    for (const c of spec.cards) {
+      // Exempt: shots that glance to (or tilt from) this character.
+      if ([shot.camera.to, shot.camera.from].some((a) => (typeof a === 'string' ? a : a?.anchor) === c.anchor)) continue;
+      const span = cardSpan(c, f);
+      checked++;
+      if (span.hi < span.lo) continue;
+      worst[c.cast] = [Math.min(worst[c.cast][0], span.lo), Math.max(worst[c.cast][1], span.hi)];
+      assert.ok(span.hi <= 0.3 || span.lo >= 0.7, `frame ${f.n}: ${c.cast} spans ${span.lo.toFixed(3)}-${span.hi.toFixed(3)} of the width (limiting point ${span.loPt?.map((v) => v.toFixed(2))} D; spot-eye ${[0, 1, 2].map((i) => (f.spots[c.anchor][i] - f.pos[i]).toFixed(2))}; fov ${f.fov})`);
+    }
+  }
+  console.log(`centre-40% rule: ${checked} card-frames checked; fleet spans ${worst.fleet.map((v) => v.toFixed(2)).join('-')}, lee ${worst.lee.map((v) => v.toFixed(2)).join('-')}`);
+  assert.ok(checked > 400);
+});
+
+test('held shots: the object comes to you (eye stays at 1.62 m, object 0.45 m in front and 0.25 m below the eye, camera 12 deg down)', () => {
+  assert.deepEqual([HELD.forward, HELD.down, HELD.tilt], [0.45, 0.25, 12]);
+  const held = frames.filter((f) => spec.shots[f.shot].camera.preset === 'held');
+  assert.equal(held.length, 72);
+  for (const f of held) {
+    assert.ok(Math.abs(f.pos[1] - f.spots.cam_lookout[1]) <= 0.005, 'the eye stays standing at the lookout eye height');
+    assert.ok(Math.hypot(f.pos[0] - f.spots.cam_lookout[0], f.pos[2] - f.spots.cam_lookout[2]) < 0.005, 'the camera does not move toward the object');
+  }
+  const v = new THREE.Vector3(...heldObjectCamera(-12)).applyQuaternion(new THREE.Quaternion().setFromEuler(new THREE.Euler(-12 * DEGR, 0, 0, 'YXZ')));
+  assert.ok(Math.abs(v.y + 0.25) < 1e-9 && Math.abs(Math.hypot(v.x, v.z) - 0.45) < 1e-9, `object at ${v.toArray().map((x) => x.toFixed(3))}`);
+});
+
+test('solid characters: cutout material, prepass occluder, hands in the same prepass (the pixel test runs on the farm: tools/solidtest.mjs)', async () => {
+  const { LAYERS, COLOUR_LAYERS } = await import('../engine/look/layers.mjs');
+  const card = readFileSync(new URL('../engine/rig/card.mjs', import.meta.url), 'utf8');
+  assert.match(card, /transparent: false, alphaTest: 0\.5, depthWrite: true/);
+  assert.match(card, /card\.layers\.set\(LAYERS\.CARD_BODY\)/);
+  assert.match(card, /texture2D\(map, vUv\)\.a < 0\.5\) discard/, 'the prepass material is the same cutout');
+  assert.ok(COLOUR_LAYERS.includes(LAYERS.CARD_BODY));
+  const main = readFileSync(new URL('../engine/main.mjs', import.meta.url), 'utf8');
+  const pre = main.indexOf('c.prepass(true)');
+  assert.ok(pre > main.indexOf('camera.layers.set(LAYERS.SOLID)') && pre < main.indexOf('camera.layers.set(LAYERS.HULL)'), 'cards render in the depth/normal prepass before the hull ink');
+  const hands = readFileSync(new URL('../engine/rig/hands3d.mjs', import.meta.url), 'utf8');
+  assert.match(hands, /skinned\.layers\.set\(LAYERS\.SOLID\)/);
+  assert.match(hands, /cuff\.layers\.set\(LAYERS\.SOLID\)/);
+  assert.match(hands, /hull\.layers\.set\(LAYERS\.HULL\)/);
+  const set = JSON.parse(readFileSync(new URL('./solid.json', import.meta.url)));
+  assert.equal(set.set, 'solid_test');
+  assert.equal(set.cards[0].cast, 'fleet');
 });

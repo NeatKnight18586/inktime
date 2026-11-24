@@ -132,7 +132,7 @@ export function poseHook(camera, hook, m, n0, shotFrames, fps, shipPose, reverse
   const dir = lat.length() > 0.2 * speed ? lat.normalize() : new THREE.Vector2(Math.cos(0.62), Math.sin(0.62));
   const amount = Math.min(1, Math.max(0, (speed - 40) / 260));
   const px = HOOK_STREAK_PX * amount * amount;
-  return { fov: v[6], panini: v[6] >= 80, dolly: 0, streak: [dir.x * px, dir.y * px], speed };
+  return { fov: v[6], panini: v[6] >= 78, dolly: 0, streak: [dir.x * px, dir.y * px], speed };
 }
 export const HOOK_STREAK_PX = 22;
 
@@ -182,7 +182,7 @@ export function poseCamera(camera, cam, anchors, m, fps, shotFrames = m + 1, opt
     camera.updateProjectionMatrix();
   }
   camera.updateMatrixWorld(true);
-  return { fov, panini: cam.panini ?? ud.panini ?? fov >= 80, dolly, streak: [0, 0] };
+  return { fov, panini: cam.panini ?? ud.panini ?? fov >= 78, dolly, streak: [0, 0] };
 }
 
 // Per-frame camera pose for out/cams.json.

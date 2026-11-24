@@ -6,6 +6,16 @@
 export const DEG = Math.PI / 180;
 export const MAX_ROT = 90; // deg/s outside whip, dive and rise
 export const EYE_HEIGHT = 1.62;
+// Held shots: object 0.45 m in front of the eye, 0.25 m below it, camera 12 deg down.
+export const HELD = { forward: 0.45, down: 0.25, tilt: 12 };
+// The held object in the camera's own space for a camera pitched `pitchDeg` (negative = down): the offset is fixed in the
+// eye's yaw frame (forward, down), so it is rotated into the tilted camera.
+export function heldObjectCamera(pitchDeg = -HELD.tilt) {
+  const a = -pitchDeg * DEG; // undo the camera's pitch
+  const y = -HELD.down;
+  const z = -HELD.forward;
+  return [0, y * Math.cos(a) - z * Math.sin(a), y * Math.sin(a) + z * Math.cos(a)];
+}
 export const SETTLE_FRAMES = 3;
 const SETTLE_AMP = 0.04;
 
@@ -82,15 +92,11 @@ export const PRESETS = {
     pos[1] = p.eye[1] + (floor + 0.9 - p.eye[1]) * smooth(t / 0.6);
     return out(p, pos, baseLook(p), p.fov0, 0, { rest: t > 0.6 });
   },
-  // Held: the camera sits 0.45 m from the object, tilted 12 deg down at it; FOV push 1 deg/s (the base layer adds it).
+  // Held: the object comes to you. The eye stays standing (1.62 m); the camera is tilted 12 deg down; the held object is
+  // lifted to HELD.forward m in front and HELD.down m below the eye (see heldObject) and moves with the hands. FOV push
+  // 1 deg/s (the base layer adds it).
   held(p, t) {
-    if (!p.object) return out(p, [...p.eye], baseLook(p), p.fov0, 0, { rest: true });
-    const o = p.object;
-    const back = [o[0] - p.eye[0], o[2] - p.eye[2]];
-    const hl = Math.hypot(back[0], back[1]) || 1;
-    const pos = [o[0] - (back[0] / hl) * 0.45, o[1] + 0.45 * Math.tan(12 * DEG), o[2] - (back[1] / hl) * 0.45];
-    const look = dirTo(pos, o);
-    return out(p, pos, { yaw: look.yaw, pitch: -12 }, p.fov0, 0, { rest: true });
+    return out(p, [...p.eye], { yaw: p.yaw0, pitch: p.object ? -HELD.tilt : p.pitch0 }, p.fov0, 0, { rest: true });
   },
   // Snap: a reveal zoom to vFOV 20 over 3 frames (hard in, no settle), aimed at the target.
   snap(p, t) {

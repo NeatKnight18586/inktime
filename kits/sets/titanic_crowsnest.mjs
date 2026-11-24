@@ -24,7 +24,9 @@ SHIP.basketZ = SHIP.mastZ - 0.75;
 // Masthead lamp: above and behind the nest, a narrow cone aimed forward-down at the forecastle deck. The cone is
 // narrower than the angle to the basket (>= 27 deg off axis), so the basket interior never receives it.
 export const MASTHEAD = { aft: 0.25, aimZ: -120, aimY: 18, angle: 20 * (Math.PI / 180), penumbra: 0.05, range: 36 };
-export const LOOKOUT = { back: 0.65, pitch: -16, fov: 72, minRim: 0.45 };
+// Fix 2.1: the eye sits at the rear of the basket on the centreline, 0.34 m aft of the basket centre (0.52 m from the rear inner
+// wall, 0.2 m clear of the foremast); back = distance behind the inner face of the front rim. POV lens vFOV 90.
+export const LOOKOUT = { back: 1.2, pitch: -16, fov: 90, minRim: 0.45 };
 // The ship steams ahead (-Z) at 22 knots; everything aboard (and the camera anchors) rides ship_root.
 export const SHIP_SPEED = 11.3; // spec 0.75 / -14 showed 11 props; adjusted within the allowed range
 // Fix 1b.3 scale facts: the iceberg is 18 m tall; 850 m from the bow at frame 0, 457 m at the money shot; the ship makes 11.3 m/s.
@@ -36,15 +38,12 @@ export const PSI0 = 42 * DEG;
 // so the berg sits bottom-left; aimY is the aim point's height (below the sea tilts the frame so the berg rises into the bottom 30%).
 export const AERIAL = { back: 55, up: 6, fov: 30, side: 18.5, aimY: -16 };
 // The dive (hook): telephoto, then a dolly-zoom FPV dive into the nest. At most 3 s; the rise is its exact reverse.
-export const HOOK = { fov: [30, 84, 72], landHold: 2 };
+export const HOOK = { fov: [30, 96, 90], landHold: 2 };
+// Characters stand against the front rim, 1.1 m from the eye, 35 deg off forward: Fleet left, Lee right.
+export const BLOCK = { dist: 1.1, deg: 35 };
+export const LEE = { forward: BLOCK.dist * Math.cos(BLOCK.deg * (Math.PI / 180)), x: BLOCK.dist * Math.sin(BLOCK.deg * (Math.PI / 180)) };
 // Fleet card position relative to the cam_lookout eye (metres): left and forward.
-// card: the stick card in units of 0.01 D (3.2 D wide, 4.1 D tall, feet 0.2 D above the bottom). The edge pose (back three-quarter,
-// leaning right, face on the shadow side) puts its lit features (cap brim tip, shoulder edge, scarf tail) in the rightmost
-// 0.25 D of the silhouette (right = the silhouette's right edge), which is what the left 12-20% of frame must show.
-// Lee: 30 deg right of the lookout's forward (0.5 m ahead of the eye, 0.29 m right), inside the basket.
-export const LEE = { forward: 0.5 };
-export const FLEET = { x: -0.4, forward: 0.4, pose: 'edge',
-  card: {width: 320, height: 410, brim: [220, 250, 60, 75], shoulder: [239, 261, 150, 190], scarf: [239, 255, 154, 204], right: 261} };
+export const FLEET = { x: -LEE.x, forward: LEE.forward, pose: 'edge' };
 
 // ---------------------------------------------------------------- ship path
 // Heading psi(t) = PSI0 (1 - t/T)^2 (rotation about +Y; forward = (-sin psi, -cos psi)), straight and dead ahead from T.
@@ -1178,8 +1177,8 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   const stayRise = (topY - 0.6 - (SHIP.forecastleY + 0.6)) / (SHIP.mastZ - (SHIP.bowZ + 0.8)); // metres up per metre aft
   const stayAhead = ((topY - 0.6 + stayRise * (eye.z - SHIP.mastZ)) - eye.y) / (Math.tan(60 * DEG) + stayRise);
   anchorAt(g, anchors, 'forestay_top', new THREE.Vector3(0, eye.y + stayAhead * Math.tan(60 * DEG), eye.z - stayAhead));
-  // Lee stands 30 deg right of the lookout's forward, inside the basket (Fleet is on the left).
-  anchorAt(g, anchors, 'lee_spot', new THREE.Vector3(eye.x + LEE.forward * Math.tan(30 * DEG), F, eye.z - LEE.forward));
+  // Lee stands 35 deg right of the lookout's forward against the front rim, 1.1 m from the eye (Fleet is on the left).
+  anchorAt(g, anchors, 'lee_spot', new THREE.Vector3(eye.x + LEE.x, F, eye.z - LEE.forward));
   // Fleet stands front-left so that from cam_lookout his card fills the left FLEET.cover of frame width.
   anchorAt(g, anchors, 'fleet_spot', new THREE.Vector3(eye.x + FLEET.x, F, eye.z - FLEET.forward));
   anchorAt(g, anchors, 'guide_spot', new THREE.Vector3(-(R - 0.12), F + 1.42, bz - 0.1));

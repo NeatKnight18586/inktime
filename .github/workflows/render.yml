@@ -251,13 +251,13 @@ jobs:
         run: |
           D=out/styleframes
           PAIRS=""
-          for f in $D/*.png $D/*.measure.txt $D/contact.jpg $D/render.json $D/critique.md $D/urls.txt; do PAIRS="$PAIRS $f=$(basename $f)"; done
+          for f in $D/*.png $D/*.measure.txt $D/contact.jpg $D/render.json $D/critique.md $D/urls.txt $D/solid.txt; do PAIRS="$PAIRS $f=$(basename $f)"; done
           node tools/publish-renders.mjs styleframes $PAIRS
       - name: Commit review files
         run: |
           D=out/styleframes
           mkdir -p review/styleframes
-          cp $D/*.measure.txt $D/contact.jpg $D/notan.png $D/render.json $D/critique.md $D/urls.txt review/styleframes/
+          cp $D/*.measure.txt $D/contact.jpg $D/notan.png $D/render.json $D/critique.md $D/urls.txt $D/solid.txt review/styleframes/
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add review/styleframes

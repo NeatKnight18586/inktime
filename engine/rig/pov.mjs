@@ -10,7 +10,8 @@ export const NO_CLAMP = new Set(['whip', 'dive', 'rise']);
 // Resolve a look spec: an anchor name (+ optional lift in metres), 'base' (the anchor's own look) or {yaw, pitch}.
 function look(spec, ctx, pos, base) {
   if (spec === undefined || spec === null || spec === 'base') return base;
-  if (typeof spec === 'object' && spec.yaw !== undefined) return { yaw: spec.yaw, pitch: spec.pitch };
+  // A literal look is relative to the anchor's own yaw (the ship's frame), so {yaw: 0} means straight ahead of the bow.
+  if (typeof spec === 'object' && spec.yaw !== undefined) return { yaw: base.yaw + spec.yaw, pitch: spec.pitch };
   const name = typeof spec === 'string' ? spec : spec.anchor;
   const p = ctx.point(name);
   const lift = typeof spec === 'object' ? spec.lift ?? 0 : 0;
@@ -55,7 +56,7 @@ export function povState(cam, m, ctx) {
   const r = fn(p, t);
   if (r.hook) {
     const h = r.exact;
-    return { pos: r.pos, yaw: h.yaw, pitch: h.pitch, roll: h.roll, fov: h.fov, panini: h.panini ?? h.fov >= 80, streak: h.streak ?? [0, 0], smear: false, rest: false, preset, hook: true };
+    return { pos: r.pos, yaw: h.yaw, pitch: h.pitch, roll: h.roll, fov: h.fov, panini: h.panini ?? h.fov >= 78, streak: h.streak ?? [0, 0], smear: false, rest: false, preset, hook: true };
   }
   const M = { ...BASE_MOTION, dolly: DOLLY_PRESETS[preset] ?? 0, ...(cam.motion ?? {}) };
   const pos = [...r.pos];
@@ -75,7 +76,7 @@ export function povState(cam, m, ctx) {
     pitch: d.pitch + M.breathPitch * breath,
     roll: r.roll,
     fov,
-    panini: cam.panini ?? fov >= 80,
+    panini: cam.panini ?? fov >= 78,
     streak: r.streak ?? [0, 0],
     smear: !!r.smear,
     rest: !!r.rest && preset !== 'walk',
