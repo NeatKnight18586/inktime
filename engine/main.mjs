@@ -8,7 +8,8 @@ import { LAYERS, COLOUR_LAYERS } from './look/layers.mjs';
 import { misregPass } from './post/misreg.mjs';
 import { edgesPass } from './post/edges.mjs';
 import { grainPass } from './post/grain.mjs';
-import { poseCamera } from './rig/camera.mjs';
+import { paniniPass } from './post/panini.mjs';
+import { poseCamera, shotAt, totalFrames } from './rig/camera.mjs';
 import { makeCard } from './rig/card.mjs';
 import { rng, hashSeed } from '../tools/rng.mjs';
 
@@ -58,7 +59,8 @@ async function load(scenePath) {
   const cards = [];
   for (const c of spec.cards ?? []) cards.push(await makeCard(scene, c, anchors, palette));
 
-  const camera = new THREE.PerspectiveCamera(spec.camera?.fov ?? 72, W / H, NEAR, FAR);
+  spec.frames = totalFrames(spec);
+  const camera = new THREE.PerspectiveCamera(72, W / H, NEAR, FAR);
 
   state.normalRT?.dispose();
   const normalRT = new THREE.WebGLRenderTarget(W, H, { type: THREE.UnsignedByteType });
@@ -71,20 +73,26 @@ async function load(scenePath) {
   composer.addPass(new OutputPass());
   const misreg = misregPass({ depthTexture: normalRT.depthTexture, near: NEAR, far: FAR, res });
   const edges = edgesPass({ normalTexture: normalRT.texture, depthTexture: normalRT.depthTexture, near: NEAR, far: FAR, res, ink: palette.json.ink, seed: `${spec.seed}:boil` });
+  const panini = paniniPass();
   const grain = grainPass({ res, paper: palette.json.paper, seed: `${spec.seed}:grain` });
   composer.addPass(misreg);
   composer.addPass(edges);
+  composer.addPass(panini);
   composer.addPass(grain);
+  const showable = new Set((spec.shots ?? []).flatMap((s) => s.show ?? []));
 
-  Object.assign(state, { spec, scene, camera, anchors, cards, composer, normalRT, passes: { misreg, edges, grain }, palette });
+  Object.assign(state, { spec, scene, camera, anchors, cards, composer, normalRT, passes: { misreg, edges, panini, grain }, palette, showable });
   return { frames: spec.frames, anchors: Object.keys(anchors) };
 }
 
 async function renderFrame(n) {
-  const { spec, scene, camera, anchors, cards, composer, normalRT, passes, palette } = state;
+  const { spec, scene, camera, anchors, cards, composer, normalRT, passes, palette, showable } = state;
   if (!spec) throw new Error('renderFrame before load');
   const fps = spec.fps ?? 24;
-  poseCamera(camera, spec.camera, anchors, n, fps);
+  const shot = shotAt(spec, n);
+  const view = poseCamera(camera, shot.camera, anchors, n - shot.start, fps);
+  passes.panini.setCamera(camera, view.panini);
+  for (const name of showable) if (anchors[name]) anchors[name].visible = shot.show.includes(name);
   for (const c of cards) c.update(n, camera);
   hullUniforms.uRes.value.copy(res);
   hullUniforms.uFocal.value = H / (2 * Math.tan((camera.fov * Math.PI) / 360));

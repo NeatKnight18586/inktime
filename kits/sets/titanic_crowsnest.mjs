@@ -1,6 +1,7 @@
 // Titanic crow's nest set kit. Procedural and stylised, not a replica.
 // Units: metres. Sea level y=0. Bow points to -Z. Ship centre at the origin.
 import * as THREE from 'three';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { LAYERS, setLayer } from '../../engine/look/layers.mjs';
 
 const DEG = Math.PI / 180;
@@ -15,11 +16,15 @@ export const SHIP = {
   mastZ: -100,
   nestFloorY: 33, // forecastle deck + 15 m
   basketR: 0.9,
-  rimH: 1.1,
+  rimH: 1.0,
   eye: 1.62,
 };
 SHIP.basketZ = SHIP.mastZ - 0.75;
 const ICEBERG_DIST = 1500;
+export const ICEBERG_Z = SHIP.mastZ - ICEBERG_DIST;
+// FIX 1.1 framing. back: eye distance behind the inner face of the front rim (allowed 0.60-0.90 m).
+export const LOOKOUT = { back: 0.65, pitch: -16, fov: 72 }; // spec 0.75 / -14 showed 11 props; adjusted within the allowed range
+export const AERIAL = { astern: 200, starboard: 150, up: 180, pitch: -27, fov: 84, panini: true };
 
 // Hull half-width at z: pointed bow, parallel middle body, rounded stern.
 export function halfWidth(z) {
@@ -132,6 +137,18 @@ function fadeTexture(from = 1, to = 0) {
   t.magFilter = THREE.LinearFilter;
   t.needsUpdate = true;
   return t;
+}
+
+// Camera anchor posed by yaw/pitch in degrees (YXZ); userData carries yaw, pitch and fov for the rig.
+function cameraAnchor(group, anchors, name, pos, { yaw = 0, pitch = 0, fov = 72, panini = false }) {
+  const o = new THREE.Object3D();
+  o.name = `anchor:${name}`;
+  o.position.copy(pos);
+  o.quaternion.setFromEuler(new THREE.Euler(pitch * DEG, yaw * DEG, 0, 'YXZ'));
+  o.userData = { yaw, pitch, fov, panini };
+  group.add(o);
+  anchors[name] = o;
+  return o;
 }
 
 function anchorAt(group, anchors, name, pos, look, up) {
@@ -287,13 +304,42 @@ function buildIceberg(scene, rng, pal, anchors) {
     p.setXYZ(i, v.x * 46, Math.max(v.y * 34, -4), v.z * 36);
   }
   geo.computeVertexNormals();
-  const z = SHIP.mastZ - ICEBERG_DIST;
+  const z = ICEBERG_Z;
   const berg = mesh(geo, pal.toon(pal.mix('navy', 'ink', 0.42), { fog: false }), 0, 0, z, 'iceberg_dark');
   scene.add(berg);
   anchors.iceberg_dark = berg;
-  const rim = mesh(geo, new THREE.MeshBasicMaterial({ color: pal.color('ice'), side: THREE.BackSide, fog: false }), 0, 0, z, 'iceberg_rim');
-  rim.scale.setScalar(1.025);
-  rim.visible = false;
+  // Rim light: back-face shell pushed out in screen space, so the frost edge is at most uPx wide at any range.
+  const rimMat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    uniforms: {
+      uColor: { value: pal.color('frost') },
+      uBody: { value: pal.mix('navy', 'ink', 0.42) },
+      uStrength: { value: 1.0 },
+      uPx: { value: 2.0 },
+      uRes: { value: new THREE.Vector2(1080, 1920) },
+    },
+    vertexShader: `
+      uniform float uPx; uniform vec2 uRes;
+      void main() {
+        vec4 clip = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        vec2 dir = (projectionMatrix * vec4(normalMatrix * normal, 0.0)).xy;
+        float l = length(dir);
+        dir = l > 1e-6 ? dir / l : vec2(0.0);
+        clip.xy += dir * uPx * 2.0 / uRes * clip.w;
+        gl_Position = clip;
+      }`,
+    fragmentShader: `
+      uniform vec3 uColor; uniform vec3 uBody; uniform float uStrength;
+      void main() { gl_FragColor = vec4(mix(uBody, uColor, clamp(uStrength, 0.0, 1.0)), 1.0); }`,
+  });
+  const rimGeo = geo.clone();
+  rimGeo.deleteAttribute('normal');
+  rimGeo.deleteAttribute('uv');
+  const rimMerged = mergeVertices(rimGeo, 1e-4);
+  rimMerged.computeVertexNormals();
+  const rim = mesh(rimMerged, rimMat, 0, 0, z, 'iceberg_rim');
+  rim.renderOrder = 1;
+  rim.visible = false; // shown per shot (scene "show" list); Phase 6 reveals it
   rim.userData.noHull = true;
   rim.layers.set(LAYERS.FX);
   scene.add(rim);
@@ -612,7 +658,7 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   const stayGeo = new THREE.CylinderGeometry(0.022, 0.022, 1, 5);
   g.add(instanced(stayGeo, inkMat, stays.map(([a, b]) => between(a, b)), 'stays'));
 
-  // Basket: open steel ring wall 1.8 m across, 1.1 m rim.
+  // Basket: open steel ring wall 1.8 m across, 1.0 m rim.
   const nest = new THREE.Group();
   nest.name = 'basket';
   nest.position.set(0, F, bz);
@@ -754,8 +800,9 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   scene.add(g);
 
   // Anchors in world space.
-  const eye = new THREE.Vector3(0, F + SHIP.eye, bz + 0.25);
-  anchorAt(g, anchors, 'cam_lookout', eye, eye.clone().add(new THREE.Vector3(0, 0, -10)));
+  // Eye 1.62 m, LOOKOUT.back behind the inner face of the front rim, facing the bow.
+  const eye = new THREE.Vector3(0, F + SHIP.eye, bz - (R - 0.04) + LOOKOUT.back);
+  cameraAnchor(g, anchors, 'cam_lookout', eye, { yaw: 0, pitch: LOOKOUT.pitch, fov: LOOKOUT.fov });
   anchorAt(g, anchors, 'mast_top', new THREE.Vector3(0, topY, SHIP.mastZ));
   anchorAt(g, anchors, 'lee_spot', new THREE.Vector3(0.45, F, bz + 0.15));
   anchorAt(g, anchors, 'fleet_spot', new THREE.Vector3(-0.3, F, bz - 0.55));
@@ -785,9 +832,10 @@ export function build(scene, rng) {
   buildForecastle(scene, rng, pal, anchors);
   buildMastAndNest(scene, rng, pal, anchors);
 
-  // Aerial: 400 m above, straight down, bow to the top of frame.
-  const aerialPos = new THREE.Vector3(0, 400, -10);
-  anchorAt(anchorGroup, anchors, 'aerial', aerialPos, new THREE.Vector3(0, 0, -10), new THREE.Vector3(0, 0, -1));
+  // Aerial: from the ship midpoint, astern (+z), to starboard (+x) and up; yawed to centre the iceberg.
+  const aerialPos = new THREE.Vector3(AERIAL.starboard, AERIAL.up, AERIAL.astern);
+  const aerialYaw = Math.atan2(-(0 - aerialPos.x), -(ICEBERG_Z - aerialPos.z)) / DEG;
+  cameraAnchor(anchorGroup, anchors, 'aerial', aerialPos, { yaw: aerialYaw, pitch: AERIAL.pitch, fov: AERIAL.fov, panini: AERIAL.panini });
   anchorAt(anchorGroup, anchors, 'sea', new THREE.Vector3(0, 0, SHIP.mastZ - 220));
   return { anchors };
 }

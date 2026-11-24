@@ -49,8 +49,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
       - id: plan
         run: node tools/plan.mjs "$TARGET" "$SHARDS"
+      # Warm the Playwright browser cache once so the parallel shards all hit it.
+      - id: pwcache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - if: steps.pwcache.outputs.cache-hit != 'true'
+        run: npm ci && npx playwright install chromium
 
   render:
     needs: plan
@@ -67,11 +76,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - uses: actions/cache@v4
+      - id: pwcache
+        uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - run: npx playwright install --with-deps chromium
+      - if: steps.pwcache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.pwcache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
       - name: ffmpeg
         run: command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
       - name: Render frames ${{ matrix.start }}-${{ matrix.end }}

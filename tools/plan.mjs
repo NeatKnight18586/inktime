@@ -14,6 +14,7 @@ export function resolveTarget(target) {
 }
 
 export function frameCount(spec) {
+  if (Array.isArray(spec.shots)) return spec.shots.reduce((n, s) => n + s.frames, 0);
   if (Number.isInteger(spec.frames)) return spec.frames;
   if (spec.duration) return Math.round(spec.duration * (spec.fps ?? 24));
   throw new Error('no frame count');
