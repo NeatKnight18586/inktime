@@ -460,6 +460,7 @@ function foamMaterial(pal) {
   return new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
+    side: THREE.DoubleSide,
     fog: true,
     uniforms,
     vertexShader: `
