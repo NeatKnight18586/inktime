@@ -1,8 +1,10 @@
 // Wait for the render farm. Usage: node tools/wait-render.mjs <name> <commitSha>
 // Polls the "renders" branch every 45 s for up to 9 minutes for renders/<name>/render.json with commit == sha.
 // Exit 0: done/preview. Exit 1: failed (prints job and step). Exit 2: still running.
-// On a result it also fast-forwards the current branch, so review/<name>/ is local.
+// Status comes from the renders branch only (nothing is committed to the working branch). On a result the small review files
+// (contact.jpg, measure.txt, gates.txt, render.json, ...) are copied from renders/<name>/ into review/<name>/, which is gitignored.
 import { execFileSync } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
 
 const [name, sha] = process.argv.slice(2);
 if (!name || !sha) {
@@ -35,10 +37,14 @@ for (;;) {
   const s = check();
   if (s) {
     try {
-      git('fetch', '--quiet', 'origin', branch);
-      git('merge', '--ff-only', '--quiet', 'FETCH_HEAD');
+      mkdirSync(`review/${name}`, { recursive: true });
+      for (const f of git('ls-tree', '--name-only', 'FETCH_HEAD', `renders/${name}/`).split('\n').filter(Boolean)) {
+        if (/\.(mp4|wav)$/.test(f)) continue; // videos stay on the renders branch
+        const buf = execFileSync('git', ['show', `FETCH_HEAD:${f}`], { stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 });
+        writeFileSync(`review/${name}/${f.split('/').pop()}`, buf);
+      }
     } catch {
-      /* local branch diverged; review files stay on the remote */
+      /* review files stay on the renders branch */
     }
     if (s.status === 'failed') {
       console.log(`failed: job "${s.job}" step "${s.step}" ${s.run_url ?? ''}`);

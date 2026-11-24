@@ -117,13 +117,6 @@ jobs:
           mkdir -p "review/$NAME"
           printf '{\n  "status": "waiting",\n  "commit": "%s",\n  "reason": "episodes/%s/episode.json is missing; audio aligned, render skipped",\n  "run_url": "%s/%s/actions/runs/%s"\n}\n' "$GITHUB_SHA" "$NAME" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "review/$NAME/render.json"
           node tools/publish-renders.mjs "$NAME" "review/$NAME/render.json=render.json"
-          git add "review/$NAME/render.json"
-          git diff --cached --quiet || git commit -m "review: $NAME waiting [skip ci]"
-          for i in 1 2 3 4; do
-            git pull --rebase -q origin "${{ github.ref_name }}" && git push -q origin "HEAD:${{ github.ref_name }}" && exit 0
-            sleep $(( i * 5 ))
-          done
-          exit 1
       - if: ${{ steps.ep.outputs.dir != '' }}
         uses: actions/upload-artifact@v4
         with:
@@ -351,17 +344,6 @@ jobs:
           if [ -n "$EP" ]; then VIDEO="out/final.mp4=final.mp4 out/clean.mp4=clean.mp4 $EP/out/captions.srt=captions.srt"; fi
           node tools/publish-renders.mjs "$NAME" $VIDEO "review/$NAME/contact.jpg=contact.jpg" \
             "review/$NAME/measure.txt=measure.txt" "review/$NAME/render.json=render.json"
-      - name: Commit review files
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "review/$NAME/contact.jpg" "review/$NAME/measure.txt" "review/$NAME/render.json"
-          git diff --cached --quiet || git commit -m "review: $NAME [skip ci]"
-          for i in 1 2 3 4; do
-            git pull --rebase -q origin "${{ github.ref_name }}" && git push -q origin "HEAD:${{ github.ref_name }}" && exit 0
-            sleep $(( i * 5 ))
-          done
-          exit 1
 
   # Style frames: only the frames in tests/styleframes.json, full quality, no video. Published to renders/styleframes/.
   stills:
@@ -400,20 +382,6 @@ jobs:
           PAIRS=""
           for f in $D/*.png $D/*.measure.txt $D/contact.jpg $D/render.json $D/critique.md $D/urls.txt $D/solid.txt; do PAIRS="$PAIRS $f=$(basename $f)"; done
           node tools/publish-renders.mjs styleframes $PAIRS
-      - name: Commit review files
-        run: |
-          D=out/styleframes
-          mkdir -p review/styleframes
-          cp $D/*.measure.txt $D/contact.jpg $D/notan.png $D/render.json $D/critique.md $D/urls.txt $D/solid.txt review/styleframes/
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add review/styleframes
-          git diff --cached --quiet || git commit -m "review: styleframes [skip ci]"
-          for i in 1 2 3 4; do
-            git pull --rebase -q origin "${{ github.ref_name }}" && git push -q origin "HEAD:${{ github.ref_name }}" && exit 0
-            sleep $(( i * 5 ))
-          done
-          exit 1
 
   status-failed:
     needs: [audio, plan, render, assemble, stills]
@@ -442,12 +410,3 @@ jobs:
           ' "$RUN_URL"
           rm -f jobs.json
           node tools/publish-renders.mjs "$NAME" "review/$NAME/render.json=render.json"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "review/$NAME/render.json"
-          git diff --cached --quiet || git commit -m "review: $NAME failed [skip ci]"
-          for i in 1 2 3 4; do
-            git pull --rebase -q origin "${{ github.ref_name }}" && git push -q origin "HEAD:${{ github.ref_name }}" && exit 0
-            sleep $(( i * 5 ))
-          done
-          exit 1
