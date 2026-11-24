@@ -110,3 +110,8 @@
 
 ## Audio
 - -14 LUFS integrated, -1 dBTP. Music ducks 9 dB under voice. Room tone is never silent.
+
+## Sound
+- No API keys. Voice and music are made by hand (audio/voice.mp3 as one take, audio/music.mp3). Alignment = faster-whisper (tools/align.mjs, small.en, cpu, int8) onto the script words; the timeline starts 0.1 s before the first word. Sfx = uploaded files first (audio/sfx/<name>.mp3|wav), synthetic ffmpeg fallback (tools/sfx.mjs). Mix = tools/mix.mjs.
+- Beds loop under the whole episode; the last 0.25 s of a bed equals its first 0.25 s. Music: musicHit (seconds into music.mp3, episode.json) lands on the money-shot start; it is cut on a bar line (musicBpm, 4/4).
+- Captions: tools/captions.mjs, 1-2 words per card, never across punctuation, safe zones as above. final.mp4 has them burned in; clean.mp4 does not; captions.srt ships alongside.

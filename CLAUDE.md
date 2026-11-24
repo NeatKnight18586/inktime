@@ -11,6 +11,9 @@ Renders vertical first-person animated Shorts (1080x1920, 24 fps) from episodes/
 - Never paste logs. Report each failure in one line.
 - Final reply: changed files plus one line per acceptance check. No recap.
 
+## Audio
+- No API keys. Voice and music are made by hand. Alignment = faster-whisper. Sfx = uploaded files first, synthetic fallback.
+
 ## Engine rules
 - Deterministic: all state derives from the frame index. Randomness only from tools/rng.mjs with a named seed. No Date.now, Math.random or requestAnimationFrame timing.
 - The picture contains no text except sound words. Captions are a separate ASS layer burned at assembly.
