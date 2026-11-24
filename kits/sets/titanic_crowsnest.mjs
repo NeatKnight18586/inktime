@@ -23,11 +23,15 @@ SHIP.basketZ = SHIP.mastZ - 0.75;
 const ICEBERG_DIST = 1500;
 export const ICEBERG_Z = SHIP.mastZ - ICEBERG_DIST;
 // FIX 1.1 framing. back: eye distance behind the inner face of the front rim (allowed 0.60-0.90 m).
-export const LOOKOUT = { back: 0.65, pitch: -16, fov: 72 }; // spec 0.75 / -14 showed 11 props; adjusted within the allowed range
+export const LOOKOUT = { back: 0.65, pitch: -16, fov: 72, minRim: 0.45 };
+// The ship steams ahead (-Z) at 22 knots; everything aboard (and the camera anchors) rides ship_root.
+export const SHIP_SPEED = 11.3; // spec 0.75 / -14 showed 11 props; adjusted within the allowed range
 // Phase 1b aerial: on the line iceberg -> ship midpoint, extended 250 m astern, 60 m to starboard; aimed at midship.
 export const AERIAL = { astern: 250, starboard: 60, up: 180, pitch: -27, fov: 84, panini: true };
 // Fleet card position relative to the cam_lookout eye (metres): left and forward.
-export const FLEET = { x: -0.36, forward: 0.5 };
+export const FLEET = { x: -0.49, forward: 0.4, pose: 'edge',
+  // Edge pose features in card units (viewBox 170 x 350): what the left 12-20% of frame must show.
+  card: { width: 170, height: 350, brim: [146, 169, 46, 56], shoulder: [144, 156, 120, 150], scarf: [146, 168, 124, 168] } };
 
 // Hull half-width at z: pointed bow, parallel middle body, rounded stern.
 export function halfWidth(z) {
@@ -182,9 +186,10 @@ function hexMix(a, b, t) {
 }
 
 // Animated parts registered during build (rigging sway, lamp flicker).
-const anim = { stays: null, ropes: [], lamps: [] };
+const anim = { stays: null, ropes: [], lamps: [], shipRoot: null };
 // Shared per-frame uniforms for the set's animated shaders.
 const fxUniforms = {
+  uShipZ: { value: 0 },
   uFocal: { value: 1321 },
   uT: { value: 0 },
   uT2: { value: 0 },
@@ -292,6 +297,7 @@ function buildSea(pal) {
     uSwell: { value: new THREE.Vector3(SWELL.amp, (2 * Math.PI) / SWELL.length, (2 * Math.PI) / SWELL.period) },
     uHalfBeam: { value: SHIP.halfBeam },
     uPortZ: { value: new THREE.Vector2(-84, 108) },
+    uShipZ: fxUniforms.uShipZ,
   });
   const mat = new THREE.ShaderMaterial({
     transparent: true,
@@ -313,7 +319,7 @@ function buildSea(pal) {
       }`,
     fragmentShader: `
       uniform float uT; uniform float uFlicker; uniform vec2 uDir; uniform vec3 uSwell;
-      uniform vec3 uNavy, uSteel, uFrost, uLamp; uniform float uHalfBeam; uniform vec2 uPortZ;
+      uniform vec3 uNavy, uSteel, uFrost, uLamp; uniform float uHalfBeam; uniform vec2 uPortZ; uniform float uShipZ;
       varying vec3 vW; varying float vPhase;
       #include <fog_pars_fragment>
       float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -332,9 +338,10 @@ function buildSea(pal) {
         c = mix(c, uFrost, dash);
         // Porthole pools: 3 hard rings per porthole, just off the hull side.
         float dx = abs(vW.x) - uHalfBeam;
-        if (dx > 0.0 && dx < 4.0 && vW.z > uPortZ.x && vW.z < uPortZ.y) {
-          float zc = floor((vW.z - uPortZ.x) / 2.7 + 0.5) * 2.7 + uPortZ.x;
-          float r = length(vec2(dx - 1.3, (vW.z - zc) * 0.85));
+        float zs = vW.z - uShipZ;
+        if (dx > 0.0 && dx < 4.0 && zs > uPortZ.x && zs < uPortZ.y) {
+          float zc = floor((zs - uPortZ.x) / 2.7 + 0.5) * 2.7 + uPortZ.x;
+          float r = length(vec2(dx - 1.3, (zs - zc) * 0.85));
           float pool = r < 0.55 ? 1.0 : (r < 1.1 ? 0.55 : (r < 1.7 ? 0.25 : 0.0));
           c = mix(c, uLamp, pool * 0.8 * uFlicker);
         }
@@ -421,7 +428,8 @@ function smokePuffs(funnelTops, pal, rng) {
         varying float vSize; varying float vLife; varying float vSeed;
         void main(){
           float life = fract(aPhase + uT2 / 14.0);
-          vec3 p = position + vec3(0.0, life * 16.0, life * 70.0);
+          // 14 s of life, drifting aft at ship speed (in the ship's frame) while rising.
+          vec3 p = position + vec3(0.0, life * 16.0, life * 14.0 * ${SHIP_SPEED.toFixed(2)});
           vec4 mv = modelViewMatrix * vec4(p, 1.0);
           vSize = clamp(aSize * (0.6 + life * 1.6) * uFocal / max(-mv.z, 0.1), 3.0, 256.0);
           vLife = life; vSeed = aPhase * 40.0;
@@ -442,6 +450,62 @@ function smokePuffs(funnelTops, pal, rng) {
   pts.renderOrder = 3;
   pts.frustumCulled = false;
   return pts;
+}
+
+// Frost-white foam (V wake from the stern, bow wave): world-anchored churn, so it streams aft as the ship moves;
+// posterized blobs with ink rims, ink edges along the ribbon, fading aft.
+function foamMaterial(pal) {
+  const uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib.fog]);
+  Object.assign(uniforms, { uT: fxUniforms.uT, uFrost: { value: pal.color('frost') }, uInk: { value: pal.color('ink') } });
+  return new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    fog: true,
+    uniforms,
+    vertexShader: `
+      varying vec2 vUv; varying vec3 vW;
+      #include <fog_pars_vertex>
+      void main(){ vUv = uv; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz;
+        vec4 mvPosition = viewMatrix * w; gl_Position = projectionMatrix * mvPosition;
+        #include <fog_vertex>
+      }`,
+    fragmentShader: `
+      uniform float uT; uniform vec3 uFrost; uniform vec3 uInk;
+      varying vec2 vUv; varying vec3 vW;
+      #include <fog_pars_fragment>
+      float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(h2(i), h2(i + vec2(1, 0)), f.x), mix(h2(i + vec2(0, 1)), h2(i + vec2(1, 1)), f.x), f.y); }
+      void main(){
+        float edge = min(vUv.x, 1.0 - vUv.x);
+        vec2 p = vW.xz * 0.11 + vec2(uT * 0.21, uT * 0.47);
+        float n = vn(p) * 0.6 + vn(p * 2.7 + 3.1) * 0.4;
+        float th = 0.32 + 0.42 * vUv.y;
+        float foam = step(th, n);
+        float rim = step(th - 0.07, n) - foam;
+        float border = step(edge, 0.04);
+        if (foam + rim + border < 0.5) discard;
+        vec3 c = (rim > 0.5 || border > 0.5) ? uInk : uFrost;
+        gl_FragColor = vec4(c, 1.0 - smoothstep(0.7, 1.0, vUv.y));
+        #include <fog_fragment>
+      }`,
+  });
+}
+
+// Solid ink contact shadow (spot black) under an object, flat on the surface at height y.
+function contactShadow(group, pal, x, y, z, rx, rz, name = 'contact_shadow') {
+  const m = new THREE.Mesh(
+    new THREE.CircleGeometry(1, 24),
+    new THREE.MeshBasicMaterial({ color: pal.color('ink'), depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
+  );
+  m.rotation.x = -Math.PI / 2;
+  m.scale.set(rx, rz, 1);
+  m.position.set(x, y + 0.012, z);
+  m.name = name;
+  m.renderOrder = 1;
+  m.layers.set(LAYERS.FX);
+  group.add(m);
+  return m;
 }
 
 // ---------------------------------------------------------------- iceberg
@@ -570,7 +634,7 @@ function buildShip(scene, rng, pal) {
       port.push(new THREE.Vector3(side * (halfWidth(z) + 0.12), 16.4, z));
     }
   }
-  fx.push(lampSquares(port, pal, { world: 0.45, minPx: 5, maxPx: 16, name: 'portholes' }));
+  fx.push(lampSquares(port, pal, { world: 0.45, minPx: 6, maxPx: 16, name: 'portholes' }));
 
   // Deck lights and window rows on the superstructure.
   const win = [];
@@ -582,11 +646,11 @@ function buildShip(scene, rng, pal) {
   // Lit bridge windows.
   const bridgeWin = [];
   for (let x = -6.4; x <= 6.4; x += 1.6) bridgeWin.push(new THREE.Vector3(x, 29.6, -62.15));
-  fx.push(lampSquares(win, pal, { world: 0.8, minPx: 5, maxPx: 20, name: 'windows' }));
+  fx.push(lampSquares(win, pal, { world: 0.8, minPx: 6, maxPx: 20, name: 'windows' }));
   fx.push(lampSquares(bridgeWin, pal, { world: 1.0, minPx: 7, maxPx: 24, name: 'bridge_windows' }));
   const dl = [];
   for (let z = -60; z < 74; z += 4.5) for (const side of [1, -1]) dl.push(new THREE.Vector3(side * 11.3, 28.9, z));
-  fx.push(lampSquares(dl, pal, { world: 0.35, minPx: 4, maxPx: 12, name: 'deck_lights' }));
+  fx.push(lampSquares(dl, pal, { world: 0.35, minPx: 6, maxPx: 12, name: 'deck_lights' }));
   fx.push(lampHalos([...port, ...win, ...bridgeWin, ...dl], pal, { world: 2.0, minPx: 7, maxPx: 60, name: 'ship_halos', gain: 0.8 }));
 
   // Lifeboats.
@@ -595,7 +659,7 @@ function buildShip(scene, rng, pal) {
   ship.add(instanced(new THREE.BoxGeometry(2.0, 1.0, 8.5), frost, boats, 'lifeboats'));
 
   // Frost-white V wake and bow waves.
-  const wakeMat = new THREE.MeshBasicMaterial({ color: pal.color('frost'), transparent: true, opacity: 0.55, alphaMap: fadeTexture(1, 0), depthWrite: false });
+  const wakeMat = foamMaterial(pal);
   const kelvin = 19.5 * DEG;
   for (const side of [1, -1]) {
     const pts = [];
@@ -773,6 +837,17 @@ function buildForecastle(scene, rng, pal, anchors) {
   const halos = lampHalos(lampPos, pal, { world: 1.6, minPx: 8, maxPx: 200, name: 'deck_lamp_halos' });
   halos.layers.set(LAYERS.FX);
   g.add(halos);
+  // Contact shadows (solid ink) under the deck props.
+  const D = Y + 0.04;
+  contactShadow(g, pal, 0, D, wz, 2.1, 0.95);
+  for (const s of [1, -1]) {
+    contactShadow(g, pal, s * 5.6, D, -120.5, 0.55, 1.1);
+    contactShadow(g, pal, s * 2.4, D, wz - 3.2, 0.62, 0.62);
+    contactShadow(g, pal, s * 4.4, D, -126.5, 0.22, 0.22);
+    contactShadow(g, pal, s * 7.5, D, -106, 0.42, 0.42);
+  }
+  contactShadow(g, pal, 3.6, D, -114.5, 0.6, 0.6);
+  contactShadow(g, pal, 0, D, -109, 2.4, 1.85);
   anchorAt(g, anchors, 'deck', new THREE.Vector3(0, Y, -112));
   scene.add(g);
 }
@@ -929,6 +1004,8 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   lockGroup.add(mesh(new THREE.BoxGeometry(0.02, 0.4, 0.01), inkMat, 0.1, 0.0, -0.152, 'locker_seam'));
   nest.add(lockGroup);
   anchors.locker = locker;
+  contactShadow(nest, pal, -0.48, 0.0, 0.38, 0.26, 0.2);
+  contactShadow(nest, pal, 0.42, 0.0, 0.42, 0.3, 0.22);
   anchors.padlock = padlock;
 
   // Story props: tin mug on the rim, scarf on a hook, folded oilskin on the floor.
@@ -980,6 +1057,8 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   // Eye 1.62 m, LOOKOUT.back behind the inner face of the front rim, facing the bow.
   const eye = new THREE.Vector3(0, F + SHIP.eye, bz - (R - 0.04) + LOOKOUT.back);
   cameraAnchor(g, anchors, 'cam_lookout', eye, { yaw: 0, pitch: LOOKOUT.pitch, fov: LOOKOUT.fov });
+  // The dolly may never bring the eye closer than LOOKOUT.minRim to the rim.
+  anchors.cam_lookout.userData.maxDolly = LOOKOUT.back - LOOKOUT.minRim;
   anchorAt(g, anchors, 'mast_top', new THREE.Vector3(0, topY, SHIP.mastZ));
   anchorAt(g, anchors, 'lee_spot', new THREE.Vector3(0.45, F, bz + 0.15));
   // Fleet stands front-left so that from cam_lookout his card fills the left FLEET.cover of frame width.
@@ -994,7 +1073,10 @@ export function build(scene, rng) {
   const anchors = {};
   const anchorGroup = new THREE.Group();
   anchorGroup.name = 'anchors';
-  scene.add(anchorGroup);
+  const shipRoot = new THREE.Group();
+  shipRoot.name = 'ship_root';
+  shipRoot.add(anchorGroup);
+  anim.shipRoot = shipRoot;
 
   // The ship is the key light (lamps, portholes). Fill: cool hemisphere, ice at 35%.
   anim.stays = null;
@@ -1005,14 +1087,16 @@ export function build(scene, rng) {
 
   buildSky(scene, rng, pal);
   buildIceberg(scene, rng, pal, anchors);
-  buildShip(scene, rng, pal);
-  buildForecastle(scene, rng, pal, anchors);
-  buildMastAndNest(scene, rng, pal, anchors);
+  buildShip(shipRoot, rng, pal);
+  buildForecastle(shipRoot, rng, pal, anchors);
+  buildMastAndNest(shipRoot, rng, pal, anchors);
+  scene.add(shipRoot);
 
   // Aerial: the iceberg -> midship line (+z) extended 250 m astern, offset 60 m to starboard, 180 m up; aimed at midship.
   const aerialPos = new THREE.Vector3(AERIAL.starboard, AERIAL.up, AERIAL.astern);
   const aerialYaw = Math.atan2(-(0 - aerialPos.x), -(0 - aerialPos.z)) / DEG;
   cameraAnchor(anchorGroup, anchors, 'aerial', aerialPos, { yaw: aerialYaw, pitch: AERIAL.pitch, fov: AERIAL.fov, panini: AERIAL.panini });
+  anchors.aerial.userData.aimDist = aerialPos.length();
   anchorAt(anchorGroup, anchors, 'sea', new THREE.Vector3(0, 0, SHIP.mastZ - 220));
   return { anchors, update };
 }
@@ -1028,6 +1112,11 @@ export function update(n, { camera, fps = 24 } = {}) {
   const t = n / fps;
   const k = Math.floor(n / 2);
   fxUniforms.uT.value = t;
+  fxUniforms.uShipZ.value = -SHIP_SPEED * t;
+  if (anim.shipRoot) {
+    anim.shipRoot.position.z = -SHIP_SPEED * t;
+    anim.shipRoot.updateMatrixWorld(true);
+  }
   fxUniforms.uT2.value = (k * 2) / fps;
   fxUniforms.uTwos.value = k;
   if (camera) fxUniforms.uFocal.value = 1920 / (2 * Math.tan((camera.fov * Math.PI) / 360));

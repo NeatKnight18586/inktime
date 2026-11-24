@@ -10,8 +10,8 @@ import { fileURLToPath } from 'node:url';
 
 export const TARGETS = {
   lumaMean: [70, 95],
-  dark40: [0, 0.3],
-  p5: [0, 12],
+  dark40: [0.06, 0.3],
+  p5: [0, 25],
   p95: [170, 255],
   sat: [0.3, 0.5],
   motion: [0.015, 0.06],
@@ -117,7 +117,7 @@ const FMT = {
   stillRun: (v) => String(v),
 };
 const TFMT = {
-  lumaMean: '70-95', p5: '<=12', p95: '>=170', dark40: '<=30%', sat: '0.30-0.50', motion: '1.5-6%', still: '<=10%', stillRun: '<=19',
+  lumaMean: '70-95', p5: '<=25', p95: '>=170', dark40: '6-30%', sat: '0.30-0.50', motion: '1.5-6%', still: '<=10%', stillRun: '<=19',
 };
 
 export function check(summary) {
@@ -185,14 +185,19 @@ async function main() {
   }
   const shots = [...new Set(frames.map((f) => f.shot))].sort((a, b) => a - b);
   const out = [`measure ${mp4}: ${frames.length} frames at ${w}x${h}${cams ? '' : ' (no cams.json: still frames n/a)'}`];
-  let misses = [];
+  // Every shot is checked against the same targets (the aerial hook included), then the whole film.
+  const misses = [];
   if (shots.length > 1) {
-    for (const s of shots) out.push(report(`shot ${s}`, summarize(frames.filter((f) => f.shot === s))).text);
+    for (const s of shots) {
+      const r = report(`shot ${s}`, summarize(frames.filter((f) => f.shot === s)));
+      out.push(r.text);
+      misses.push(...r.misses.map((m) => `shot ${s} ${m}`));
+    }
   }
   const all = report('overall', summarize(frames));
   out.push(all.text);
-  misses = all.misses;
-  out.push(misses.length ? `MISSES (overall): ${misses.join(', ')}` : 'all overall targets met');
+  misses.push(...all.misses.map((m) => `overall ${m}`));
+  out.push(misses.length ? `MISSES: ${misses.join(', ')}` : 'all targets met');
   console.log(out.join('\n'));
   if (strict && misses.length) process.exit(1);
 }

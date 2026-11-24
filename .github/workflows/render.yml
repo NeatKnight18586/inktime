@@ -14,14 +14,9 @@ on:
         description: Full render (false = preview)
         type: boolean
         default: true
+  # Every push reaches the plan job; it renders when the head commit says [render] or a render path changed.
   push:
-    branches: ['**']
-    paths:
-      - 'engine/**'
-      - 'kits/**'
-      - 'cast/**'
-      - 'episodes/**'
-      - 'tests/looktest.json'
+    branches: ['**', '!renders']
 
 permissions:
   contents: write
@@ -34,37 +29,50 @@ concurrency:
 env:
   TARGET: ${{ inputs.target || 'tests/looktest.json' }}
   SHARDS: ${{ inputs.shards || '8' }}
+  FFMPEG_KEY: ffmpeg-static-b6.0-linux-x64
 
 jobs:
   plan:
     if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]') }}
     runs-on: ubuntu-latest
     outputs:
+      go: ${{ steps.gate.outputs.go }}
       name: ${{ steps.plan.outputs.name }}
       scene: ${{ steps.plan.outputs.scene }}
       frames: ${{ steps.plan.outputs.frames }}
       matrix: ${{ steps.plan.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: gate
+        env:
+          EVENT: ${{ github.event_name }}
+          MSG: ${{ github.event.head_commit.message }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          go=false
+          if [ "$EVENT" != "push" ]; then go=true
+          elif printf '%s' "$MSG" | grep -qF '[render]'; then go=true
+          elif ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then go=true
+          elif git diff --name-only "$BEFORE" "$GITHUB_SHA" | grep -qE '^(engine|kits|cast|episodes)/|^tests/looktest\.json$'; then go=true
+          fi
+          echo "go=$go" >> "$GITHUB_OUTPUT"
+          echo "render: $go"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - id: plan
         run: node tools/plan.mjs "$TARGET" "$SHARDS"
-      # Warm the Playwright browser cache once so the parallel shards all hit it.
-      - id: pwcache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - if: steps.pwcache.outputs.cache-hit != 'true'
-        run: npm ci && npx playwright install chromium
 
   render:
     needs: plan
+    if: ${{ needs.plan.outputs.go == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.1-noble
+      options: --ipc=host
     strategy:
       fail-fast: false
       matrix:
@@ -77,17 +85,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - id: pwcache
+      - id: ffcache
         uses: actions/cache@v4
         with:
-          path: ~/.cache/ms-playwright
-          key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - if: steps.pwcache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
-      - if: steps.pwcache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
-      - name: ffmpeg
-        run: command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+          path: .ffmpeg
+          key: ${{ env.FFMPEG_KEY }}
+      - if: steps.ffcache.outputs.cache-hit != 'true'
+        run: node tools/get-ffmpeg.mjs .ffmpeg
+      - run: echo "$PWD/.ffmpeg" >> "$GITHUB_PATH"
       - name: Render frames ${{ matrix.start }}-${{ matrix.end }}
         run: |
           T0=$(date +%s)
@@ -110,6 +115,9 @@ jobs:
   assemble:
     needs: [plan, render]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.1-noble
     env:
       NAME: ${{ needs.plan.outputs.name }}
       FRAMES: ${{ needs.plan.outputs.frames }}
@@ -119,8 +127,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
-      - name: ffmpeg
-        run: command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - id: ffcache
+        uses: actions/cache@v4
+        with:
+          path: .ffmpeg
+          key: ${{ env.FFMPEG_KEY }}
+      - if: steps.ffcache.outputs.cache-hit != 'true'
+        run: node tools/get-ffmpeg.mjs .ffmpeg
+      - run: echo "$PWD/.ffmpeg" >> "$GITHUB_PATH"
       - uses: actions/download-artifact@v4
         with:
           pattern: seg-*
@@ -148,55 +163,44 @@ jobs:
           '
           node tools/measure.mjs "out/$NAME.mp4" --cams out/cams.json | tee "review/$NAME/measure.txt"
           { echo; echo '```'; cat "review/$NAME/measure.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-      - name: Commit contact sheet and measure
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "review/$NAME/contact.jpg" "review/$NAME/measure.txt"
-          git diff --cached --quiet || git commit -m "review: $NAME contact + measure [skip ci]"
-          for i in 1 2 3 4; do
-            git pull --rebase -q origin "${{ github.ref_name }}" && git push -q origin "HEAD:${{ github.ref_name }}" && exit 0
-            sleep $(( i * 5 ))
-          done
-          exit 1
-      - name: Publish pre-release
-        run: |
-          TAG="preview-$NAME-${{ github.run_number }}"
-          gh release create "$TAG" "out/$NAME.mp4" --prerelease --target "$GITHUB_SHA" \
-            --title "$NAME preview #${{ github.run_number }}" --notes "Render of ${GITHUB_SHA::7} ($NAME, $FRAMES frames)."
-          echo "TAG=$TAG" >> "$GITHUB_ENV"
-          echo "RELEASE_URL=$(gh release view "$TAG" --json url --jq .url)" >> "$GITHUB_ENV"
-      - name: Status and summary
+      - name: Status
         run: |
           RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          STARTED=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at)
-          WALL=$(( $(date +%s) - $(date -d "$STARTED" +%s) ))
+          MP4=$([ "$NAME" = "looktest" ] && echo "looktest.mp4" || echo "final.mp4")
+          echo "MP4=$MP4" >> "$GITHUB_ENV"
           node -e '
             const fs = require("fs");
+            const [runUrl, mp4] = process.argv.slice(1);
+            const { NAME, FRAMES, GITHUB_SHA, GITHUB_SERVER_URL, GITHUB_REPOSITORY, JOB_T0, GITHUB_STEP_SUMMARY } = process.env;
+            const raw = (f) => `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/raw/renders/renders/${NAME}/${f}`;
             const segs = fs.readdirSync("segs").filter((f) => /^seg-\d+\.json$/.test(f)).map((f) => JSON.parse(fs.readFileSync("segs/" + f)));
-            const frames = +process.env.FRAMES;
             const renderS = segs.reduce((s, x) => s + x.render_seconds, 0);
-            const jobS = segs.reduce((s, x) => s + x.job_seconds, 0) + (Date.now() / 1000 - +process.env.JOB_T0);
+            const jobS = segs.reduce((s, x) => s + x.job_seconds, 0) + (Date.now() / 1000 - +JOB_T0);
             const r = {
               status: "done",
-              commit: process.env.GITHUB_SHA,
-              run_url: process.argv[1],
-              release_url: process.env.RELEASE_URL,
-              mp4_url: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/releases/download/${process.env.TAG}/${process.env.NAME}.mp4`,
-              seconds_per_frame: +(renderS / frames).toFixed(2),
+              commit: GITHUB_SHA,
+              run_url: runUrl,
+              mp4_url: raw(mp4),
+              contact_url: raw("contact.jpg"),
+              measure_url: raw("measure.txt"),
+              seconds_per_frame: +(renderS / +FRAMES).toFixed(2),
               machine_minutes: +(jobS / 60).toFixed(1),
+              slowest_shard_minutes: +(Math.max(...segs.map((x) => x.job_seconds)) / 60).toFixed(1),
             };
-            fs.writeFileSync(`review/${process.env.NAME}/render.json`, JSON.stringify(r, null, 2) + "\n");
-            const wall = +process.argv[2];
-            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
-              `### ${process.env.NAME}\n\n| wall time | machine-minutes | avg s/frame |\n|---|---|---|\n| ${(wall / 60).toFixed(1)} min | ${r.machine_minutes} | ${r.seconds_per_frame} |\n\n[MP4](${r.mp4_url}) · [release](${r.release_url})\n`);
-          ' "$RUN_URL" "$WALL"
-      - name: Commit review
+            fs.writeFileSync(`review/${NAME}/render.json`, JSON.stringify(r, null, 2) + "\n");
+            fs.appendFileSync(GITHUB_STEP_SUMMARY,
+              `### ${NAME}\n\n| machine-minutes | slowest shard | avg s/frame |\n|---|---|---|\n| ${r.machine_minutes} | ${r.slowest_shard_minutes} min | ${r.seconds_per_frame} |\n\n[MP4](${r.mp4_url})\n`);
+          ' "$RUN_URL" "$MP4"
+      - name: Publish to the renders branch
+        run: |
+          node tools/publish-renders.mjs "$NAME" "out/$NAME.mp4=$MP4" "review/$NAME/contact.jpg=contact.jpg" \
+            "review/$NAME/measure.txt=measure.txt" "review/$NAME/render.json=render.json"
+      - name: Commit review files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "review/$NAME/render.json"
-          git commit -m "review: $NAME render.json [skip ci]"
+          git add "review/$NAME/contact.jpg" "review/$NAME/measure.txt" "review/$NAME/render.json"
+          git diff --cached --quiet || git commit -m "review: $NAME [skip ci]"
           for i in 1 2 3 4; do
             git pull --rebase -q origin "${{ github.ref_name }}" && git push -q origin "HEAD:${{ github.ref_name }}" && exit 0
             sleep $(( i * 5 ))
@@ -228,6 +232,8 @@ jobs:
             fs.writeFileSync(`review/${process.env.NAME}/render.json`, JSON.stringify(r, null, 2) + "\n");
             fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### ${process.env.NAME} failed\n\njob **${r.job}**, step **${r.step}**\n`);
           ' "$RUN_URL"
+          rm -f jobs.json
+          node tools/publish-renders.mjs "$NAME" "review/$NAME/render.json=render.json"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "review/$NAME/render.json"

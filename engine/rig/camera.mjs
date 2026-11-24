@@ -19,15 +19,19 @@ export function totalFrames(spec) {
   return spec.shots ? spec.shots.reduce((s, x) => s + x.frames, 0) : spec.frames;
 }
 
-// Base motion on every shot (STYLE): dolly forward 0.06 m/s (horizontal, along the view yaw),
-// breathing sway 0.25 Hz (0.15 deg pitch, 4 mm vertical); held shots also push FOV in by 1 deg/s. No frame is still.
-export const BASE_MOTION = { dolly: 0.06, breathHz: 0.25, breathPitch: 0.15, breathLift: 0.004, push: 1.0 };
+// Base motion on every shot (STYLE), bounded: the dolly eases in and out and moves at most 0.25 m per shot
+// (less if the anchor says so, e.g. so the eye stays 0.45 m from the rim); beyond that only the FOV push
+// (1 deg/s, at most 8 deg per shot) plus breathing sway (0.25 Hz, 0.15 deg pitch, 4 mm). No frame is still.
+// cam.pushPct adds a push along the view of that percentage of the anchor's aim distance per second (aerial).
+export const BASE_MOTION = { dolly: 0.25, breathHz: 0.25, breathPitch: 0.15, breathLift: 0.004, push: 1.0, pushMax: 8 };
 
-// m is the frame index within the shot. Camera anchors carry userData {yaw, pitch, fov, panini}.
-export function poseCamera(camera, cam, anchors, m, fps) {
+// m is the frame index within the shot, shotFrames its length. Camera anchors carry userData
+// {yaw, pitch, fov, panini, maxDolly, aimDist}.
+export function poseCamera(camera, cam, anchors, m, fps, shotFrames = m + 1) {
   const anchor = anchors[cam.anchor];
   if (!anchor) throw new Error(`camera anchor "${cam.anchor}" missing`);
   const t = m / fps;
+  const T = Math.max(1, shotFrames - 1) / fps;
   anchor.updateWorldMatrix(true, false);
   const pos = new THREE.Vector3();
   const base = new THREE.Quaternion();
@@ -39,8 +43,9 @@ export function poseCamera(camera, cam, anchors, m, fps) {
   const breath = Math.sin(2 * Math.PI * M.breathHz * t);
   const pitch = ((cam.pitch ?? 0) + M.breathPitch * breath) * DEG;
   const baseYaw = (ud.yaw ?? 0) * DEG + yaw;
-  pos.x += -Math.sin(baseYaw) * M.dolly * t;
-  pos.z += -Math.cos(baseYaw) * M.dolly * t;
+  const dolly = Math.min(M.dolly, ud.maxDolly ?? Infinity) * easeInOut(t / T);
+  pos.x += -Math.sin(baseYaw) * dolly;
+  pos.z += -Math.cos(baseYaw) * dolly;
   pos.y += M.breathLift * Math.sin(2 * Math.PI * M.breathHz * t + Math.PI / 2);
   camera.position.copy(pos);
   if (ud.pitch !== undefined) {
@@ -48,14 +53,19 @@ export function poseCamera(camera, cam, anchors, m, fps) {
   } else {
     camera.quaternion.copy(base).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ')));
   }
+  const pushPct = cam.pushPct ?? 0;
+  if (pushPct && ud.aimDist) {
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+    camera.position.addScaledVector(fwd, (pushPct / 100) * ud.aimDist * t);
+  }
   const held = cam.held ?? true;
-  const fov = (cam.fov ?? ud.fov ?? 72) - (held ? M.push * t : 0);
+  const fov = (cam.fov ?? ud.fov ?? 72) - (held ? Math.min(M.push * t, M.pushMax) : 0);
   if (camera.fov !== fov) {
     camera.fov = fov;
     camera.updateProjectionMatrix();
   }
   camera.updateMatrixWorld(true);
-  return { fov, panini: cam.panini ?? ud.panini ?? fov >= 80 };
+  return { fov, panini: cam.panini ?? ud.panini ?? fov >= 80, dolly };
 }
 
 // Per-frame camera pose for out/cams.json.

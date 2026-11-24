@@ -54,7 +54,7 @@ test('look 2.0: ramp, haze, ink hierarchy, light', () => {
 });
 
 test('camera base motion and blinks', () => {
-  assert.deepEqual(BASE_MOTION, { dolly: 0.06, breathHz: 0.25, breathPitch: 0.15, breathLift: 0.004, push: 1.0 });
+  assert.deepEqual(BASE_MOTION, { dolly: 0.25, breathHz: 0.25, breathPitch: 0.15, breathLift: 0.004, push: 1.0, pushMax: 8 });
   const b = [...blinkFrames('looktest:fleet', 288)].sort((x, y) => x - y);
   assert.ok(b.length >= 4);
   const runs = [];
@@ -222,27 +222,63 @@ test('framing: aerial iceberg top band, ship middle band', () => {
   assert.ok(mid.x >= 0 && mid.x <= 1, 'midship inside frame');
 });
 
-test('framing: Fleet fills the left 15-25% of frame width from cam_lookout', () => {
+test('framing: Fleet is a foreground edge silhouette in the left 12-20% (brim, shoulder, scarf)', () => {
   const { anchors, cam, fromTop } = frame('cam_lookout');
   const spot = anchors.fleet_spot.getWorldPosition(new THREE.Vector3());
-  // Card: 3.5 D tall; head D, body 0.88 D. Billboard faces the camera (yaw only).
-  const D = CARD_HEIGHT / 3.5;
+  const C = FLEET.card;
+  const w = (CARD_HEIGHT * C.width) / C.height;
   const toCam = new THREE.Vector3(cam.position.x - spot.x, 0, cam.position.z - spot.z).normalize();
   const right = new THREE.Vector3(toCam.z, 0, -toCam.x);
-  const headC = spot.clone().setY(spot.y + CARD_HEIGHT - D / 2);
-  const shoulders = spot.clone().setY(spot.y + CARD_HEIGHT - D * 1.15);
-  const pts = [
-    headC.clone().addScaledVector(right, -D / 2), headC.clone().addScaledVector(right, D / 2),
-    headC.clone().setY(headC.y + D / 2), shoulders.clone().addScaledVector(right, -0.44 * D), shoulders.clone().addScaledVector(right, 0.44 * D),
-  ].map(fromTop);
-  const xs = pts.map((p) => p.x);
-  const ys = pts.map((p) => p.y);
-  const cover = Math.min(1, Math.max(...xs)) - Math.max(0, Math.min(...xs));
-  const headVisible = Math.min(...xs) >= 0 && Math.min(...ys) >= 0 && Math.max(...ys) <= 1;
-  console.log(`fleet: x ${FLEET.x} m, forward ${FLEET.forward} m, covers ${(cover * 100).toFixed(1)}% of width (x ${(Math.min(...xs) * 100).toFixed(1)}..${(Math.max(...xs) * 100).toFixed(1)}%), head top ${(Math.min(...ys) * 100).toFixed(1)}%, head+shoulders fully visible: ${headVisible}`);
-  assert.ok(Math.min(...xs) <= 0.01, 'anchored at the left edge');
-  assert.ok(cover >= 0.15 && cover <= 0.25, `Fleet covers ${(cover * 100).toFixed(1)}%`);
-  assert.ok(Math.min(...ys) >= 0, 'head top in frame');
+  // Card units (u right, v down from the top) -> frame position.
+  const at = (u, v) => fromTop(spot.clone().addScaledVector(right, (u / C.width - 0.5) * w).setY(spot.y + CARD_HEIGHT * (1 - v / C.height)));
+  const mid = C.height * 0.3;
+  assert.ok(at(0, mid).x < 0, 'card enters from the left edge');
+  const cover = at(C.width, mid).x;
+  let u0 = C.width;
+  for (let u = C.width; u >= 0; u -= 0.5) if (at(u, mid).x >= 0) u0 = u;
+  const feats = Object.fromEntries(['brim', 'shoulder', 'scarf'].map((k) => {
+    const [x0, x1, y0, y1] = C[k];
+    const p = at((x0 + x1) / 2, (y0 + y1) / 2);
+    return [k, { visible: u0 <= (x0 + x1) / 2 && p.y >= 0 && p.y <= 1, y: p.y }];
+  }));
+  console.log(`fleet edge: x ${FLEET.x} m, forward ${FLEET.forward} m, covers ${(cover * 100).toFixed(1)}% of width, strip from card u=${u0} of ${C.width}; ` +
+    Object.entries(feats).map(([k, f]) => `${k} ${f.visible ? 'in' : 'OUT'} (${(f.y * 100).toFixed(0)}%)`).join(', '));
+  assert.ok(cover >= 0.12 && cover <= 0.2, `Fleet covers ${(cover * 100).toFixed(1)}%`);
+  for (const [k, f] of Object.entries(feats)) assert.ok(f.visible, `${k} visible`);
+  assert.equal(FLEET.pose, 'edge');
+});
+
+test('camera: bounded dolly keeps the eye 0.45 m from the rim; FOV push capped', () => {
+  const { anchors } = buildScene();
+  const cam = new THREE.PerspectiveCamera(72, 1080 / 1920, 0.05, 9000);
+  const start = poseCamera(cam, { anchor: 'cam_lookout' }, anchors, 0, 24, 240);
+  const z0 = cam.position.z;
+  const end = poseCamera(cam, { anchor: 'cam_lookout' }, anchors, 239, 24, 240);
+  const moved = z0 - cam.position.z;
+  const rimZ = SHIP.basketZ - (SHIP.basketR - 0.04);
+  assert.ok(moved <= 0.25 + 1e-9 && moved > 0.1, `dolly ${moved}`);
+  assert.ok(cam.position.z - rimZ >= 0.45 - 1e-6, `eye ${(cam.position.z - rimZ).toFixed(3)} m from the rim`);
+  assert.ok(Math.abs(72 - end.fov - 8) < 1e-9, 'FOV push capped at 8 deg');
+  assert.equal(start.dolly, 0);
+});
+
+test('aerial: ship steams at 22 kn, camera tracks, push 3%/s', () => {
+  const { scene, anchors } = buildScene();
+  const cam = new THREE.PerspectiveCamera(84, 1080 / 1920, 0.05, 9000);
+  update(0, {});
+  poseCamera(cam, { anchor: 'aerial', pushPct: 3 }, anchors, 0, 24, 48);
+  const p0 = cam.position.clone();
+  const hull0 = scene.getObjectByName('hull').getWorldPosition(new THREE.Vector3());
+  update(47, {});
+  scene.updateMatrixWorld(true);
+  poseCamera(cam, { anchor: 'aerial', pushPct: 3 }, anchors, 47, 24, 48);
+  const hull1 = scene.getObjectByName('hull').getWorldPosition(new THREE.Vector3());
+  const t = 47 / 24;
+  assert.ok(Math.abs(hull0.z - hull1.z - 11.3 * t) < 1e-6, 'ship moves forward at 11.3 m/s');
+  const track = p0.z - cam.position.z;
+  assert.ok(track > 11.3 * t, 'camera tracks the ship and pushes in');
+  assert.ok(scene.getObjectByName('wake'), 'wake');
+  update(0, {});
 });
 
 test('set update is deterministic and moves the rigging', () => {
@@ -280,4 +316,17 @@ test('measure: stats, stills and target checks', async () => {
   const s = summarize([{ ...a, still: true }, { ...b, still: true }]);
   assert.equal(s.stillRun, 2);
   assert.ok(check(s).includes('still'));
+  const { TARGETS } = await import('../tools/measure.mjs');
+  assert.deepEqual(TARGETS.p5, [0, 25]);
+  assert.deepEqual(TARGETS.dark40, [0.06, 0.3]);
+});
+
+test('CI: Playwright container matches the installed Playwright', () => {
+  const lock = JSON.parse(readFileSync(new URL('../package-lock.json', import.meta.url)));
+  const v = lock.packages['node_modules/playwright'].version;
+  const wf = readFileSync(new URL('../.github/workflows/render.yml', import.meta.url), 'utf8');
+  const images = [...wf.matchAll(/image: (\S+)/g)].map((m) => m[1]);
+  assert.ok(images.length >= 2);
+  for (const img of images) assert.equal(img, `mcr.microsoft.com/playwright:v${v}-noble`);
+  assert.ok(!wf.includes('release create'), 'no releases');
 });

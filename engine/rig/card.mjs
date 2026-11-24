@@ -51,7 +51,7 @@ export async function makeCard(scene, spec, anchors, palette, { tint, seed = 'ca
   const card = new THREE.Mesh(geo, mat);
   const shadow = new THREE.Mesh(
     new THREE.CircleGeometry(0.5, 40),
-    new THREE.MeshBasicMaterial({ color: palette.shadowTo, transparent: true, opacity: 0.55, depthWrite: false })
+    new THREE.MeshBasicMaterial({ color: palette.ink, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })
   );
   shadow.rotation.x = -Math.PI / 2;
   shadow.scale.set(h * aspect * 0.7, 0.42, 1);
@@ -63,7 +63,7 @@ export async function makeCard(scene, spec, anchors, palette, { tint, seed = 'ca
   anchor.getWorldPosition(group.position);
   setLayer(group, LAYERS.CARD);
   scene.add(group);
-  const base = group.position.clone();
+  const base = new THREE.Vector3();
   const blinks = spec.blink === false ? new Set() : blinkFrames(`${seed}:${spec.cast}`, frames);
   return {
     group,
@@ -77,6 +77,9 @@ export async function makeCard(scene, spec, anchors, palette, { tint, seed = 'ca
         mat.map = tex;
         mat.needsUpdate = true;
       }
+      // Follow the anchor (it may ride a moving ship).
+      anchor.updateWorldMatrix(true, false);
+      anchor.getWorldPosition(base);
       group.position.copy(base);
       const dx = camera.position.x - base.x;
       const dz = camera.position.z - base.z;

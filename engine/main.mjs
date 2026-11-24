@@ -103,7 +103,10 @@ async function renderFrame(n) {
   if (!spec) throw new Error('renderFrame before load');
   const fps = spec.fps ?? 24;
   const shot = shotAt(spec, n);
-  const view = poseCamera(camera, shot.camera, anchors, n - shot.start, fps);
+  // Set state (ship travel, sway) first so anchors are current, then pose the camera, then camera-dependent state.
+  kit.update?.(n, { fps, shot });
+  scene.updateMatrixWorld(true);
+  const view = poseCamera(camera, shot.camera, anchors, n - shot.start, fps, shot.frames);
   passes.panini.setCamera(camera, view.panini);
   for (const name of showable) if (anchors[name]) anchors[name].visible = shot.show.includes(name);
   for (const c of cards) c.update(n, camera);

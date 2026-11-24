@@ -14,12 +14,12 @@
 - Depth and motion, every frame:
   - Three layers: foreground (hands, forestay, rim edge), middle (lit forecastle: lamps, windlass, bollards), background (sea, haze, iceberg).
   - Rigging and ropes sway 0.25 Hz, plus or minus 1.5 deg.
-  - Camera base motion on every shot: dolly forward 0.06 m/s plus breathing sway (0.25 Hz, 0.15 deg pitch, 4 mm). Held shots also push FOV in by 1 deg/s. No frame is ever still.
+  - Camera base motion on every shot, bounded: the dolly eases in and out and moves at most 0.25 m per shot; beyond that only the FOV push (1 deg/s, at most 8 deg per shot) plus breathing sway (0.25 Hz, 0.15 deg pitch, 4 mm). The eye never comes closer than 0.45 m to the rim. No frame is ever still.
 - Misregistration: the colour layer sits 1–2 px off the line layer, growing to 4 px with distance. This replaces depth-of-field. Never blur.
 - Paper grain: 5% multiply, re-seeded every 2 frames.
 - Every shot has foreground, midground and background. At least 12 props in view. Every set has 3 story props (signs someone lives there).
 - Palette per look: 5 colours + ink #141414 + paper #F4EFE6. Guide accent #E8336D never appears in any palette.
-- Night targets (tools/measure.mjs, 270 px wide): luma mean 70-95; share < 40 at most 30%; p5 at most 12; p95 at least 170; saturation 0.30-0.50; motion median 1.5-6%; still frames at most 10%; longest still run at most 19 frames.
+- Night targets (tools/measure.mjs, 270 px wide; every shot and the whole film): luma mean 70-95; share < 40 between 6% and 30%; p5 at most 25; p95 at least 170; saturation 0.30-0.50; motion median 1.5-6%; still frames at most 10%; longest still run at most 19 frames.
 
 ## Light
 - The ship is the key light.
@@ -27,8 +27,10 @@
 - Sea: banded steel-navy, low swell (0.3 m, 8 s period), short frost-coloured glint dashes that drift with the swell.
 - Key: every deck lamp and porthole is a lamp #E8A64B light with toon falloff in 3 hard-edged pools, plus a 2-step additive halo sprite; lamps flicker plus or minus 3% on twos. Fill: cool hemisphere light, ice #9FD3E0 at 35%.
 - Toon ramp, 3 steps: shadow = base x 0.55 tinted toward navy (never black), mid = base, lit = base mixed 40% toward the light colour. True black is ink only.
+- Spot blacks (comic rule): surfaces in the darkest step that face away from every lamp, and contact shadows under objects, render as solid ink #141414 instead of the tinted shadow tone.
 - Depth haze in 3 bands, steel/ice blend: 0% at the camera, 60% at the horizon.
-- Ship exterior: rows of lit portholes (lamp squares in 2 px ink frames) and lit bridge windows, so the aerial reads as a glowing ship. Four funnels; smoke from the first three only (the fourth was a ventilation dummy): ink-outlined puffs on twos, drifting aft.
+- Ship exterior: rows of lit portholes (lamp squares in 2 px ink frames) and lit bridge windows, so the aerial reads as a glowing ship. Halos and lit portholes are at least 6 px on screen at any distance, so the ship sparkles.
+- The aerial is alive (it is the hook): the ship steams forward at 22 knots (11.3 m/s) and the camera tracks with it; a frost-white V of foam spreads from the stern plus a bow wave, both animated and outlined in ink; funnel smoke drifts aft at ship speed; the camera adds a slow push of 3% per second. Aerial per-shot targets: p95 at least 170, motion median at least 1.5%. Four funnels; smoke from the first three only (the fourth was a ventilation dummy): ink-outlined puffs on twos, drifting aft.
 
 ## Ink
 - At 1080 px wide. Silhouettes (depth breaks) 6-8 px, scaled by distance: x1 within 5 m, x0.6 at 30 m, x0.35 beyond 200 m.
@@ -44,6 +46,7 @@
 - Shading: a flat shadow tone plus 45 deg ink hatching (3 px spacing) on the side away from the key light; a 2 px rim in the key colour on the lit edge; the whole card multiplied by the scene tint.
 - Blinks: 2-3 frames closed, every 2-4 s, seeded.
 - Identity by one prop + one palette colour, never by faces. Fleet: peaked cap, amber scarf, navy coat.
+- Fleet at cam_lookout is a foreground edge silhouette — cap brim, shoulder and amber scarf — filling the left 12-20% of frame width. His face is shown only in glance shots (FOV 52), framed head and shoulders. Characters keep 3.5 D proportions.
 - Billboard on yaw only; flat ellipse contact shadow.
 - Animated on twos: pose state updates every 2nd frame. The camera moves on ones.
 - 8 poses each; change pose every 1.5–2.5 s while on screen.
@@ -68,7 +71,7 @@
 ## Camera (POV)
 - Eye height 1.62 m. three.js vertical FOV: 72° default, 84° scale, 52° insert. At or above 80° the Panini pass keeps verticals straight.
 - Bands: top 30% scale/sky, middle 40% subject/eye-line, bottom 30% hands/foreground.
-- Walk bob only while walking: 1.8 Hz, 1.5 cm vertical, 0.4° roll. Breathing at rest: 0.25 Hz, 0.3 cm.
+- Walk bob only while walking: 1.8 Hz, 1.5 cm vertical, 0.4° roll. Breathing at rest: 0.25 Hz, 4 mm (0.15 deg pitch).
 - Glance 0.35–0.6 s ease-in-out, then a 2–3 frame settle. Max rotation 90°/s except whip (8 frames).
 - Sound leads camera: the head turns to an off-frame sound 6–10 frames after it starts.
 - Presets: walk, glance, look-up, look-down, kneel, held, witness (third-person wide, at most 15% of runtime, never in the first 3 s), whip, dive (the God's-eye opening: one unbroken move from the episode's aerial anchor straight into the POV eye in at most 3 s), rise (the reverse, closing the loop on frame 1's exact pose).

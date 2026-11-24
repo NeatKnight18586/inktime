@@ -13,7 +13,7 @@ export function makePalette(json, name = 'look') {
   const hexOf = (v) => (v === 'ink' ? json.ink : v === 'paper' ? json.paper : json.colors[v] ?? v);
   const color = (v) => new THREE.Color(hexOf(v));
   const shadowTo = color(json.shadowTo);
-  const ramp = { ...DEFAULT_RAMP, ...(json.ramp ?? {}) };
+  const ramp = { ...DEFAULT_RAMP, ...(json.ramp ?? {}), ink: json.ink };
   const cache = new Map();
   const palette = {
     name,

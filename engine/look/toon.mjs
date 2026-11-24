@@ -3,6 +3,7 @@ import { paintTexture, PAINT_SCALE } from './paint.mjs';
 
 // STYLE ramp, 3 steps: shadow = base x 0.55 tinted toward navy, mid = base, lit = base mixed 40% toward the light colour.
 // The light level comes from the summed irradiance; each light reaches a surface in hard steps (N.L and pools).
+// Spot blacks (comic rule): darkest-step surfaces that face away from every lamp render as solid ink.
 export const RAMP = [0.55, 1.0, 1.4];
 export const DEFAULT_RAMP = { shadow: 0.55, shadowTint: 0.5, litMix: 0.4, t1: 0.1, t2: 0.3 };
 
@@ -21,9 +22,11 @@ float inkPool( const in float d, const in float range ) {
 const toonPars = /* glsl */ `
 varying vec3 vViewPosition;
 struct ToonMaterial { vec3 diffuseColor; };
+float inkLampFacing = 0.0; // 1 when any lamp inside its range faces this surface
 void RE_Direct_Toon( const in IncidentLight directLight, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, const in ToonMaterial material, inout ReflectedLight reflectedLight ) {
   float d = dot( geometryNormal, directLight.direction );
   float w = d < -0.2 ? 0.0 : ( d < 0.3 ? 0.5 : 1.0 );
+  if ( d > 0.0 && max( directLight.color.r, max( directLight.color.g, directLight.color.b ) ) > 0.0 ) inkLampFacing = 1.0;
   reflectedLight.directDiffuse += w * directLight.color;
 }
 void RE_IndirectDiffuse_Toon( const in vec3 irradiance, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, const in ToonMaterial material, inout ReflectedLight reflectedLight ) {
@@ -45,6 +48,7 @@ export function toonMaterial(color, shadowTo, opts = {}) {
     uShadowTint: { value: tintVec },
     uRamp: { value: new THREE.Vector4(ramp.shadow, ramp.shadowTint, ramp.litMix, 0) },
     uThresh: { value: new THREE.Vector2(ramp.t1, ramp.t2) },
+    uInkCol: { value: new THREE.Color(ramp.ink ?? '#141414') },
     uPaint: { value: tex },
     uPaintScale: { value: paint ? PAINT_SCALE[paint] : 1 },
   };
@@ -85,6 +89,7 @@ varying vec3 vInkLocal;`
 uniform vec3 uShadowTint;
 uniform vec4 uRamp;
 uniform vec2 uThresh;
+uniform vec3 uInkCol;
 uniform sampler2D uPaint;
 uniform float uPaintScale;
 varying vec3 vInkWPos;
@@ -121,11 +126,12 @@ varying vec3 vInkLocal;`
   vec3 shadow = base * uRamp.x * mix( vec3( 1.0 ), uShadowTint, uRamp.y );
   shadow = max( shadow, base * 0.3 );
   vec3 lit = mix( base, lc, uRamp.z );
-  outgoingLight = ( e < uThresh.x ? shadow : ( e < uThresh.y ? base : lit ) ) + totalEmissiveRadiance;
+  vec3 dark = inkLampFacing < 0.5 ? uInkCol : shadow;
+  outgoingLight = ( e < uThresh.x ? dark : ( e < uThresh.y ? base : lit ) ) + totalEmissiveRadiance;
 }
 #include <opaque_fragment>`
       );
   };
-  mat.customProgramCacheKey = () => `inktime-toon2-${tex ? paint : 'flat'}`;
+  mat.customProgramCacheKey = () => `inktime-toon3-${tex ? paint : 'flat'}`;
   return mat;
 }
