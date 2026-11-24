@@ -1,0 +1,2 @@
+see-through test: PASS
+sampled 92195 pixels inside the card body (mask eroded 10 px); 0 differ between striped and plain wall (max channel diff 0, tolerance 8)

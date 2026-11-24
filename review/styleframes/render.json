@@ -1,10 +1,19 @@
 {
   "status": "stills",
-  "commit": "d0530fd29a8a0209e52d8c92c7fd70cb5ca0654b",
+  "commit": "73552e779b249caf4e05926e86cee4ec9a42f336",
   "frames": [
     "F1_aerial",
     "F2_lookout",
     "F3_money",
     "F4_day"
-  ]
+  ],
+  "solid": "PASS",
+  "urls": {
+    "F1_aerial": "https://github.com/NeatKnight18586/inktime/raw/renders/renders/styleframes/F1_aerial.png",
+    "F2_lookout": "https://github.com/NeatKnight18586/inktime/raw/renders/renders/styleframes/F2_lookout.png",
+    "F3_money": "https://github.com/NeatKnight18586/inktime/raw/renders/renders/styleframes/F3_money.png",
+    "F4_day": "https://github.com/NeatKnight18586/inktime/raw/renders/renders/styleframes/F4_day.png",
+    "contact": "https://github.com/NeatKnight18586/inktime/raw/renders/renders/styleframes/contact.jpg",
+    "notan": "https://github.com/NeatKnight18586/inktime/raw/renders/renders/styleframes/notan.png"
+  }
 }
