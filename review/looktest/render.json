@@ -1,0 +1,9 @@
+{
+  "status": "done",
+  "commit": "b9b0b86b024da60677c15fae7f0a081b916d2fa6",
+  "run_url": "https://github.com/NeatKnight18586/inktime/actions/runs/45338895552",
+  "release_url": "https://github.com/NeatKnight18586/inktime/releases/tag/preview-looktest-1",
+  "mp4_url": "https://github.com/NeatKnight18586/inktime/releases/download/preview-looktest-1/looktest.mp4",
+  "seconds_per_frame": 0.85,
+  "machine_minutes": 48.4
+}
