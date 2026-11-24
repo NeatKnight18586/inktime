@@ -1,15 +1,28 @@
-# Style frame critique (round 2, commit 643885d)
+# Style frame critique (look 2.1, round 3, commit 089746e)
 
-## F2_lookout (lookout at 2 s): p5 20, mean 84.6, p95 174, dark40 13.8%; notan dark 22.6 / mid 71.0 / light 6.4
-- Value structure: three clear masses. Spot-black basket interior along the bottom, a mid-tone sea and sky filling the top 60%, and a warm light deck wedge in the lower middle. The top 60% is a flat run of mid bands with no accent, so the frame reads bottom-heavy.
-- Focal point: the lit amber deck with the two lamp globes and the hand are the warmest, highest-chroma area and pull the eye as intended. Notan WARN: the brightest cell is Fleet's white face at the left edge (5 cells from any anchor). The cast card is the culprit, not a material or light.
-- Ink weight: the forestay is now a single ink line; the iceberg and the interior are solid ink; the rail, deck and hand outlines are a consistent 7 px class. The ink lines are strongest at the bottom where the eye is nearest, as intended.
-- Depth layers: foreground is the black basket interior, the cap rail, the mug, Fleet's edge and the hand. The midground is the deck and bow. The background is sea, the small black iceberg and the sky. Three layers read; the sea between the bow and the horizon is empty.
-- Readability at phone size: the hand, mug, deck and iceberg read at 270 px. The lamp halos are pale grey discs and do not read as light. The cap rail top is a pale ice band about 5% of frame height, wider than the thin fill line asked for; its width is the rail's geometry at 0.65 m, not a threshold.
+Aerial frame 0 and the money shot are the new frames. Rounds used: 1 + 2 (per-material controls and light positions only). Stills do not pass fully, see "Open".
 
-## F3_iceberg (lookout facing iceberg_dark, FOV 52): mean 78.7, p5 40, p95 114, dark40 2.8%; notan dark 25.3 / mid 73.1 / light 1.6
-- Value structure: after round 2 the iceberg is the darkest mass against the lightest horizon band, so the focal silhouette separates cleanly. The rest is almost all mid value: p5 40 and p95 114 miss the video targets, and the dark top sky band is the only other dark.
-- Focal point: the dark iceberg and its thin frost rim sit at the middle band, just above centre, and are the first read. Notan WARN: the brightest cell cluster is the lit deck and lamps at the bottom edge (17 cells from the rim). This is framing (the bow enters at the bottom), not a material.
-- Ink weight: the berg is solid ink with a 2 px frost rim; the forestay is a full-height ink line that passes through the berg and splits the frame in half. The line is clean but compositionally heavy.
-- Depth layers: the bow rails and hand are foreground, the stripes of sea are midground, and the berg and sky are background. The sea is flat bands with sparse glints, so the middle of the frame is empty.
-- Readability at phone size: the berg is only about 17% of the frame width and 5% of its height. It reads as a black shape with a pale edge, but it is small, and the hand and lamp pools at the bottom are the strongest pixels.
+## F1_aerial (aerial frame 0): lumaMean 83.4, dark40 12.1%, p5 20, p95 126 MISS, sat 0.299 MISS; notan dark 19.1 (WARN) / mid 78.5 / light 2.4
+- Value structure: a mid-tone frame. The near-black iceberg fills the bottom-left, the ship is the only light mass in the middle band; sky and sea are flat mid bands. Dark mass is 19.1%, just under the 20% WARN.
+- Focal point: the ship's midships is the brightest cluster (12 cells, peak 202), 0 cells from the focus anchor.
+- Ink weight: the iceberg is solid ink with a thin frost edge on its top only; the ship carries thin ink at 850 m (x0.35), so she reads as a light shape, not a lined one.
+- Depth layers: iceberg (foreground, bottom-left), ship (middle), sea and sky (background). The sea between is empty.
+- Readability at phone size: the ship spans 60% of the width, three-quarter on, with four funnels, white superstructure and an amber porthole band. Funnel smoke and the reflection read. p95 stays low because the lit area (ship) is under 5% of the frame.
+
+## F2_lookout (lookout at 2 s): p5 20, mean 81.3, p95 174, dark40 16.6%; notan dark 24.8 / mid 70.1 / light 5.0. All targets met
+- Value structure: black basket along the bottom, lit amber deck, mid sky/sea; the top 60% is still a flat run of mid bands.
+- Focal point: the brightest cluster is the hand (cell 16,26), 1 cell from the hand anchor. Fleet's card is no longer the brightest: his card is dark, with only brim, shoulder and scarf lit.
+- Ink weight: the hand has an 8 px class outline from the skinned hull, the cuff a heavy one; the cap rail is now a thin line.
+- Depth layers: the hand and the rail are the foreground, the lit forecastle the midground, the sea and horizon the background.
+- Readability at phone size: the hand reads as a gripping fist with a knit cuff. Seen from behind and above it is foreshortened; the pose (wrist) is fixed after round 1, so it was not changed in later rounds.
+
+## F3_money (money shot, vFOV 20, 457 m): lumaMean 95.1 MISS (limit 95), p95 118 MISS; p5 and dark40 n/a (insert); notan dark 9.5 / mid 88.9 / light 1.6
+- Value structure: the frost-lit crest is the only light mass; below it the berg is solid ink. The rest is mid sea and sky.
+- Focal point: the brightest cluster (6 cells, peak 201) sits on the crest, 0 cells from the anchor.
+- Ink weight: the forestay is a heavy vertical ink line through the centre of the berg; the berg shows a thin frost edge.
+- Depth layers: berg and horizon are background only; the stay is the sole foreground element.
+- Readability at phone size: the berg is 207 px tall (target 90), centred at 40% height, the bow is out of frame.
+
+## Open (look frozen for Episode 1; ideas go to docs/LEARNINGS.md)
+- F1 p95 126 (target 170), sat 0.299 (0.30), notan dark 19.1% (20%): a single aerial frame has too little lit area. The per-shot figures come from the full looktest render, which was not run.
+- F3 p95 118 (170) and lumaMean 95.1 (95): the insert is a small bright patch in a mid frame.
