@@ -1,0 +1,19 @@
+{
+  "id": "auctioneer",
+  "skin": "#F4EFE6",
+  "hat": null,
+  "shirt": {
+    "color": "#2A2420",
+    "details": [
+      "collar",
+      "buttons"
+    ],
+    "collar": "#F4EFE6"
+  },
+  "trousers": "#2A2420",
+  "accessories": [
+    "bowtie"
+  ],
+  "bowtie": "#6E1F2B",
+  "cheek": null
+}

@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import { makePalette } from '../engine/look/palette.mjs';
 import { shotAt, totalFrames } from '../engine/rig/camera.mjs';
 import { makeShotCam } from '../engine/rig/shotcam.mjs';
-import { transitionAt } from '../engine/post/transitions.mjs';
+import { transitionAt, jumpState, stampState, JUMP } from '../engine/post/transitions.mjs';
 import { paniniStrength } from '../engine/post/panini.mjs';
 import { HELD, heldObjectCamera } from '../engine/rig/presets.mjs';
 import { handsPlan } from '../engine/rig/hands3d.mjs';
@@ -19,11 +19,12 @@ import { poseAt, mouthAt, breathAt, blinkFrames } from '../engine/cast/stickmath
 import { tickPoseAt, countdownAt, bobAt } from '../engine/cast/tick.mjs';
 import { sfxState, pickVariant, sfxTilt, SIZE as SFX_SIZE } from '../engine/sfxwords.mjs';
 import { splitCards } from './captions.mjs';
-import { cardSpan, tickView, faceDisc, sfxBox, makeCam, W, H } from './framing.mjs';
+import { cardSpan, tickView, faceDisc, sfxBox, makeCam, toScreen, W, H } from './framing.mjs';
 import { loadEpisode, compile, readJson } from './timeline.mjs';
 import { rng, hashSeed } from './rng.mjs';
-import { isSlot, slotPoint, slotOutward, tickSlotDistance, sfxSlotDistance } from '../engine/rig/slots.mjs';
+import { isSlot, slotPoint, slotOutward, tickSlotDistance, sfxSlotDistance, TICK_IDLE_WIDTH } from '../engine/rig/slots.mjs';
 import { lightFx, LIGHT_STATES } from '../engine/look/lightstate.mjs';
+import { wispFrames, placeWisp } from '../engine/rig/breath.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const rootPath = (...p) => join(ROOT, ...p);
@@ -82,7 +83,7 @@ export async function bakeSpec(spec, { words = [], range = null } = {}) {
     const [, w, h] = svg.match(/width="(\d+)" height="(\d+)"/);
     return { ev, variant, aspect: Number(w) / Number(h), tilt: sfxTilt(seed, ev) };
   });
-  const capCards = words.length ? splitCards(words) : [];
+  const capCards = words.length ? splitCards(words, { keys: spec.captionKeys ?? [] }) : [];
   const plan = new Array(frames).fill(null);
   // Light-state runs: consecutive shots sharing a light state (engine/look/lightstate.mjs) form one run [start, start + len).
   const runs = [];
@@ -107,7 +108,8 @@ export async function bakeSpec(spec, { words = [], range = null } = {}) {
   };
 
   for (let n = a; n < b; n++) {
-    const shot = shotAt(spec, n);
+    const shot0 = shotAt(spec, n);
+    const shot = { ...shot0, sea: shot0.sea ?? spec.sea ?? null };
     const m = n - shot.start;
     const ne = n - (n % 2);
     // The renderer's order (engine/main.mjs): world state, pose the camera, then camera-dependent state.
@@ -154,11 +156,14 @@ export async function bakeSpec(spec, { words = [], range = null } = {}) {
         rest: view.rest ?? true,
         lean: view.lean ?? 1,
       },
-      tr: tr ? { type: tr.type, k: tr.k, ...(tr.centre ? { centre: tr.centre } : {}), ...(view.smear ? { smear: view.streak } : {}) } : view.smear ? { type: 'smear', k: 0, smear: view.streak } : null,
+      tr: tr ? { type: tr.type, k: tr.k, ...(tr.back ? { back: true } : {}), ...(tr.centre ? { centre: tr.centre } : {}), ...(view.smear ? { smear: view.streak } : {}) } : view.smear ? { type: 'smear', k: 0, smear: view.streak } : null,
+      stamp: (spec.transitions ?? []).map((t) => stampState(t, n, fps)).find(Boolean) ?? null,
       show: shot.show ?? [],
       hands: null,
       held: shot.camera?.object ?? null,
       fx: fx ? { glow: fx.glow, bergScale: fx.bergScale, yaw: fx.yaw } : null,
+      sea: shot.sea ?? spec.sea ?? null,
+      sprites: shot.sprites ?? [],
     };
     // Hands (blend names, so the engine only mixes two poses).
     const hp = handsPlan(n, (f) => handsAt(spec, f));
@@ -168,18 +173,30 @@ export async function bakeSpec(spec, { words = [], range = null } = {}) {
     const g = { pov: !NOT_POV.has(preset), spans: [], exempt: [], faces: [], sfx: [] };
     entry.cards = cards.map(({ c, isGuide, track, poses, blinks }, i) => {
       const an = isGuide ? tickAnchorAt(c, n) : c.anchor;
-      const slot = isGuide && isSlot(an);
+      const jumping = isGuide && tr?.type === 'jump';
+      const slot = isGuide && (isSlot(an) || jumping);
       const spot = slot ? null : world(an).toArray();
       const aimed = [shot.camera?.to, shot.camera?.from].some((x) => (typeof x === 'string' ? x : x?.anchor) === c.anchor);
-      g.exempt.push(!isPov || aimed);
+      g.exempt.push(!isPov || aimed || tr?.type === 'jump');
       if (isGuide) {
-        const t = tickPoseAt(poses, track, ne);
+        let t = tickPoseAt(poses, track, ne);
         let pos = null;
         if (slot) {
           // Camera slot: the point in front of the camera; a drift pose walks outward, away from the centre.
-          const p = slotPoint(an, camera, tickSlotDistance(camera.fov));
+          const home = isSlot(an) ? an : 'cam_right';
+          // c.slotScale: Tick that many times its slot size (closer to the eye), e.g. 'Tick close'.
+          const p = slotPoint(home, camera, tickSlotDistance(camera.fov) / (c.slotScale ?? 1));
           const drift = poses[t.name]?.drift;
-          if (drift) p.addScaledVector(slotOutward(an, camera), Math.hypot(...drift) * (Math.max(0, n - t.start) / fps));
+          if (drift && !jumping) p.addScaledVector(slotOutward(home, camera), Math.hypot(...drift) * (Math.max(0, n - t.start) / fps));
+          if (jumping) {
+            // The jump: Tick flies to the centre and grows to JUMP.tickWidth of the width (closer to the eye), hands spinning.
+            const js = jumpState(tr.k, !!tr.back);
+            const e = js.fly * js.fly * (3 - 2 * js.fly);
+            const c = slotPoint('cam_centre', camera, tickSlotDistance(camera.fov) * (TICK_IDLE_WIDTH / JUMP.tickWidth));
+            p.lerp(c, e);
+            if (js.spin) t = { ...tickPoseAt(poses, [{ at: 0, pose: 'spin' }], ne), name: 'spin', start: tr.at ?? n };
+            g.jumpCentre = toScreen(p, cam);
+          }
           pos = p.toArray();
         }
         const base = slot ? new THREE.Vector3(...pos) : new THREE.Vector3(...spot).add(new THREE.Vector3(...(c.offset ?? [0, 0, 0])));
@@ -196,6 +213,7 @@ export async function bakeSpec(spec, { words = [], range = null } = {}) {
       if (fd) g.faces.push(fd);
       return { pose: p0, mouth: mouthAt(ne, p0, c.speak), blink: blinks.has(ne), breath: breathAt(ne) };
     });
+    if (entry.tr?.type === 'jump' && g.jumpCentre) entry.tr.centre = [g.jumpCentre[0], 1 - g.jumpCentre[1]];
     // Sound words.
     entry.sfx = [];
     sfxDefs.forEach(({ ev, variant, aspect, tilt }, i) => {
@@ -219,6 +237,18 @@ export async function bakeSpec(spec, { words = [], range = null } = {}) {
       frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
       g.plant = frustum.intersectsBox(box);
     }
+    // Breath wisp (cold looks, camera at rest): placed clear of every subject box (cards, Tick, hands, the held object).
+    entry.breath = null;
+    if (look.cold && entry.cam.rest && !NOT_POV.has(preset)) {
+      const w = wispFrames(n, fps, spec.breathPhase ?? 0)[0];
+      if (w) {
+        const subj = g.spans.filter(Boolean).map(([lo, hi]) => ({ x0: lo, x1: hi, y0: 0, y1: 1 }));
+        if (entry.hands) subj.push(handsAt(spec, n) === 'rub' || entry.hands.cur === 'rub' ? { x0: 0, x1: 1, y0: 0.72, y1: 1 } : { x0: 0.6, x1: 1, y0: 0.74, y1: 1 });
+        if (entry.held) subj.push({ x0: 0.38, x1: 0.66, y0: 0.6, y1: 0.95 });
+        const x = placeWisp(subj, W / H);
+        if (x !== null) entry.breath = { x, age: w.age };
+      }
+    }
     // Caption active at this frame.
     const cap = capCards.find((c) => n >= Math.round(c.start * fps) && n < Math.round(c.end * fps));
     entry.caption = cap ? { text: cap.text, x: cap.x, y: cap.y, width: cap.width, height: cap.height } : null;
@@ -238,9 +268,10 @@ export async function bakeSpec(spec, { words = [], range = null } = {}) {
     showable: [...new Set((spec.shots ?? []).flatMap((s) => s.show ?? []))],
     presets: (spec.shots ?? []).map((s) => s.camera?.preset ?? 'held'),
     shots: (spec.shots ?? []).map((s, i) => ({ id: s.id ?? `S${i + 1}`, frames: s.frames, preset: s.camera?.preset ?? 'held' })),
-    cards: (spec.cards ?? []).map((c) => ({ cast: c.cast, anchor: c.anchor, blink: c.blink, light: c.light, facing: c.facing, offset: c.offset, face: c.face, faceAnchor: c.faceAnchor })),
+    cards: (spec.cards ?? []).map((c) => ({ cast: c.cast, anchor: c.anchor, blink: c.blink, light: c.light, facing: c.facing, facingCam: c.facingCam, offset: c.offset, face: c.face, faceAnchor: c.faceAnchor })),
     sfx: sfxDefs.map(({ ev, variant }) => ({ word: ev.word, at: ev.at, anchor: ev.anchor, variant })),
     countdown: spec.countdown ?? null,
+    transitions: spec.transitions ?? [],
     moneyShot: spec.moneyShot ?? null,
     plant: spec.plant ?? null,
     loop: spec.loop ?? null,

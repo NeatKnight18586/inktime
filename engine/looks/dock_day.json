@@ -1,0 +1,54 @@
+{
+  "ink": "#141414",
+  "paper": "#F4EFE6",
+  "ramp": {
+    "shadow": 0.55,
+    "shadowTint": 0.5,
+    "litMix": 0.4,
+    "t1": 0.1,
+    "t2": 0.3
+  },
+  "colors": {
+    "sky": "#CFE3EA",
+    "hullRed": "#8E2A22",
+    "wood": "#A67C52",
+    "navy": "#2B3A55",
+    "brown": "#6B4A35"
+  },
+  "fog": "sky",
+  "shadowTo": "navy",
+  "light": {
+    "key": "paper",
+    "fill": "sky",
+    "fillIntensity": 0.6
+  },
+  "haze": {
+    "colors": [
+      "sky",
+      "sky"
+    ],
+    "iceMix": 0,
+    "near": 250,
+    "far": 1200,
+    "bands": [
+      0,
+      0.3,
+      0.6
+    ]
+  },
+  "tint": {
+    "color": "paper",
+    "mix": 0.05,
+    "value": 1
+  },
+  "cast": {
+    "keyDir": [
+      0.55,
+      0.75,
+      0.4
+    ],
+    "key": "paper",
+    "shade": "navy",
+    "rim": "paper"
+  }
+}

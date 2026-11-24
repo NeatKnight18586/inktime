@@ -1,0 +1,78 @@
+// Camera-space story sprites: small drawn props held in or near "your" hands (an empty pocket lining, a moth, the dropped phone).
+// Drawn once per name with the diorama ink kit (STYLE ink weights, paper grain); placed per frame from the baked plan:
+// shot "sprites": [{ name, x, y (screen 0..1), size (share of the frame height), rot (deg) }].
+import * as THREE from 'three';
+import { buildDiorama } from './diorama.mjs';
+import { LAYERS } from '../look/layers.mjs';
+
+export const SPRITE_Z = 0.5;
+// Each drawing fills a 1 x 1 m layer (x -0.5..0.5, y 0..1).
+export const SPRITES = {
+  pocket_lining: (k, c) => {
+    // A turned-out wool pocket lining hanging from the fingers: a rumpled pale bag, a dark seam, a few loose threads.
+    const p = [[-0.3, 0.95], [-0.36, 0.6], [-0.28, 0.3], [-0.1, 0.12], [0.12, 0.1], [0.3, 0.28], [0.36, 0.62], [0.3, 0.95]];
+    k.shape(p, c.cloth, { line: k.lw.silhouette });
+    k.line([[-0.25, 0.9], [0.25, 0.9]], k.lw.crease);
+    k.line([[-0.2, 0.55], [-0.05, 0.35], [0.12, 0.42]], k.lw.texture);
+    k.hatch([[0.1, 0.12], [0.3, 0.28], [0.36, 0.62], [0.2, 0.6]], { alpha: 0.4 });
+    k.line([[0.0, 0.11], [0.03, 0.0]], k.lw.texture);
+  },
+  moth: (k, c) => {
+    // A small moth, wings spread, ink-outlined, with two dust dashes.
+    for (const s of [-1, 1]) {
+      k.shape([[0, 0.55], [s * 0.42, 0.85], [s * 0.48, 0.55], [s * 0.3, 0.35], [0, 0.45]], c.moth, { line: k.lw.silhouette });
+      k.line([[s * 0.12, 0.6], [s * 0.35, 0.7]], k.lw.texture);
+    }
+    k.shape(k.ellipse(0, 0.5, 0.06, 0.2, 16), c.ink, { line: k.lw.crease });
+    k.line([[0, 0.68], [-0.1, 0.9]], k.lw.texture);
+    k.line([[0, 0.68], [0.1, 0.9]], k.lw.texture);
+    k.line([[-0.45, 0.2], [-0.3, 0.25]], k.lw.texture);
+    k.line([[0.4, 0.15], [0.28, 0.2]], k.lw.texture);
+  },
+  phone: (k, c) => {
+    // The dropped phone, tumbling: a dark slab with a glowing lamp screen and speed dashes above it.
+    k.shape([[-0.22, 0.1], [0.22, 0.1], [0.22, 0.9], [-0.22, 0.9]], c.ink, { line: k.lw.silhouette });
+    k.shape([[-0.18, 0.15], [0.18, 0.15], [0.18, 0.85], [-0.18, 0.85]], c.glow, { outline: false });
+    for (const x of [-0.3, 0, 0.3]) k.line([[x, 0.95], [x * 1.2, 1.0]], k.lw.crease);
+  },
+};
+
+// names: the sprite names a plan uses. Returns { update(list), ready, prepass }.
+export function makeSprites(camera, palette, names, tint) {
+  const hex = (k, d) => palette.json.colors[k] ?? d;
+  const c = { ink: palette.json.ink, paper: palette.json.paper, cloth: palette.mixHex('paper', 'navy' in palette.json.colors ? 'navy' : 'ink', 0.25), moth: palette.mixHex('paper', 'ink', 0.45), glow: hex('lamp', palette.json.paper) };
+  const items = {};
+  const jobs = [];
+  const holder = new THREE.Group();
+  holder.name = 'sprites';
+  camera.add(holder);
+  for (const name of names) {
+    if (!SPRITES[name]) continue;
+    const g = new THREE.Group();
+    const d = buildDiorama(g, { seed: `sprite:${name}`, tint, view: { eye: [0, 0.5, 0.6], fov: 52 }, layers: [{ name, z: 0, w: 1, h: 1, y: -0.5, draw: (k) => SPRITES[name](k, c) }] });
+    for (const m of d.meshes) {
+      m.layers.set(LAYERS.FX);
+      m.material.depthTest = false;
+      m.renderOrder = 15;
+    }
+    g.visible = false;
+    holder.add(g);
+    items[name] = g;
+    jobs.push(d.ready);
+  }
+  return {
+    ready: Promise.all(jobs),
+    update(list = []) {
+      for (const g of Object.values(items)) g.visible = false;
+      const th = Math.tan((camera.fov * Math.PI) / 360);
+      for (const s of list) {
+        const g = items[s.name];
+        if (!g) continue;
+        g.visible = true;
+        g.position.set((s.x * 2 - 1) * th * camera.aspect * SPRITE_Z, (1 - s.y * 2) * th * SPRITE_Z, -SPRITE_Z);
+        g.scale.setScalar(s.size * 2 * th * SPRITE_Z);
+        g.rotation.set(0, 0, ((s.rot ?? 0) * Math.PI) / 180);
+      }
+    },
+  };
+}

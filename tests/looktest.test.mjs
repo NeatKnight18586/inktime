@@ -563,7 +563,8 @@ const handColors = () => ({ lit: new THREE.Color('#EFCEA0'), shadow: new THREE.C
 test('hands: SVG hands and the quad are gone; poses are tiny JSON; assets are credited', () => {
   assert.ok(!existsSync(new URL('../engine/rig/hands.mjs', import.meta.url)));
   assert.ok(!existsSync(new URL('../cast/hands/rail_grip.svg', import.meta.url)));
-  assert.deepEqual(Object.keys(poses), ['rail_grip', 'padlock_hold', 'rattle', 'pocket', 'phone_reach', 'slapped', 'point', 'phone']);
+  assert.deepEqual(Object.keys(poses), ['rail_grip', 'padlock_hold', 'rattle', 'pocket', 'phone_reach', 'slapped', 'point', 'phone', 'rub', 'crate_lid', 'pocket_out', 'phone_show']);
+  assert.equal(poses.rub.hand, 'both', 'two-hand mode');
   for (const p of Object.values(poses)) {
     assert.deepEqual(Object.keys(p.curl).sort(), ['index', 'middle', 'pinky', 'ring', 'thumb']);
     assert.ok(p.spread >= 0 && p.spread <= 1 && p.thumbOppose >= 0 && p.thumbOppose <= 1 && p.wrist.length === 3);
@@ -595,7 +596,7 @@ test('hands: curl maps to proximal 70c, intermediate 95c, distal 65c; poses blen
   assert.equal(poseAtFrame(0, () => null, poses), null);
 });
 
-test('hands: rigged hand curls round a rail, sits bottom-right (25-35% of width) and keeps its place when the FOV zooms', async () => {
+test('hands: rigged hand (scale 1.25) curls round a rail, sits bottom-right (31-44% of width) and keeps its place when the FOV zooms', async () => {
   const rig = buildHand(await loadGlb('right'), handColors(), {});
   const cam = new THREE.PerspectiveCamera(72, 1080 / 1920, 0.05, 100);
   const scene = new THREE.Scene();
@@ -609,7 +610,7 @@ test('hands: rigged hand curls round a rail, sits bottom-right (25-35% of width)
   rig.setPose(poses.rail_grip);
   placeHand(rig.group, rig.baseQuat, poses.rail_grip.wrist, 72);
   scene.updateMatrixWorld(true);
-  const gripLen = wp('index-finger-tip').distanceTo(wp('index-finger-phalanx-proximal'));
+  const gripLen = wp('index-finger-tip').distanceTo(wp('index-finger-phalanx-proximal')) / rig.group.scale.x;
   assert.ok(gripLen < openLen * 0.75, 'fingers curl');
   const camY = (n) => wp(n).applyMatrix4(cam.matrixWorldInverse).y;
   assert.ok(camY('index-finger-tip') < camY('index-finger-phalanx-proximal'), 'fingers curl down, round the rail');
@@ -635,7 +636,7 @@ test('hands: rigged hand curls round a rail, sits bottom-right (25-35% of width)
   const e84 = extents(84);
   const e20 = extents(20);
   console.log(`hands: x ${e72.x0.toFixed(2)}-${e72.x1.toFixed(2)}, top y ${e72.y0.toFixed(2)}, width ${(e72.width * 100).toFixed(0)}%`);
-  assert.ok(e72.width >= 0.25 && e72.width <= 0.35, `hand width ${(e72.width * 100).toFixed(0)}%`);
+  assert.ok(e72.width >= 0.31 && e72.width <= 0.44, `hand width ${(e72.width * 100).toFixed(0)}%`);
   assert.ok(e72.x0 >= 0.55 && e72.y0 >= 0.65, 'bottom-right');
   for (const e of [e84, e20]) assert.ok(Math.abs(e.x0 - e72.x0) < 0.05 && Math.abs(e.width - e72.width) < 0.05, 'same place at any FOV');
   assert.ok(Math.abs(breathLag(10, 24).pitchDeg) < 0.05, 'lags the breathing by 2 frames (tiny)');
@@ -646,6 +647,9 @@ test('hands: rigged hand curls round a rail, sits bottom-right (25-35% of width)
   assert.equal(rig.hull.material.uniforms.uLine.value, 1.3);
   assert.equal(rig.cuff.parent, rig.bones.wrist);
   assert.ok(rig.skinned.material.uniforms.uLit.value.equals(new THREE.Color('#EFCEA0')));
+  assert.equal(HAND_FRAME.scale, 1.25);
+  rig.cuff.geometry.computeBoundingBox();
+  assert.ok(rig.cuff.geometry.boundingBox.max.y - rig.cuff.geometry.boundingBox.min.y <= 0.04 + 1e-9, 'cuff at most 4 cm');
 });
 
 test('hands: the left hand loads and rigs the same way', async () => {

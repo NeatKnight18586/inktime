@@ -50,3 +50,8 @@ Times: "L<n>:<w>" is the start of word w (0-based) of line Ln from words.json; a
 - Shot "light": "iceberg_reveal" (engine/look/lightstate.mjs): over the run of consecutive shots with it, the crest light fades in over 12 frames, the iceberg scales 1.0 -> 1.35 and the world yaws +4 deg.
 - The plant gate passes a frame when any part of the anchor object's bounding box is inside the frustum, over plant.frames.
 - The first caption card starts at frame 0.
+
+# Phase 6b additions (ep001 v2)
+- episode.json: "sea" ("flat" | "swell", default per episode; a shot may set its own), "captionKeys" (yellow key words), shot "transitionIn": "jump" with "jump": {"stamp", "dest"}, or "jump_back"; cards may set "facingCam" (deg from facing the camera) and the guide "slotScale"; shot "sprites" [{name, x, y, size, rot}].
+- storyboard.json: {"episode", "beats": [{id, at: "L2: binoculars", set, look, camera, subject, verb, captionKey, ...}]}; tools/storyboard.mjs renders one still per beat at that word (captions burned in) and a 7x3 contact sheet; the CI stills job runs it on a [stills] commit and publishes to renders/<id>-storyboard/ with hands.txt (tools/handtest.mjs).
+- storyboard.md (episodes/<id>/): the review, 2 lines per beat (mute test, match).

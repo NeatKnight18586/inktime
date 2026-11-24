@@ -6,11 +6,14 @@
 import * as THREE from 'three';
 
 export const SLOTS = {
-  cam_left: { x: 0.2, y: 0.5 },
-  cam_right: { x: 0.8, y: 0.5 },
+  cam_left: { x: 0.18, y: 0.4 },
+  cam_right: { x: 0.82, y: 0.4 },
   cam_hands: { x: 0.68, y: 0.66 },
+  cam_centre: { x: 0.5, y: 0.45 }, // the jump: Tick at the centre
+  cam_top: { x: 0.5, y: 0.2 }, // sound words over a snap or an insert
 };
-export const TICK_K = 4.6; // m at vFOV 90 (tan 45 = 1)
+export const TICK_K = 5.5; // m at vFOV 90 (tan 45 = 1): Tick (idle) spans 12-15% of the frame width
+export const TICK_IDLE_WIDTH = 0.134; // Tick's idle width share at a slot (TICK_K)
 export const SFX_K = 0.6; // m at vFOV 90
 export const isSlot = (name) => Object.hasOwn(SLOTS, name);
 export const tickSlotDistance = (fov) => TICK_K / Math.tan((fov * Math.PI) / 360);

@@ -11,7 +11,7 @@ import { shotAt, totalFrames } from '../engine/rig/camera.mjs';
 import { PRESETS, turn, turnDuration, MAX_ROT, EYE_HEIGHT } from '../engine/rig/presets.mjs';
 import { povState, turnToSound, NO_CLAMP } from '../engine/rig/pov.mjs';
 import { blinkCover, stingProgress, stingBlobs, irisRadius, transitionAt, BLINK_FRAMES, STING_FRAMES } from '../engine/post/transitions.mjs';
-import { puffFrames, PUFF } from '../engine/rig/breath.mjs';
+import { wispFrames, WISP, wispBox, placeWisp, wispSide } from '../engine/rig/breath.mjs';
 import { isStill, poseDelta } from '../tools/measure.mjs';
 import { rng, hashSeed } from '../tools/rng.mjs';
 
@@ -178,15 +178,23 @@ test('transitions: blink 8 frames close 3 / hold 2 / open 3; sting 12 frames; ma
   assert.equal(whips.filter((f) => f.smear).length, 1);
 });
 
-test('breath puff: every 1.8 s at rest when the look is cold, drifts up and fades over 20 frames', () => {
+test('breath wisp: every 1.8 s at rest when cold, 20 frames, at most 3% of the frame, never over a subject box', () => {
   assert.equal(look.cold, true);
   const born = new Set();
-  for (let n = 0; n < 24 * 12; n++) for (const p of puffFrames(n)) born.add(p.born);
-  const list = [...born].sort((a, b) => a - b);
-  assert.deepEqual(list.slice(0, 4), [0, 43, 86, 130]);
-  assert.equal(PUFF.life, 20);
-  assert.equal(puffFrames(43 + 20).some((p) => p.born === 43), false);
-  assert.equal(puffFrames(43 + 19).some((p) => p.born === 43), true);
+  for (let n = 0; n < 24 * 12; n++) for (const p of wispFrames(n)) born.add(p.born);
+  assert.deepEqual([...born].sort((a, b) => a - b).slice(0, 4), [0, 43, 86, 130]);
+  assert.equal(WISP.life, 20);
+  assert.equal(wispFrames(43 + 20).some((p) => p.born === 43), false);
+  assert.equal(wispFrames(43 + 19).some((p) => p.born === 43), true);
+  assert.equal(wispFrames(10, 24, 5)[0].born, 5, 'phase shifts the cadence');
+  const b = wispBox(0.5, 0);
+  assert.ok((b.x1 - b.x0) * (b.y1 - b.y0) <= WISP.area + 1e-9, 'at most 3% of the frame area');
+  assert.ok(wispSide() > 0);
+  assert.equal(placeWisp([]), 0.5);
+  const x = placeWisp([{ x0: 0.3, x1: 0.62, y0: 0, y1: 1 }]);
+  const w = wispBox(x, 0);
+  assert.ok(w.x0 >= 0.62, `moved clear of the subject (x ${x})`);
+  assert.equal(placeWisp([{ x0: 0, x1: 1, y0: 0, y1: 1 }]), null, 'no place: no wisp');
 });
 
 test('povState: unknown presets throw; base motion is layered under presets', () => {

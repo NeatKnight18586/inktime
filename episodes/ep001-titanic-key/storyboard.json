@@ -1,0 +1,781 @@
+{
+ "episode": "ep001-titanic-key",
+ "beats": [
+  {
+   "id": "b01",
+   "at": "L1: forty",
+   "frame": 0,
+   "set": "titanic_crowsnest",
+   "look": "titanic_night",
+   "episodeShots": [
+    "S1"
+   ],
+   "show": [
+    "iceberg_rim"
+   ],
+   "subject": "Titanic from the berg",
+   "verb": "steams at you; the dive begins",
+   "captionKey": "forty",
+   "cards": [
+    {
+     "cast": "guide",
+     "slot": "cam_right",
+     "pose": "point"
+    },
+    {
+     "cast": "fleet",
+     "anchor": "fleet_spot",
+     "pose": "idle",
+     "light": "nest",
+     "facing": 180
+    },
+    {
+     "cast": "lee",
+     "anchor": "lee_spot",
+     "pose": "idle",
+     "facing": -65
+    }
+   ],
+   "sfx": [
+    {
+     "word": "WHOOOSH",
+     "at": 0,
+     "anchor": "cam_left",
+     "size": 0.12
+    }
+   ]
+  },
+  {
+   "id": "b02",
+   "at": "L2: You're",
+   "set": "titanic_crowsnest",
+   "look": "titanic_night",
+   "camera": {
+    "anchor": "cam_lookout",
+    "preset": "held",
+    "fov": 90
+   },
+   "hands": "rail_grip",
+   "subject": "you, landing in the nest",
+   "verb": "grip the rail; Tick, big, shows 40",
+   "captionKey": null,
+   "cards": [
+    {
+     "cast": "guide",
+     "slot": "cam_right",
+     "pose": "point",
+     "slotScale": 1.8
+    },
+    {
+     "cast": "fleet",
+     "anchor": "fleet_spot",
+     "pose": "idle",
+     "light": "nest",
+     "facing": 180
+    },
+    {
+     "cast": "lee",
+     "anchor": "lee_spot",
+     "pose": "idle",
+     "facing": -65
+    }
+   ]
+  },
+  {
+   "id": "b03",
+   "at": "L2: freezing",
+   "set": "titanic_crowsnest",
+   "look": "titanic_night",
+   "camera": {
+    "anchor": "cam_lookout",
+    "preset": "held",
+    "fov": 90
+   },
+   "hands": "rub",
+   "breathPhase": -6,
+   "subject": "your hands",
+   "verb": "rub together; your breath smokes",
+   "captionKey": null,
+   "cards": [
+    {
+     "cast": "guide",
+     "slot": "cam_left",
+     "pose": "shiver"
+    },
+    {
+     "cast": "fleet",
+     "anchor": "fleet_spot",
+     "pose": "idle",
+     "light": "nest",
+     "facing": 180
+    },
+    {
+     "cast": "lee",
+     "anchor": "lee_spot",
+     "pose": "idle",
+     "facing": -65
+    }
+   ]
+  },
+  {
+   "id": "b04",
+   "at": "L2: binoculars",
+   "set": "titanic_crowsnest",
+   "look": "titanic_night",
+   "camera": {
+    "anchor": "cam_crate",
+    "preset": "held",
+    "fov": 52
+   },
+   "hands": "crate_lid",
+   "subject": "the BINOCULARS crate",
+   "verb": "your hand presses its lid",
+   "captionKey": "binoculars",
+   "cards": [
+    {
+     "cast": "guide",
+     "slot": "cam_right",
+     "pose": "stare"
+    }
+   ]
+  },
+  {
+   "id": "b05",
+   "at": "L2: Locked",
+   "set": "titanic_crowsnest",
+   "look": "titanic_night",
+   "camera": {
+    "anchor": "cam_padlock",
+    "preset": "held",
+    "fov": 52
+   },
+   "subject": "the brass padlock",
+   "verb": "hangs locked on the crate",
+   "captionKey": "Locked",
+   "cards": [
+    {
+     "cast": "guide",
+     "slot": "cam_left",
+     "pose": "worried"
+    }
+   ],
+   "sfx": [
+    {
+     "word": "RATTLE",
+     "at": -4,
+     "anchor": "cam_top",
+     "size": 0.12
+    }
+   ]
+  },
+  {
+   "id": "b06",
+   "at": "L3: look",
+   "set": "titanic_crowsnest",
+   "look": "titanic_night",
+   "camera": {
+    "anchor": "cam_lookout",
+    "preset": "glance",
+    "fov": 52,
+    "from": "base",
+    "to": {
+     "anchor": "lee_spot",
+     "lift": 1.4
+    },
+    "lean": 0
+   },
+   "subject": "Lee",
+   "verb": "leans on the rail, watching the sea",
+   "captionKey": null,
+   "cards": [
+    {
+     "cast": "lee",
+     "anchor": "lee_spot",
+     "pose": "lean_rail",
+     "facingCam": 80
+    },
+    {
+     "cast": "fleet",
+     "anchor": "fleet_spot",
+     "pose": "idle",
+     "light": "nest",
+     "facing": 180
+    },
+    {
+     "cast": "guide",
+     "slot": "cam_left",
+     "pose": "stare"
+    }
+   ]
+  },
+  {
+   "id": "b07",
+   "at": "L3: sink",
+   "set": "titanic_crowsnest",
+   "look": "titanic_night",
+   "camera": {
+    "anchor": "cam_lookout",
+    "preset": "glance",
+    "fov": 52,
+    "from": "base",
+    "to": {
+     "anchor": "lee_spot",
+     "lift": 1.4
+    },
+    "lean": 0
+   },
+   "subject": "Lee",
+   "verb": "turns to you, smug",
+   "captionKey": null,
+   "cards": [
+    {
+     "cast": "lee",
+     "anchor": "lee_spot",
+     "pose": "smug",
+     "facingCam": 0
+    },
+    {
+     "cast": "fleet",
+     "anchor": "fleet_spot",
+     "pose": "idle",
+     "light": "nest",
+     "facing": 180
+    },
+    {
+     "cast": "guide",
+     "slot": "cam_left",
+     "pose": "facepalm"
+    }
+   ]
+  },
+  {
+   "id": "b08",
+   "at": "L4: Thirty",
+   "set": "titanic_crowsnest",
+   "look": "titanic_night",
+   "camera": {
+    "anchor": "cam_lookout",
+    "preset": "held",
+    "fov": 90
+   },
+   "hands": "rail_grip",
+   "subject": "Tick",
+   "verb": "holds up the clock: 30",
+   "captionKey": "Thirty",
+   "cards": [
+    {
+     "cast": "guide",
+     "slot": "cam_centre",
+     "pose": "worried",
+     "slotScale": 2.6
+    },
+    {
+     "cast": "fleet",
+     "anchor": "fleet_spot",
+     "pose": "idle",
+     "light": "nest",
+     "facing": 180
+    },
+    {
+     "cast": "lee",
+     "anchor": "lee_spot",
+     "pose": "idle",
+     "facing": -65
+    }
+   ]
+  },
+  {
+   "id": "b09",
+   "at": "L4: Nothing",
+   "set": "titanic_crowsnest",
+   "look": "titanic_night",
+   "camera": {
+    "anchor": "cam_lookout",
+    "preset": "glance",
+    "fov": 52,
+    "from": {
+     "yaw": 0,
+     "pitch": -50
+    },
+    "to": {
+     "yaw": 0,
+     "pitch": -50
+    },
+    "lean": 0
+   },
+   "hands": "pocket_out",
+   "sprites": [
+    {
+     "name": "pocket_lining",
+     "x": 0.62,
+     "y": 0.72,
+     "size": 0.2,
+     "rot": -8
+    },
+    {
+     "name": "moth",
+     "x": 0.5,
+     "y": 0.5,
+     "size": 0.08,
+     "rot": -15
+    }
+   ],
+   "subject": "your empty pocket",
+   "verb": "turns out; a moth flutters away",
+   "captionKey": "Nothing",
+   "cards": [
+    {
+     "cast": "guide",
+     "slot": "cam_right",
+     "pose": "worried"
+    }
+   ]
+  },
+  {
+   "id": "b10",
+   "at": "L5: flat",
+   "set": "titanic_crowsnest",
+   "look": "titanic_night",
+   "camera": {
+    "anchor": "cam_lookout",
+    "preset": "glance",
+    "fov": 84,
+    "from": {
+     "yaw": 75,
+     "pitch": -42
+    },
+    "to": {
+     "yaw": 75,
+     "pitch": -42
+    },
+    "lean": 0
+   },
+   "subject": "the sea",
+   "verb": "lies mirror-flat, holding the stars",
+   "captionKey": "flat",
+   "cards": [
+    {
+     "cast": "guide",
+     "slot": "cam_right",
+     "pose": "stare"
+    },
+    {
+     "cast": "fleet",
+     "anchor": "fleet_spot",
+     "pose": "idle",
+     "light": "nest",
+     "facing": 180
+    },
+    {
+     "cast": "lee",
+     "anchor": "lee_spot",
+     "pose": "idle",
+     "facing": -65
+    }
+   ]
+  },
+  {
+   "id": "b11",
+   "at": "L5: close",
+   "set": "titanic_crowsnest",
+   "look": "titanic_night",
+   "episodeShots": [
+    "S5"
+   ],
+   "subject": "the berg",
+   "verb": "sits dark on the water, no foam",
+   "captionKey": null,
+   "cards": [
+    {
+     "cast": "guide",
+     "slot": "cam_right",
+     "pose": "stare"
+    },
+    {
+     "cast": "fleet",
+     "anchor": "fleet_spot",
+     "pose": "idle",
+     "light": "nest",
+     "facing": 180
+    },
+    {
+     "cast": "lee",
+     "anchor": "lee_spot",
+     "pose": "idle",
+     "facing": -65
+    }
+   ]
+  },
+  {
+   "id": "b12",
+   "at": "L6: phone",
+   "set": "titanic_crowsnest",
+   "look": "titanic_night",
+   "camera": {
+    "anchor": "cam_lookout",
+    "preset": "held",
+    "fov": 90
+   },
+   "hands": "phone_show",
+   "subject": "your phone",
+   "verb": "reads NO SERVICE",
+   "captionKey": null,
+   "cards": [
+    {
+     "cast": "guide",
+     "slot": "cam_left",
+     "pose": "stare"
+    },
+    {
+     "cast": "fleet",
+     "anchor": "fleet_spot",
+     "pose": "idle",
+     "light": "nest",
+     "facing": 180
+    },
+    {
+     "cast": "lee",
+     "anchor": "lee_spot",
+     "pose": "idle",
+     "facing": -65
+    }
+   ]
+  },
+  {
+   "id": "b13",
+   "at": "L6: twelve",
+   "set": "titanic_crowsnest",
+   "look": "titanic_night",
+   "camera": {
+    "anchor": "cam_lookout",
+    "preset": "held",
+    "fov": 90
+   },
+   "hands": "slapped",
+   "sprites": [
+    {
+     "name": "phone",
+     "x": 0.6,
+     "y": 0.86,
+     "size": 0.12,
+     "rot": 35
+    }
+   ],
+   "subject": "Tick",
+   "verb": "slaps the phone away; it falls",
+   "captionKey": null,
+   "cards": [
+    {
+     "cast": "guide",
+     "slot": "cam_hands",
+     "pose": "slap",
+     "slotScale": 1.2
+    },
+    {
+     "cast": "fleet",
+     "anchor": "fleet_spot",
+     "pose": "idle",
+     "light": "nest",
+     "facing": 180
+    },
+    {
+     "cast": "lee",
+     "anchor": "lee_spot",
+     "pose": "glance",
+     "facing": -65
+    }
+   ],
+   "sfx": [
+    {
+     "word": "SLAP",
+     "at": -3,
+     "anchor": "cam_top",
+     "size": 0.12
+    }
+   ]
+  },
+  {
+   "id": "b14",
+   "at": "L7: Twenty",
+   "set": "titanic_crowsnest",
+   "look": "titanic_night",
+   "camera": {
+    "anchor": "cam_lookout",
+    "preset": "held",
+    "fov": 90
+   },
+   "hands": "rail_grip",
+   "jump": {
+    "at": -8,
+    "stamp": "SOUTHAMPTON · APRIL 1912",
+    "dest": "dock"
+   },
+   "subject": "Tick",
+   "verb": "spins to the centre: the jump begins",
+   "captionKey": "Twenty",
+   "cards": [
+    {
+     "cast": "guide",
+     "slot": "cam_right",
+     "pose": "idle"
+    },
+    {
+     "cast": "fleet",
+     "anchor": "fleet_spot",
+     "pose": "idle",
+     "light": "nest",
+     "facing": 180
+    },
+    {
+     "cast": "lee",
+     "anchor": "lee_spot",
+     "pose": "idle",
+     "facing": -65
+    }
+   ]
+  },
+  {
+   "id": "b15",
+   "at": "L7: days",
+   "set": "dock_1912",
+   "look": "dock_day",
+   "camera": {
+    "anchor": "cam_dock",
+    "preset": "held",
+    "fov": 52
+   },
+   "jump": {
+    "at": -24,
+    "stamp": "SOUTHAMPTON · APRIL 1912",
+    "dest": "dock"
+   },
+   "subject": "the officer",
+   "verb": "steps onto the gangway",
+   "captionKey": null,
+   "cards": [
+    {
+     "cast": "officer",
+     "anchor": "officer_spot",
+     "pose": "step",
+     "facingCam": 40
+    },
+    {
+     "cast": "guide",
+     "slot": "cam_right",
+     "pose": "idle"
+    }
+   ]
+  },
+  {
+   "id": "b16",
+   "at": "L8: pocket",
+   "set": "dock_1912",
+   "look": "dock_day",
+   "camera": {
+    "anchor": "cam_officer_close",
+    "preset": "held",
+    "fov": 52
+   },
+   "subject": "the officer's hand",
+   "verb": "pats his pocket; the key glints",
+   "captionKey": "pocket",
+   "cards": [
+    {
+     "cast": "officer",
+     "anchor": "officer_spot",
+     "pose": "pat_pocket",
+     "facingCam": 20
+    },
+    {
+     "cast": "guide",
+     "slot": "cam_left",
+     "pose": "idle"
+    }
+   ]
+  },
+  {
+   "id": "b17",
+   "at": "L9: that",
+   "set": "titanic_crowsnest",
+   "look": "titanic_night",
+   "camera": {
+    "anchor": "cam_lookout",
+    "preset": "glance",
+    "fov": 52,
+    "from": "base",
+    "to": {
+     "anchor": "fleet_spot",
+     "lift": 1.4
+    },
+    "lean": 0
+   },
+   "hands": "rail_grip",
+   "subject": "Fleet",
+   "verb": "faces you, squints and points",
+   "captionKey": null,
+   "cards": [
+    {
+     "cast": "fleet",
+     "anchor": "fleet_spot",
+     "pose": "squint_point",
+     "facingCam": 0
+    },
+    {
+     "cast": "lee",
+     "anchor": "lee_spot",
+     "pose": "idle",
+     "facing": -65
+    },
+    {
+     "cast": "guide",
+     "slot": "cam_right",
+     "pose": "stare"
+    }
+   ]
+  },
+  {
+   "id": "b18",
+   "at": "L10: Iceberg",
+   "frame": "L9:7+50f",
+   "set": "titanic_crowsnest",
+   "look": "titanic_night",
+   "episodeShots": [
+    "S9",
+    "S9b"
+   ],
+   "show": [
+    "iceberg_rim",
+    "iceberg_glow"
+   ],
+   "hands": "rail_grip",
+   "subject": "the iceberg",
+   "verb": "fills the view, snap zoom",
+   "captionKey": "Iceberg",
+   "cards": [
+    {
+     "cast": "guide",
+     "slot": "cam_right",
+     "pose": "panic"
+    },
+    {
+     "cast": "fleet",
+     "anchor": "fleet_spot",
+     "pose": "idle",
+     "light": "nest",
+     "facing": 180
+    },
+    {
+     "cast": "lee",
+     "anchor": "lee_spot",
+     "pose": "idle",
+     "facing": -65
+    }
+   ],
+   "sfx": [
+    {
+     "word": "DING-DING-DING",
+     "at": -6,
+     "anchor": "cam_top",
+     "size": 0.1
+    }
+   ]
+  },
+  {
+   "id": "b19",
+   "at": "L11: never",
+   "set": "auction_2007",
+   "look": "auction_warm",
+   "camera": {
+    "anchor": "cam_key",
+    "preset": "held",
+    "fov": 52
+   },
+   "jump": {
+    "at": -20,
+    "stamp": "AUCTION · 2007",
+    "dest": "auction"
+   },
+   "subject": "the key",
+   "verb": "lies on velvet, tagged",
+   "captionKey": null,
+   "cards": [
+    {
+     "cast": "guide",
+     "slot": "cam_left",
+     "pose": "idle"
+    }
+   ]
+  },
+  {
+   "id": "b20",
+   "at": "L11: thousand",
+   "set": "auction_2007",
+   "look": "auction_warm",
+   "camera": {
+    "anchor": "cam_auction",
+    "preset": "held",
+    "fov": 52
+   },
+   "subject": "the auctioneer",
+   "verb": "slams the gavel: SOLD at £90,000",
+   "captionKey": "thousand",
+   "cards": [
+    {
+     "cast": "auctioneer",
+     "anchor": "auctioneer_spot",
+     "pose": "gavel_slam",
+     "facingCam": 0
+    },
+    {
+     "cast": "guide",
+     "slot": "cam_right",
+     "pose": "stare"
+    }
+   ],
+   "sfx": [
+    {
+     "word": "SOLD",
+     "at": -4,
+     "anchor": "gavel",
+     "size": 0.3,
+     "lift": 0.35
+    }
+   ]
+  },
+  {
+   "id": "b21",
+   "at": "L12: time",
+   "set": "titanic_crowsnest",
+   "look": "titanic_night",
+   "episodeShots": [
+    "S11"
+   ],
+   "show": [
+    "iceberg_rim"
+   ],
+   "subject": "the ship",
+   "verb": "falls away as you rise",
+   "captionKey": null,
+   "cards": [
+    {
+     "cast": "guide",
+     "slot": "cam_right",
+     "pose": "point"
+    },
+    {
+     "cast": "fleet",
+     "anchor": "fleet_spot",
+     "pose": "idle",
+     "light": "nest",
+     "facing": 180
+    },
+    {
+     "cast": "lee",
+     "anchor": "lee_spot",
+     "pose": "idle",
+     "facing": -65
+    }
+   ]
+  }
+ ]
+}

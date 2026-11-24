@@ -56,7 +56,7 @@
 - Proportions: total height 3.5 D. Round head 1 D overlapping the body by 0.08 D. Capsule body 0.88 D wide, 1.4 D long. Legs 1.0 D. Stick limbs 0.045 D thick, arms 1.3 D. Ink-nub hands 0.12 D. Dark oval shoes 0.18 D.
 - Ink: outline 0.035 D, varying plus or minus 15% for a brush feel, colour #141414.
 - Face: dot eyes 0.075 D with a tiny highlight, spaced 0.27 D, at head centre; default smug half-lid; tapered brows 0.19 D wide, 0.17 D above the eyes; mouth set line, smirk, o, grin, gritted, frown, shout; optional soft cheek patch.
-- Params, no new code per character (cast/<id>/char.json): hat {type, colours}, shirt colour plus details (pocket, buttons, collar, scarf), trousers colour, accessories. Identity by one prop + one palette colour, never by faces. Fleet: dark peaked cap, navy coat, amber scarf. Lee: frost-white knit cap, collar turned up.
+- Params, no new code per character (cast/<id>/char.json): hat {type, colours}, shirt colour plus details (pocket, buttons, collar, scarf), trousers colour, accessories. Identity stays hat + silhouette + one colour, never faces; a moustache is an era detail, not identity (params: accessories moustache, bowtie; shirt buttonColor). Fleet: dark peaked cap, navy coat, amber scarf. Lee: frost-white knit cap, collar turned up.
 - Poses (cast/<id>/poses.json) are joint angles: shoulders, elbows, hips, knees, head tilt, plus eyes, brows, mouth, e.g. {"armL": [40, 90], "armR": [-10, 20], "legL": [5, 0], "legR": [-5, 0], "tilt": 4, "eyes": "half", "mouth": "smirk"}. Each character has idle, lean_forward, squint, point, alarm, shiver; Fleet also edge (leaning, back three-quarter) and phone_shout; Lee also talk and scoff.
 - Animation, cheap: the player interpolates poses (6-frame blend) and updates the drawing on twos; the camera moves on ones. Idle breathing: body scale y plus 1.5% at 0.3 Hz. Blinks: closed 2-3 frames, every 2-4 s, seeded. Talk: the mouth alternates o/line on twos while the character speaks.
 - The six 2.5D tricks (all required):
@@ -72,21 +72,36 @@
 
 ## Guide
 - Silent mime only "you" can see. Never speaks. On screen in POV except where a shot says otherwise, never off screen more than 8 s. Design: cast/guide/README.md.
+- At the camera slots (engine/rig/slots.mjs) Tick spans 12-15% of the frame width; slots at x 18% / 82%, y 40% (cam_left, cam_right), plus cam_hands (68%, 66%), cam_centre and cam_top. Tick at a slot draws over the set.
 
 ## Hands (you)
 - XIII style. Realistic proportions, never cartoon nubs.
-- Two flat skin tones: lit = lamp #E8A64B mixed 55% toward paper #F4EFE6; shadow = lit x 0.7 toward navy. One hard-edged shadow shape per finger group.
+- Two flat skin tones (Phase 6b, lighter): lit = lamp #E8A64B mixed 75% toward paper #F4EFE6; shadow = lit x 0.78 toward navy. One hard-edged shadow shape per finger group.
+- Scale 1.25; the navy knit cuff shows at most 4 cm. Test (CI stills job, tools/handtest.mjs): in every hand pose render, skin is at least 60% of the hand's pixel area and the cuff at most 25%.
+- Two-hand mode: a pose with "hand": "both" shows both rigs (the left mirrored to the bottom-left), e.g. "rub".
 - Outline 8 px, knuckle creases 2-3 px; navy wool cuff with knit hatching.
 - A 3D viewmodel, as in FPS games (engine/rig/hands3d.mjs): an existing rigged hand (@webxr-input-profiles generic-hand, MIT; assets/hands/) in camera space, bottom-right 25-35% of the frame, multiplied by the scene tint. Material: the toon ramp in the two skin tones, lit by the 1b.2 hand light (warm amber key from below, ice rim on the upper edges). Ink: a second SkinnedMesh sharing the skeleton, back faces pushed out along the skinned normal in the vertex shader, lineScale 1.3. Cuff: a navy knit-hatch cylinder on the wrist bone.
 - Poses are tiny JSON (cast/hands/poses.json): curl per finger 0..1, spread, thumbOppose, wrist [pitch, yaw, roll] deg. Curl c gives proximal 70c, intermediate 95c, distal 65c deg. rail_grip (curls 0.75-0.9, thumbOppose 0.7) wraps a 4 cm rail; padlock_hold. Poses blend over 3 frames, updated on twos; the viewmodel lags the camera breathing by 2 frames and keeps its place in frame when the FOV zooms.
 - On screen at least 40% of POV time. Animated on twos. Look 2.1 is frozen for Episode 1: further look ideas go to docs/LEARNINGS.md.
+
+## Breath
+- No grey puffs. A wisp: 2-frame ink-outlined frost curls in camera space, every 1.8 s at rest when the look is cold, at most 3% of the frame area, never overlapping a subject's bounding box (no free place: no wisp).
+
+## Sea state
+- Per episode or per shot (episode.json "sea", shot "sea"). swell: 0.3 m, 8 s. flat: a flat calm, 0.02 m micro-shimmer, the stars mirrored on the water, the glints kept (Episode 1: the inquiry record's flat calm night).
+
+## Diorama sets (cutaways)
+- A set = 4-7 flat layer planes at given depths (engine/kits/diorama.mjs), Disney multiplane style, each a parametric canvas drawing in our ink style (STYLE ink weights, hatching, paper grain). Cast cards stand between layers; the 3D camera gives real parallax; each set has its own light preset in its look file.
+- Sets: kits/sets/dock_1912.mjs (look dock_day), kits/sets/auction_2007.mjs (look auction_warm). Props (kits/props/props.mjs): the 6 cm brass padlock on the BINOCULARS crate, the brass key tagged "CROWS NEST TELEPHONE", a gavel, the price card.
 
 ## Sound words
 - Hand-lettered SVG from tools/letter.mjs, 3 variants per word, never a font.
 - Placed in 3D at the sound source. Pop in over 3 frames (scale 0.6 → 1.1 → 1.0), hold, fade over 12 frames. Max one per 2 s.
 
 ## Captions (separate layer)
-- 1–2 words per card, timed to words.json. Font: Anton. White, 8 px ink outline, centred at 33% of height. Never in the bottom 20% or right 15%.
+- 1-3 words per card, never across punctuation, timed to words.json. Font: Anton 110 px at 1080 wide, white, 10 px ink outline plus a soft 6 px shadow.
+- The key word is yellow #FFD23F: numbers, and any word listed in episode.json "captionKeys".
+- Each card pops in over 3 frames from 115%. Centred at 64% of the height. Never in the bottom 20% or right 15%. The first card starts at frame 0.
 
 ## Camera (POV)
 - Eye height 1.62 m. three.js vertical FOV: 90° default for POV shots (about 59° horizontal in 9:16), 52° insert, 20° snap zoom (witness 84°). A reveal (the money shot) is a subjective snap zoom to vFOV 20, an insert (a shot with preset snap): p5 and dark40 do not apply to it, the target sits at 40% of frame height and the bow is out of frame. The Panini pass keeps verticals straight, with strength 0 at 78°, 0.5 at 90° and 0.7 at 100° (linear ramp, clamped).
@@ -98,7 +113,8 @@
 - Lean (engine/rig/pov.mjs): when a POV shot's pitch goes below -20 deg, or the preset is look-down, the eye eases 0.6 m forward toward the front rim and 0.1 m down over 12 frames (never closer than 0.15 m to the rim) and eases back when the pitch returns above -20 (a shot can set `lean: 0`, or `leanRelease` = the frame the 12-frame ease-back starts). The rail grip follows the lean. The walkthrough's look-down ends with the ease-back, so the Lee glance starts at the rest eye.
 - POV rig (engine/rig/pov.mjs, presets.mjs; pure functions): preset (params, t) -> {pos, target, fov, roll}, base motion layered under every preset, walk bob only in walk, rotation clamped to 90 deg/s except whip, dive and rise (a turn is lengthened to peak at 90 deg/s), look-at easing with a 2-3 frame settle. glance 0.35-0.6 s; look-up/look-down tilt-reveal between two anchors; kneel eye 0.9 m; held: the object comes to you, the eye stays standing (1.62 m), the camera 12 deg down, the object lifted 0.45 m in front and 0.25 m below the eye and moving with the hands, FOV push 1 deg/s; snap to vFOV 20 in 3 frames; witness vFOV 84; whip 8 frames with directional misregistration and one smear frame. turnToSound(anchorPos, soundFrame, delayFrames = 8). Transitions (engine/post/transitions.mjs): blink 8 frames (close 3, hold 2, open 3), sting 12 frames, whip, match iris. Breath puff every 1.8 s at rest when the look is cold.
 - Presets: walk, glance, look-up, look-down, kneel, held, witness (third-person wide, at most 15% of runtime, never in the first 3 s), whip, dive (the God's-eye opening: one unbroken telephoto-to-dolly-zoom move from the episode's aerial frame straight into the POV eye in at most 3 s), rise (its exact reverse, closing the loop on frame 1's exact pose and FOV).
-- Transitions: blink (8 frames, ink eyelids), sting (12-frame ink-splash reveal under the first word; it also closes the loop), whip-glance, match-cut through a round shape.
+- Transitions: blink (8 frames, ink eyelids), sting (12-frame ink-splash reveal under the first word; it also closes the loop), whip-glance, match-cut through a round shape, jump (the time jump, below).
+- Jump (20 frames): Tick flies to the centre and grows to 40% of the width, its clock hands spinning (12 frames); an ink splash wipes to the destination (the cut at frame 14). A hand-lettered date stamp card (e.g. "AUCTION · 2007", at most 3 words) pops in for 1.2 s. Returning plays it reversed. At most 2 jumps per episode, each to a different destination (gate "jumps"); jump frames are exempt from the centre-40% rule.
 
 ## Pacing
 - A visual change every 1.5–2.5 s. No freeze of 1.2 s or more. Frame 1 has motion, a sound word and the first caption. Narration runs at 190-200 words a minute.

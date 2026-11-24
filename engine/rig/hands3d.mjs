@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { LAYERS } from '../look/layers.mjs';
 import { hullUniforms, INK_SCALE_GLSL, SILHOUETTE_PX } from '../look/hull.mjs';
 import { BASE_MOTION } from './camera.mjs';
+import { letterImage } from '../look/lettering.mjs';
 
 // "You" hands as a 3D viewmodel (STYLE, Hands). An existing rigged hand (@webxr-input-profiles generic-hand, MIT) is
 // skinned, shaded with a two-tone toon ramp, outlined with a skinned inverted hull, and drawn in camera space.
@@ -17,12 +18,19 @@ export const SPREAD_REST = 0.35;
 export const OPPOSE_DEG = { toPalm: 50, toFingers: 22 };
 export const BLEND_FRAMES = 3;
 // Camera-space placement (metres, right/up/forward from the eye) at the reference FOV; bottom-right of the frame.
-export const HAND_FRAME = { x: 0.12, y: -0.2, z: 0.42, scale: 1, refFov: 72 };
+export const HAND_FRAME = { x: 0.12, y: -0.2, z: 0.42, scale: 1.25, refFov: 72 };
+// Skin values (Phase 6b, lighter): lit = lamp mixed SKIN.toPaper toward paper; shadow = lit x SKIN.shadow, 20% toward navy.
+export const SKIN = { toPaper: 0.75, shadow: 0.78 };
+// The knit cuff: at most 4 cm of it shows past the wrist.
+export const CUFF = { length: 0.04, r0: 0.036, r1: 0.039 };
+// Two-hand poses ("hand": "both"): the right pose drives both rigs; the left mirrors it (x, wrist yaw and roll) at the
+// bottom-left. "rub": the palms slide against each other on twos (RUB.amp m at RUB.hz).
+export const RUB = { amp: 0.018, hz: 2.2 };
 // Lighting (kept from 1b.2): warm amber key from below, ice rim on the upper edges. keyDir is view space (towards the light).
 export const HAND_LOOK = { lineScale: 1.3, shadowBias: 0, t2: 0.3, keyDir: [0.2, -0.62, 0.76], warm: 0.3, rimFrom: 0.8, rimUp: 0.15, rimMix: 0.9, ink: 0.022 };
 
 // A modern phone held in the right hand (pose "prop": "phone"): metres; the screen glows lamp colour and lights the fingers.
-export const PHONE = { w: 0.072, h: 0.15, d: 0.008, screenInset: 0.004, palm: 0.022, along: 0.075, glowR: 0.12 };
+export const PHONE = { w: 0.072, h: 0.15, d: 0.008, screenInset: 0.004, palm: 0.022, along: 0.075, glowR: 0.12, screenText: 'NO SERVICE' };
 
 export const curlAngles = (c) => ({ proximal: CURL_DEG.proximal * c, intermediate: CURL_DEG.intermediate * c, distal: CURL_DEG.distal * c });
 
@@ -294,7 +302,7 @@ export function buildHand(gltf, colors, hex = {}) {
 
   // Cuff on the wrist bone, running back along the arm.
   const knit = knitTexture(hex.navy ?? '#1B2A41', hex.ink ?? '#141414');
-  const cuffGeo = new THREE.CylinderGeometry(0.036, 0.04, 0.09, 24, 1, true);
+  const cuffGeo = new THREE.CylinderGeometry(CUFF.r0, CUFF.r1, CUFF.length, 24, 1, true);
   const cuff = new THREE.Mesh(cuffGeo, skinMaterial({ ...colors, lit: colors.navy, shadow: colors.navy }, { map: knit }));
   if (!knit) cuff.material.uniforms.uLit.value = colors.navy;
   cuff.material.uniforms.uRimMix.value = 0;
@@ -302,11 +310,12 @@ export function buildHand(gltf, colors, hex = {}) {
   const wq = rest.wrist.quat.clone();
   const align = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), arm);
   cuff.quaternion.copy(wq.clone().invert().multiply(align));
-  cuff.position.copy(arm.clone().multiplyScalar(0.05).applyQuaternion(wq.clone().invert()));
+  cuff.position.copy(arm.clone().multiplyScalar(CUFF.length / 2 + 0.004).applyQuaternion(wq.clone().invert()));
   cuff.layers.set(LAYERS.SOLID);
   cuff.frustumCulled = false;
   cuff.material.side = THREE.DoubleSide;
   const cuffHull = new THREE.Mesh(cuffGeo, inkHullMaterial(0.09 * HAND_LOOK.ink));
+  cuff.name = 'cuff';
   cuffHull.layers.set(LAYERS.HULL);
   cuffHull.frustumCulled = false;
   cuffHull.userData.isHull = true;
@@ -360,6 +369,28 @@ export function buildPhone(rig, colors) {
     new THREE.MeshBasicMaterial({ color: colors.glow ?? colors.key, fog: false, toneMapped: false })
   );
   screen.position.z = PHONE.d / 2 + 0.0006;
+  // The screen reads "NO SERVICE" (hand-lettered ink on the lamp glow), across the screen's long side.
+  if (typeof document !== 'undefined') {
+    const cv = document.createElement('canvas');
+    cv.width = 256;
+    cv.height = 512;
+    const g = cv.getContext('2d');
+    g.fillStyle = '#' + (colors.glow ?? colors.key).getHexString();
+    g.fillRect(0, 0, cv.width, cv.height);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    screen.material.map = tex;
+    screen.material.color.set(0xffffff);
+    screen.userData.ready = letterImage(PHONE.screenText, { fill: '#141414' }).then((img) => {
+      g.save();
+      g.translate(cv.width / 2, cv.height / 2);
+      g.rotate(-Math.PI / 2);
+      const k = Math.min((cv.height * 0.86) / img.width, (cv.width * 0.5) / img.height);
+      g.drawImage(img, (-img.width * k) / 2, (-img.height * k) / 2, img.width * k, img.height * k);
+      g.restore();
+      tex.needsUpdate = true;
+    });
+  }
   screen.name = 'phone_screen';
   screen.layers.set(LAYERS.SOLID);
   screen.frustumCulled = false;
@@ -375,11 +406,12 @@ export async function loadHand(hand = 'right', colors, hex) {
 }
 
 // In-frame placement of the hand group for a camera FOV: the viewmodel keeps its screen place when the FOV zooms.
-export function placeHand(group, baseQuat, wristDeg, fov, offset = [0, 0, 0]) {
+// side: 1 = the right hand (bottom-right), -1 = the left hand of a two-hand pose (mirrored to the bottom-left).
+export function placeHand(group, baseQuat, wristDeg, fov, offset = [0, 0, 0], side = 1) {
   const k = Math.tan((fov * DEG) / 2) / Math.tan((HAND_FRAME.refFov * DEG) / 2);
   const s = HAND_FRAME.scale * k;
   group.scale.setScalar(s);
-  group.position.set((HAND_FRAME.x + offset[0]) * k, (HAND_FRAME.y + offset[1]) * k, -HAND_FRAME.z + offset[2]);
+  group.position.set((side * HAND_FRAME.x + offset[0]) * k, (HAND_FRAME.y + offset[1]) * k, -HAND_FRAME.z + offset[2]);
   const wr = new THREE.Quaternion().setFromEuler(new THREE.Euler(wristDeg[0] * DEG, wristDeg[1] * DEG, wristDeg[2] * DEG, 'YXZ'));
   group.quaternion.copy(wr).multiply(baseQuat);
 }
@@ -393,13 +425,15 @@ export function breathLag(m, fps) {
 
 export async function makeHands(camera, tint, palette, poses) {
   const L = palette.json.light;
-  const lit = new THREE.Color(palette.mixHex('lamp', 'paper', 0.55));
+  const lit = new THREE.Color(palette.mixHex('lamp', 'paper', SKIN.toPaper));
   const navy = palette.color('navy');
-  const shadow = lit.clone().multiplyScalar(0.7).lerp(navy, 0.2);
+  const shadow = lit.clone().multiplyScalar(SKIN.shadow).lerp(navy, 0.2);
   const colors = { lit, shadow, key: palette.color(L.key), rim: palette.color(L.fill), tint, navy, glow: palette.color('lamp') };
   const rigs = {};
-  for (const hand of new Set(Object.values(poses).map((p) => p.hand ?? 'right'))) rigs[hand] = await loadHand(hand, colors, { navy: palette.hexOf('navy'), ink: palette.json.ink });
+  const sides = new Set(Object.values(poses).flatMap((p) => (p.hand === 'both' ? ['right', 'left'] : [p.hand ?? 'right'])));
+  for (const hand of sides) rigs[hand] = await loadHand(hand, colors, { navy: palette.hexOf('navy'), ink: palette.json.ink });
   const phone = rigs.right ? buildPhone(rigs.right, colors) : null;
+  await phone?.screen.userData.ready;
   const holder = new THREE.Group();
   holder.name = 'hands';
   holder.visible = false;
@@ -424,15 +458,23 @@ export async function makeHands(camera, tint, palette, poses) {
       holder.visible = !!pose;
       for (const r of Object.values(rigs)) r.group.visible = false;
       if (!pose) return;
-      const rig = rigs[pose.hand ?? 'right'];
-      rig.group.visible = true;
-      rig.setPose(pose);
+      const both = pose.hand === 'both';
+      const rig = rigs[both ? 'right' : pose.hand ?? 'right'];
       const L = cur === 'rail_grip' ? lean : 1; // only the rim grip follows the lean
       const k = Math.floor(m / 2);
       const bob = 0.003 * Math.sin(k * 0.52) + 0.0015 * Math.sin(k * 1.31);
       const lag = breathLag(m - (m % 2), fps);
-      placeHand(rig.group, rig.baseQuat, [pose.wrist[0] + lag.pitchDeg, pose.wrist[1], pose.wrist[2]], camera.fov, [0, bob + lag.lift - 0.1 * (1 - L), -0.6 * (1 - L)]);
-      rig.group.updateMatrixWorld(true);
+      const off = pose.offset ?? [0, 0, 0];
+      const rub = pose.rub ? RUB.amp * Math.sin((2 * Math.PI * RUB.hz * (m - (m % 2))) / fps) : 0;
+      const place = (r, side) => {
+        r.group.visible = true;
+        r.setPose(pose);
+        const w = [pose.wrist[0] + lag.pitchDeg, side * pose.wrist[1], side * pose.wrist[2]];
+        placeHand(r.group, r.baseQuat, w, camera.fov, [side * off[0], off[1] + bob + lag.lift - 0.1 * (1 - L) + side * rub, off[2] - 0.6 * (1 - L)], side);
+        r.group.updateMatrixWorld(true);
+      };
+      place(rig, 1);
+      if (both && rigs.left) place(rigs.left, -1);
       const lit = !!phone && pose.prop === 'phone' && rig === rigs.right;
       if (phone) phone.group.visible = lit;
       rig.skinned.material.uniforms.uGlowOn.value = lit ? 1 : 0;

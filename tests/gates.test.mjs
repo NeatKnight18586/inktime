@@ -104,3 +104,13 @@ test('plant: the gate checks the frames episode.json names', () => {
   d.plant = { anchor: 'p', frames: [0, 5] };
   assert.equal(status(run(d), 'plant'), 'PASS');
 });
+
+test('jumps: at most 2 per episode, each to a different place; returns do not count', () => {
+  const d = makeDoc();
+  d.transitions = [{ type: 'jump', at: 100, dest: 'dock' }, { type: 'jump_back', at: 200 }, { type: 'jump', at: 300, dest: 'auction' }];
+  assert.equal(status(run(d), 'jumps'), 'PASS');
+  d.transitions.push({ type: 'jump', at: 600, dest: 'moon' });
+  assert.equal(status(run(d), 'jumps'), 'FAIL');
+  d.transitions = [{ type: 'jump', at: 100, dest: 'dock' }, { type: 'jump', at: 300, dest: 'dock' }];
+  assert.equal(status(run(d), 'jumps'), 'FAIL');
+});

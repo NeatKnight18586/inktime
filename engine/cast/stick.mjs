@@ -194,12 +194,19 @@ export function drawStick(ctx, W, H, params, st) {
       ctx.stroke();
     }
     if (det.includes('buttons')) {
-      ctx.fillStyle = INK;
+      // buttonColor (char.json shirt): e.g. brass; ink when absent. A coloured button gets a thin ink ring.
+      const bc = st.shirt.buttonColor;
       for (let i = 0; i < 3; i++) {
         const p = along(0.65 + i * 0.27, so);
         ctx.beginPath();
-        ctx.arc(p[0], p[1], 0.032 * P, 0, 6.2832);
+        ctx.arc(p[0], p[1], (bc ? 0.04 : 0.032) * P, 0, 6.2832);
+        ctx.fillStyle = bc ? css(T('body', bc).lit) : INK;
         ctx.fill();
+        if (bc) {
+          ctx.lineWidth = ow * 0.35;
+          ctx.strokeStyle = INK;
+          ctx.stroke();
+        }
       }
     }
     ctx.restore();
@@ -265,7 +272,32 @@ export function drawStick(ctx, W, H, params, st) {
       ctx.stroke();
       ctx.restore();
     }
+    if (acc.includes('bowtie')) {
+      // Bow tie: two ink-outlined triangles and a knot at the throat (accessories "bowtie", colour params.bowtie).
+      const t = T('bowtie', params.bowtie ?? INK);
+      ctx.save();
+      ctx.translate(top[0], top[1]);
+      ctx.rotate(Math.atan2(b.uy, b.ux) + Math.PI / 2);
+      ctx.fillStyle = css(t.mid);
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = ow * 0.6;
+      for (const sg of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(sg * 0.17 * P, -0.08 * P);
+        ctx.lineTo(sg * 0.17 * P, 0.08 * P);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.arc(0, 0, 0.04 * P, 0, 6.2832);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
   };
+  const acc = params?.accessories ?? [];
 
   // ---- head, hat, face (in head-local space: origin at the head centre, x right, y up, in D)
   const head = () => {
@@ -377,6 +409,22 @@ export function drawStick(ctx, W, H, params, st) {
       ctx.fill();
     });
     mouth(L, sh * 0.8, sx);
+    if (acc.includes('moustache')) {
+      // Moustache (an era detail, not identity): two ink tufts above the mouth, curling out.
+      ctx.fillStyle = params.moustache ?? INK;
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = D.outline * 0.5 * P;
+      for (const sg of [-1, 1]) {
+        const q = (x, y) => L(sh * 0.8 + sg * x * sx, y);
+        ctx.beginPath();
+        ctx.moveTo(...q(0.01, -0.15));
+        ctx.quadraticCurveTo(...q(0.1, -0.12), ...q(0.19, -0.19));
+        ctx.quadraticCurveTo(...q(0.12, -0.2), ...q(0.01, -0.19));
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
   };
 
   const mouth = (L, mx, sx) => {

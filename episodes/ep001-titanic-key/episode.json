@@ -4,12 +4,26 @@
  "fps": 24,
  "look": "titanic_night",
  "set": "titanic_crowsnest",
+ "sea": "flat",
  "cast": [
   "fleet",
   "lee",
   "guide"
  ],
  "hookType": "countdown",
+ "captionKeys": [
+  "binoculars",
+  "Locked",
+  "Thirty",
+  "Nothing",
+  "flat",
+  "1912",
+  "Twenty",
+  "pocket",
+  "Iceberg",
+  "2007",
+  "thousand"
+ ],
  "voiceTempo": 1,
  "voiceCuts": [
   [

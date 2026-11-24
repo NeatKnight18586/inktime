@@ -1,0 +1,54 @@
+{
+  "ink": "#141414",
+  "paper": "#F4EFE6",
+  "ramp": {
+    "shadow": 0.55,
+    "shadowTint": 0.5,
+    "litMix": 0.4,
+    "t1": 0.1,
+    "t2": 0.3
+  },
+  "colors": {
+    "wood": "#7A4A2A",
+    "velvet": "#6E1F2B",
+    "lamp": "#E8A64B",
+    "wall": "#3B2A22",
+    "paper": "#F4EFE6"
+  },
+  "fog": "wall",
+  "shadowTo": "wall",
+  "light": {
+    "key": "lamp",
+    "fill": "wall",
+    "fillIntensity": 0.5
+  },
+  "haze": {
+    "colors": [
+      "wall",
+      "wall"
+    ],
+    "iceMix": 0,
+    "near": 250,
+    "far": 1200,
+    "bands": [
+      0,
+      0.3,
+      0.6
+    ]
+  },
+  "tint": {
+    "color": "lamp",
+    "mix": 0.12,
+    "value": 1
+  },
+  "cast": {
+    "keyDir": [
+      -0.4,
+      0.7,
+      0.6
+    ],
+    "key": "lamp",
+    "shade": "wall",
+    "rim": "lamp"
+  }
+}

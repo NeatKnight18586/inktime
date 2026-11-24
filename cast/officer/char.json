@@ -1,0 +1,28 @@
+{
+  "id": "officer",
+  "skin": "#F4EFE6",
+  "hat": {
+    "type": "peaked",
+    "colours": {
+      "crown": "#F4EFE6",
+      "brim": "#141414",
+      "band": "#141414"
+    }
+  },
+  "shirt": {
+    "color": "#1B2A41",
+    "details": [
+      "buttons",
+      "collar",
+      "pocket"
+    ],
+    "collar": "#1B2A41",
+    "buttonColor": "#E8A64B"
+  },
+  "trousers": "#1B2A41",
+  "accessories": [
+    "moustache"
+  ],
+  "moustache": "#141414",
+  "cheek": null
+}

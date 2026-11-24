@@ -478,8 +478,8 @@ jobs:
 
   # Style frames: only the frames in tests/styleframes.json, full quality, no video. Published to renders/styleframes/.
   stills:
-    needs: plan
-    if: ${{ needs.plan.outputs.stills == 'true' }}
+    needs: [plan, audio]
+    if: ${{ !cancelled() && needs.plan.outputs.stills == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     container:
@@ -487,6 +487,7 @@ jobs:
       options: --ipc=host
     env:
       GH_TOKEN: ${{ github.token }}
+      DIR: ${{ needs.audio.outputs.dir }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -505,9 +506,49 @@ jobs:
       - if: steps.ffcache.outputs.cache-hit != 'true'
         run: node tools/get-ffmpeg.mjs .ffmpeg
       - run: echo "$PWD/.ffmpeg" >> "$GITHUB_PATH"
+      # An episode with storyboard.json: storyboard stills (captions burned in, Anton) and the hands skin/cuff test.
+      - id: sb
+        run: |
+          if [ -n "$DIR" ] && [ -f "$DIR/storyboard.json" ]; then echo "on=true" >> "$GITHUB_OUTPUT"; echo "name=$(basename "$DIR")-storyboard" >> "$GITHUB_OUTPUT"; else echo "on=false" >> "$GITHUB_OUTPUT"; fi
+      - id: fontcache
+        if: ${{ steps.sb.outputs.on == 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: assets/fonts/Anton-Regular.ttf
+          key: font-anton-regular-v1
+      - name: Fetch Anton
+        if: ${{ steps.sb.outputs.on == 'true' && steps.fontcache.outputs.cache-hit != 'true' }}
+        run: |
+          mkdir -p assets/fonts
+          node -e 'fetch("https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf").then(async (r) => { if (!r.ok) { console.error("font " + r.status); process.exit(1); } require("fs").writeFileSync("assets/fonts/Anton-Regular.ttf", Buffer.from(await r.arrayBuffer())); })'
+      - name: Storyboard stills and hands test
+        if: ${{ steps.sb.outputs.on == 'true' }}
+        run: |
+          node tools/storyboard.mjs "$DIR" --out out/storyboard
+          node tools/handtest.mjs --out out/storyboard/hands.txt || true
+      - name: Publish the storyboard to the renders branch
+        if: ${{ steps.sb.outputs.on == 'true' }}
+        env:
+          NAME: ${{ steps.sb.outputs.name }}
+        run: |
+          D=out/storyboard
+          PAIRS=""
+          for f in $D/b*.png $D/contact.jpg $D/urls.txt $D/render.json $D/hands.txt $D/beats.json; do [ -f "$f" ] && PAIRS="$PAIRS $f=$(basename $f)"; done
+          if [ -f "$DIR/storyboard.md" ]; then PAIRS="$PAIRS $DIR/storyboard.md=storyboard.md"; fi
+          node tools/publish-renders.mjs "$NAME" $PAIRS
+      - name: Storyboard failed
+        if: ${{ failure() && steps.sb.outputs.on == 'true' }}
+        env:
+          NAME: ${{ steps.sb.outputs.name }}
+        run: |
+          mkdir -p "review/$NAME"
+          printf '{\n  "status": "failed",\n  "commit": "%s",\n  "job": "stills",\n  "step": "storyboard",\n  "run_url": "%s/%s/actions/runs/%s"\n}\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "review/$NAME/render.json"
+          node tools/publish-renders.mjs "$NAME" "review/$NAME/render.json=render.json"
       - name: Render style frames
+        if: ${{ steps.sb.outputs.on != 'true' }}
         run: node tools/stills.mjs --frames tests/styleframes.json --out out/styleframes
       - name: Publish to the renders branch
+        if: ${{ steps.sb.outputs.on != 'true' }}
         run: |
           D=out/styleframes
           PAIRS=""

@@ -17,5 +17,6 @@ Renders vertical first-person animated Shorts (1080x1920, 24 fps) from episodes/
 ## Engine rules
 - Deterministic: all state derives from the frame index. Randomness only from tools/rng.mjs with a named seed. No Date.now, Math.random or requestAnimationFrame timing.
 - The picture contains no text except sound words. Captions are a separate ASS layer burned at assembly.
+- Exception: hand-lettered in-world text (props, stamps, screens, cards) is allowed, drawn with letter.mjs (engine/look/lettering.mjs), at most 3 words per item, and only for a thing the narration names.
 - JavaScript ESM on Node 22, three.js, Playwright, ffmpeg. No Python, TypeScript, bundlers or new dependencies unless a prompt says so.
 - Everything is procedural or SVG drawn in code. No downloaded models or textures.
