@@ -41,8 +41,8 @@ export const HOOK = { fov: [30, 84, 72], landHold: 2 };
 // card: the stick card in units of 0.01 D (3.2 D wide, 4.1 D tall, feet 0.2 D above the bottom). The edge pose (back three-quarter,
 // leaning right, face on the shadow side) puts its lit features (cap brim tip, shoulder edge, scarf tail) in the rightmost
 // 0.25 D of the silhouette (right = the silhouette's right edge), which is what the left 12-20% of frame must show.
-export const FLEET = { x: -0.5, forward: 0.35, pose: 'edge',
-  card: { width: 320, height: 410, right: 261, brim: [229, 259, 60, 75], shoulder: [239, 261, 150, 190], scarf: [239, 255, 154, 204] } };
+export const FLEET = { x: -0.4, forward: 0.4, pose: 'edge',
+  card: {width: 320, height: 410, brim: [220, 250, 60, 75], shoulder: [239, 261, 150, 190], scarf: [239, 255, 154, 204], right: 261} };
 
 // ---------------------------------------------------------------- ship path
 // Heading psi(t) = PSI0 (1 - t/T)^2 (rotation about +Y; forward = (-sin psi, -cos psi)), straight and dead ahead from T.
@@ -746,7 +746,7 @@ function buildShip(scene, rng, pal) {
   const dl = [];
   for (let z = -60; z < 74; z += 4.5) for (const side of [1, -1]) dl.push(new THREE.Vector3(side * 11.3, 28.9, z));
   fx.push(lampSquares(dl, pal, { world: 0.35, minPx: 6, maxPx: 12, name: 'deck_lights' }));
-  fx.push(lampHalos([...port, ...win, ...bridgeWin, ...dl], pal, { world: 4.2, minPx: 11, maxPx: 80, name: 'ship_halos', gain: 1.0 }));
+  fx.push(lampHalos([...port, ...win, ...bridgeWin, ...dl], pal, { world: 6.5, minPx: 14, maxPx: 110, name: 'ship_halos', gain: 1.4 }));
 
   // Lifeboats.
   const boats = [];

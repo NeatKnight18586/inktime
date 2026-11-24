@@ -10,7 +10,7 @@ import { hazeAmount } from '../engine/look/haze.mjs';
 import { LAYERS } from '../engine/look/layers.mjs';
 import { build, update, ANCHORS, SHIP, LOOKOUT, FLEET, PATH, PSI0, AERIAL, BERG_H, RANGE, SHIP_SPEED, shipPose, MONEY_FRAME } from '../kits/sets/titanic_crowsnest.mjs';
 import { CARD_HEIGHT, blinkFrames } from '../engine/rig/card.mjs';
-import { CARD, D_METRES } from '../engine/cast/stickmath.mjs';
+import { CARD, D_METRES, billboardAngles } from '../engine/cast/stickmath.mjs';
 import { BASE_MOTION } from '../engine/rig/camera.mjs';
 import { poseCamera, shotAt, hookFrames } from '../engine/rig/camera.mjs';
 import { paniniNdc } from '../engine/post/panini.mjs';
@@ -264,8 +264,13 @@ test('framing: Fleet is a foreground edge silhouette in the left 12-20% (brim, s
   const toCam = new THREE.Vector3(cam.position.x - spot.x, 0, cam.position.z - spot.z).normalize();
   const right = new THREE.Vector3(toCam.z, 0, -toCam.x);
   // Card units (u right, v down from the top) -> frame position.
+  const bb = billboardAngles(spot, cam.position, CARD_HEIGHT);
   const at = (u, v) => {
-    const p = spot.clone().addScaledVector(right, (u / C.width - 0.5) * w).setY(spot.y - CARD.bottom * D_METRES + CARD_HEIGHT * (1 - v / C.height));
+    // The card pitches toward the camera (limited to 15 deg) about its feet.
+    const hh = CARD_HEIGHT * (1 - v / C.height) - CARD.bottom * D_METRES;
+    const p = spot.clone().addScaledVector(right, (u / C.width - 0.5) * w);
+    p.y += hh * Math.cos(bb.pitch);
+    p.addScaledVector(toCam, hh * Math.sin(bb.pitch));
     return p.clone().applyMatrix4(cam.matrixWorldInverse).z >= -0.02 ? { x: -9, y: -9 } : fromTop(p);
   };
   const mid = C.height * 0.3;
