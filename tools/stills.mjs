@@ -27,8 +27,8 @@ for (const f of cfg.frames) {
     name: f.id,
     fps: cfg.fps,
     seed: cfg.seed,
-    look: cfg.look,
-    set: cfg.set,
+    look: f.look ?? cfg.look,
+    set: f.set ?? cfg.set,
     shots: [{ frames: f.at + 1, camera: f.camera, ...(f.hands ? { hands: f.hands } : {}), ...(f.show ? { show: f.show } : {}) }],
     cards: f.cards ?? [],
   };

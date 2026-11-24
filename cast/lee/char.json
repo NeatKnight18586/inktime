@@ -1,0 +1,24 @@
+{
+  "id": "lee",
+  "skin": "#F4EFE6",
+  "hat": {
+    "type": "knit",
+    "colours": {
+      "crown": "#E9F1F4",
+      "band": "#D3E3E9"
+    }
+  },
+  "shirt": {
+    "color": "#4A5A6A",
+    "details": [
+      "pocket",
+      "buttons",
+      "collar"
+    ],
+    "collar": "#4A5A6A",
+    "collarUp": true
+  },
+  "trousers": "#323C4C",
+  "accessories": [],
+  "cheek": "#E8A64B"
+}

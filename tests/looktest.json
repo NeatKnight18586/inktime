@@ -31,7 +31,8 @@
       "pose": "edge",
       "anchor": "fleet_spot",
       "blink": true,
-      "light": "nest"
+      "light": "nest",
+      "facing": 180
     }
   ]
 }

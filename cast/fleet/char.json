@@ -1,0 +1,25 @@
+{
+  "id": "fleet",
+  "skin": "#F4EFE6",
+  "hat": {
+    "type": "peaked",
+    "colours": {
+      "crown": "#262B36",
+      "brim": "#141414",
+      "band": "#141414"
+    }
+  },
+  "shirt": {
+    "color": "#1B2A41",
+    "details": [
+      "buttons",
+      "collar",
+      "scarf"
+    ],
+    "collar": "#1B2A41",
+    "scarf": "#E8A64B"
+  },
+  "trousers": "#2A3345",
+  "accessories": [],
+  "cheek": null
+}

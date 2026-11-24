@@ -1,122 +1,152 @@
 import * as THREE from 'three';
 import { LAYERS, setLayer } from '../look/layers.mjs';
-import { rng, hashSeed } from '../../tools/rng.mjs';
+import { drawStick } from '../cast/stick.mjs';
+import { CARD, D_METRES, figure, billboardAngles, lightInCamera, faceTurn, drawOrder, proxyYaw, poseAt, breathAt, mouthAt, blinkFrames } from '../cast/stickmath.mjs';
 
-export const CARD_HEIGHT = 1.75;
+export { blinkFrames };
+export const CARD_HEIGHT = CARD.h * D_METRES; // plane height in metres (3.5 D figure = 1.75 m, 1 D = 0.5 m)
+const PX_PER_D = 300;
+const DEG = Math.PI / 180;
 
-async function svgTextureFromText(text, scale = 6) {
-  const img = new Image();
-  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(text);
-  await img.decode();
+// Soft contact ellipse at the feet: ink, alpha fading to the edge.
+function contactTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, 'rgba(20,20,20,0.85)');
+  g.addColorStop(0.55, 'rgba(20,20,20,0.5)');
+  g.addColorStop(1, 'rgba(20,20,20,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+// Stick character card in 3D (docs/STYLE.md, Characters). Per frame:
+//  a) billboard: yaw faces the camera, pitch follows its elevation limited to 15 deg;
+//  b) volume shading with the key light converted into camera space; the whole card multiplied by the scene tint;
+//  c) face features and hat brim shift toward the look direction (0.05-0.18 D);
+//  d) an invisible shadow-proxy plane facing the key light casts a real shadow; a soft contact ellipse at the feet;
+//  e) far arm and leg behind the body, 10% darker (in the drawing);
+//  f) key direction, shade, rim and tint come from the look file (look.cast), so one character works in day and night.
+// The drawing and pose state update on twos; the billboard and the light follow the camera.
+export async function makeCard(scene, spec, anchors, palette, { tint, seed = 'card', frames = 10000, keyLight = null } = {}) {
+  const anchor = anchors[spec.anchor];
+  if (!anchor) throw new Error(`card anchor "${spec.anchor}" missing`);
+  const cast = palette.json.cast;
+  if (!cast) throw new Error(`look ${palette.name}: no "cast" block (key light for characters)`);
+  const params = await (await fetch(`/cast/${spec.cast}/char.json`)).json();
+  const poses = await (await fetch(`/cast/${spec.cast}/poses.json`)).json();
+  const track = spec.track ?? [{ at: 0, pose: spec.pose ?? 'idle' }];
+  const nest = spec.light === 'nest' ? { lit: cast.nest.lit, dark: cast.nest.dark } : null;
+  const light = { key: palette.hex(cast.key), shade: palette.hex(cast.shade), rim: palette.hex(cast.rim) };
+  const facing = (spec.facing ?? 0) * DEG;
+
   const canvas = document.createElement('canvas');
-  canvas.width = img.naturalWidth * scale;
-  canvas.height = img.naturalHeight * scale;
-  canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+  canvas.width = Math.round(CARD.w * PX_PER_D);
+  canvas.height = Math.round(CARD.h * PX_PER_D);
+  const ctx = canvas.getContext('2d');
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
-  return { tex, aspect: canvas.width / canvas.height };
-}
 
-// Seeded blinks: closed 2-3 frames, every 2-4 s.
-export function blinkFrames(seed, frames, fps = 24) {
-  const r = rng(hashSeed(`${seed}:blink`));
-  const closed = new Set();
-  let f = Math.round((1 + r() * 2) * fps);
-  while (f < frames) {
-    const len = r() < 0.5 ? 2 : 3;
-    for (let i = 0; i < len; i++) closed.add(f + i);
-    f += Math.round((2 + r() * 2) * fps);
-  }
-  return closed;
-}
-
-// 2D character card in 3D: yaw-only billboard, flat ellipse contact shadow, multiplied by the scene tint.
-// The SVG holds <g id="eyes-open"> and <g id="eyes-closed" display="none"> for blinks.
-export async function makeCard(scene, spec, anchors, palette, { tint, seed = 'card', frames = 10000 } = {}) {
-  const anchor = anchors[spec.anchor];
-  if (!anchor) throw new Error(`card anchor "${spec.anchor}" missing`);
-  const res = await fetch(`/cast/${spec.cast}/${spec.pose ?? 'idle'}.svg`);
-  const text = await res.text();
-  const open = await svgTextureFromText(text);
-  const closedText = text
-    .replace('id="eyes-open"', 'id="eyes-open" display="none"')
-    .replace('id="eyes-closed" display="none"', 'id="eyes-closed"');
-  const closed = await svgTextureFromText(closedText);
-  const h = spec.height ?? CARD_HEIGHT;
-  const aspect = open.aspect;
-  const geo = new THREE.PlaneGeometry(h * aspect, h);
-  geo.translate(0, h / 2, 0);
-  const mat = new THREE.MeshBasicMaterial({ map: open.tex, color: tint ?? 0xffffff, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, fog: true });
-  // Dark nest (spec.light "nest"): the card takes the nest's dark tint and only its lit features (cap brim, shoulder, scarf)
-  // catch light. The sidecar <pose>.nest.json lists them in card units; shadowBias shifts the lit/shadow terminator
-  // (+ = more of the card in shadow, as for materials), so -0.4 leaves only the features on the lit edge.
-  if (spec.light === 'nest') {
-    const nest = await (await fetch(`/cast/${spec.cast}/${spec.pose ?? 'idle'}.nest.json`)).json();
-    const rects = nest.lit.map((r) => new THREE.Vector4(...r));
-    while (rects.length < 3) rects.push(new THREE.Vector4(0, 0, 0, 0));
-    const u = nest.terminator + 0.3 * (nest.shadowBias + 0.4);
-    mat.onBeforeCompile = (shader) => {
-      shader.uniforms.uNestDark = { value: new THREE.Vector3(...nest.dark) };
-      shader.uniforms.uNestLit = { value: nest.litGain };
-      shader.uniforms.uNestTerm = { value: u };
-      shader.uniforms.uNestSize = { value: new THREE.Vector2(...nest.size) };
-      shader.uniforms.uNestRect = { value: rects };
-      shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\nuniform vec3 uNestDark; uniform float uNestLit; uniform float uNestTerm; uniform vec2 uNestSize; uniform vec4 uNestRect[3];')
-        .replace(
-          '#include <map_fragment>',
-          `#include <map_fragment>
-{
-  vec2 cu = vec2( vMapUv.x * uNestSize.x, ( 1.0 - vMapUv.y ) * uNestSize.y );
-  float lit = 0.0;
-  for ( int i = 0; i < 3; i++ ) {
-    vec4 r = uNestRect[i];
-    float x0 = max( r.x, uNestTerm * uNestSize.x );
-    if ( cu.x >= x0 && cu.x <= r.y && cu.y >= r.z && cu.y <= r.w ) lit = 1.0;
-  }
-  diffuseColor.rgb *= lit > 0.5 ? vec3( uNestLit ) : uNestDark;
-}`
-        );
-    };
-    mat.customProgramCacheKey = () => 'inktime-card-nest';
-  }
+  const w = CARD.w * D_METRES;
+  const h = CARD.h * D_METRES;
+  const geo = new THREE.PlaneGeometry(w, h);
+  geo.translate(0, h / 2 - CARD.bottom * D_METRES, 0);
+  const mat = new THREE.MeshBasicMaterial({ map: tex, color: tint ?? 0xffffff, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, fog: true });
   const card = new THREE.Mesh(geo, mat);
-  const shadow = new THREE.Mesh(
-    new THREE.CircleGeometry(0.5, 40),
-    new THREE.MeshBasicMaterial({ color: palette.ink, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })
+  card.rotation.order = 'YXZ';
+  card.name = `card:${spec.cast}`;
+
+  // Shadow proxy (d): same silhouette, rotated to face the key light, invisible but a real shadow caster.
+  const proxy = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, colorWrite: false, depthWrite: false, side: THREE.DoubleSide }));
+  proxy.name = `shadow_proxy:${spec.cast}`;
+  proxy.rotation.y = proxyYaw(cast.keyDir);
+  proxy.castShadow = true;
+  if (keyLight) {
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(1024, 1024);
+    keyLight.shadow.bias = -0.0004;
+    keyLight.shadow.normalBias = 0.02;
+    if (keyLight.isDirectionalLight) {
+      const c = keyLight.shadow.camera;
+      c.left = c.bottom = -6;
+      c.right = c.top = 6;
+      c.near = 0.5;
+      c.far = 80;
+      c.updateProjectionMatrix();
+    }
+  }
+  const contact = new THREE.Mesh(
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({ map: contactTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })
   );
-  shadow.rotation.x = -Math.PI / 2;
-  shadow.scale.set(h * aspect * 0.7, 0.42, 1);
-  shadow.position.y = 0.006;
+  contact.rotation.x = -Math.PI / 2;
+  contact.scale.set(1.3 * D_METRES * 2, 0.7 * D_METRES * 2, 1);
+  contact.position.y = 0.006;
+  contact.name = 'contact_ellipse';
+
   const group = new THREE.Group();
   group.name = `card:${spec.cast}`;
-  group.add(shadow, card);
+  group.add(contact, proxy, card);
   anchor.updateWorldMatrix(true, false);
   anchor.getWorldPosition(group.position);
   setLayer(group, LAYERS.CARD);
   scene.add(group);
   const base = new THREE.Vector3();
   const blinks = spec.blink === false ? new Set() : blinkFrames(`${seed}:${spec.cast}`, frames);
-  return {
+  const api = {
     group,
+    card,
+    proxy,
     blinks,
-    // Pose state on twos; blinks by frame; billboard follows the camera on ones (yaw only).
+    last: null,
+    // Pose state and drawing on twos; blinks by frame; billboard follows the camera on ones.
     update(n, camera) {
-      const k = Math.floor(n / 2);
-      card.scale.y = 1 + 0.006 * Math.sin(k * 0.35);
-      const tex = blinks.has(n) ? closed.tex : open.tex;
-      if (mat.map !== tex) {
-        mat.map = tex;
-        mat.needsUpdate = true;
-      }
-      // Follow the anchor (it may ride a moving ship).
       anchor.updateWorldMatrix(true, false);
       anchor.getWorldPosition(base);
       group.position.copy(base);
-      const dx = camera.position.x - base.x;
-      const dz = camera.position.z - base.z;
-      card.rotation.y = Math.atan2(dx, dz);
+      const bb = billboardAngles(base, camera.position, h);
+      card.rotation.set(bb.pitch, bb.yaw, 0);
+      if (n % 2 === 0 || !api.last) {
+        const { pose: p0 } = poseAt(poses, track, n);
+        const k = Math.floor(n / 2);
+        const pose = { ...p0 };
+        if (p0.shake) pose.lean = (p0.lean ?? 0) + p0.shake * (k % 2 ? 1 : -1);
+        pose.mouth = mouthAt(n, p0, spec.speak);
+        const look = faceTurn(facing, base, camera.position, p0.look ?? 0);
+        const turn = Math.cos(look.angle);
+        const order = drawOrder(look.angle);
+        const fig = figure(pose, breathAt(n), turn);
+        const st = {
+          fig,
+          pose,
+          turn,
+          angle: look.angle,
+          look,
+          light: { ...light, cam: lightInCamera(cast.keyDir, camera) },
+          order,
+          seed: `${seed}:${spec.cast}`,
+          nest,
+          litBrim: !!nest?.lit.includes('brim'),
+          blink: blinks.has(n),
+          mouth: pose.mouth,
+          skin: params.skin,
+          shirt: params.shirt,
+          trousers: params.trousers,
+          hat: params.hat,
+          cheek: params.cheek ?? null,
+        };
+        drawStick(ctx, canvas.width, canvas.height, params, st);
+        tex.needsUpdate = true;
+        api.last = { n, ...bb, light: st.light.cam, shift: look.shift, back: look.back, far: order.far, angle: look.angle };
+      } else {
+        api.last = { ...api.last, ...bb };
+      }
     },
   };
+  return api;
 }

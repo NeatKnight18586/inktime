@@ -32,6 +32,9 @@ renderer.setPixelRatio(1);
 renderer.setSize(W, H, false);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.NoToneMapping;
+// Real shadows only from the invisible character shadow proxies (engine/rig/card.mjs); everything else casts none.
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 
 installHaze();
 const res = new THREE.Vector2(W, H);
@@ -69,7 +72,10 @@ async function load(scenePath) {
   // Scene tint: cards and hands are multiplied by it.
   const tint = new THREE.Color(1, 1, 1).lerp(palette.color(look.tint.color), look.tint.mix).multiplyScalar(look.tint.value);
   const cards = [];
-  for (const c of spec.cards ?? []) cards.push(await makeCard(scene, c, anchors, palette, { tint, seed: spec.seed, frames: spec.frames }));
+  const keyLight = built.keyLight ?? null;
+  for (const c of spec.cards ?? []) cards.push(await makeCard(scene, c, anchors, palette, { tint, seed: spec.seed, frames: spec.frames, keyLight }));
+  // Surfaces the shadow proxy can fall on (toon solids) receive its shadow.
+  if (cards.length && keyLight) scene.traverse((o) => { if (o.isMesh && o.layers.isEnabled(LAYERS.SOLID) && !o.userData.isHull) o.receiveShadow = true; });
 
   const camera = new THREE.PerspectiveCamera(72, W / H, NEAR, FAR);
   scene.add(camera);

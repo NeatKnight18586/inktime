@@ -37,7 +37,7 @@
 - Toon ramp, 3 steps: shadow = base x 0.55 tinted toward navy (never black), mid = base, lit = base mixed 40% toward the light colour. True black is ink only.
 - Spot blacks (comic rule): surfaces in the darkest step that face away from every lamp, and contact shadows under objects, render as solid ink #141414 instead of the tinted shadow tone.
 - Depth haze in 3 bands, steel/ice blend: 0% at the camera, 60% at the horizon.
-- Ship exterior: rows of lit portholes (lamp squares in 2 px ink frames) and lit bridge windows, so the aerial reads as a glowing ship. Halos and lit portholes are at least 6 px on screen at any distance, so the ship sparkles.
+- Ship exterior: rows of lit portholes (lamp squares in 2 px ink frames) and lit bridge windows, so the aerial reads as a glowing ship. Porthole and bridge-window cores emit a warm white #FFE7B8 inside the lamp-colour glow; the bow wave and wake are frost white with fog off (per material). Halos and lit portholes are at least 6 px on screen at any distance, so the ship sparkles.
 - The aerial is alive (it is the hook): the ship steams forward at 22 knots (11.3 m/s); a frost-white V of foam spreads from the stern plus a bow wave, both animated and outlined in ink; funnel smoke drifts aft at ship speed. Four funnels; smoke from the first three only (the fourth was a ventilation dummy): ink-outlined puffs on twos, drifting aft. Aerial per-shot targets: p95 at least 170, p5 at most 25, motion median at least 1.5%.
 - Scale facts: the iceberg stands 18 m above the water; the bow is 850 m from it at frame 0 and 457 m at the money shot; the ship makes 11.3 m/s. The ship's heading starts 42 deg off the line to the iceberg and turns to dead ahead of it by the money shot (about 33 s), so the aerial sees her three-quarter on.
 - Aerial frame 0 is a telephoto: the camera sits 55 m behind the iceberg's crest and 6 m above it, vFOV 30. The ship fills 50-70% of the width in the middle band, with four funnels and lit porthole rows; the iceberg is a near-black mass (spotBlack, fog false, a 2 px frost rim on its top edge only) in the bottom-left 30-40%.
@@ -50,16 +50,22 @@
 - Ink #141414 near the camera, mixed toward the haze colour with distance.
 - Inverted hull on every mesh (back faces, ink) plus the screen-space pass on depth and normals.
 
-## Characters (hybrid cards in 3D)
-- Units are head diameters (D). Proportions: height 3.5 D; round paper-white #F4EFE6 head; capsule body 0.88 D wide; stick limbs 0.05 D; ink-nub hands 0.12 D.
-- Face: dot eyes 0.075 D, spaced 0.27 D, with a tiny highlight; tapered brows; a one-line mouth.
-- Outline 0.06 D brush, width varying plus or minus 25%.
-- Shading: a flat shadow tone plus 45 deg ink hatching (3 px spacing) on the side away from the key light; a 2 px rim in the key colour on the lit edge; the whole card multiplied by the scene tint.
-- Blinks: 2-3 frames closed, every 2-4 s, seeded.
-- Identity by one prop + one palette colour, never by faces. Fleet: peaked cap, amber scarf, navy coat.
-- Fleet at cam_lookout is a foreground edge silhouette — cap brim, shoulder and amber scarf — filling the left 12-20% of frame width. In the dark nest his card takes the nest's dark tint, his face stays on the shadow side (shadowBias -0.4) and only cap brim, shoulder and scarf catch light, so the brightest spot of the lookout frame is the hands or the deck lamps. His face is shown only in glance shots (FOV 52), framed head and shoulders. Characters keep 3.5 D proportions.
-- Billboard on yaw only; flat ellipse contact shadow.
-- Animated on twos: pose state updates every 2nd frame. The camera moves on ones.
+## Characters (parametric stick rigs, 2.5D)
+- Code: engine/cast/stick.mjs draws a parametric 2D character to a canvas texture (maths in engine/cast/stickmath.mjs, card in engine/rig/card.mjs). No hand-drawn SVGs. Units are head diameters (D); 1 D = 0.5 m in the world.
+- Proportions: total height 3.5 D. Round head 1 D overlapping the body by 0.08 D. Capsule body 0.88 D wide, 1.4 D long. Legs 1.0 D. Stick limbs 0.045 D thick, arms 1.3 D. Ink-nub hands 0.12 D. Dark oval shoes 0.18 D.
+- Ink: outline 0.035 D, varying plus or minus 15% for a brush feel, colour #141414.
+- Face: dot eyes 0.075 D with a tiny highlight, spaced 0.27 D, at head centre; default smug half-lid; tapered brows 0.19 D wide, 0.17 D above the eyes; mouth set line, smirk, o, grin, gritted, frown, shout; optional soft cheek patch.
+- Params, no new code per character (cast/<id>/char.json): hat {type, colours}, shirt colour plus details (pocket, buttons, collar, scarf), trousers colour, accessories. Identity by one prop + one palette colour, never by faces. Fleet: dark peaked cap, navy coat, amber scarf. Lee: frost-white knit cap, collar turned up.
+- Poses (cast/<id>/poses.json) are joint angles: shoulders, elbows, hips, knees, head tilt, plus eyes, brows, mouth, e.g. {"armL": [40, 90], "armR": [-10, 20], "legL": [5, 0], "legR": [-5, 0], "tilt": 4, "eyes": "half", "mouth": "smirk"}. Each character has idle, lean_forward, squint, point, alarm, shiver; Fleet also edge (leaning, back three-quarter) and phone_shout; Lee also talk and scoff.
+- Animation, cheap: the player interpolates poses (6-frame blend) and updates the drawing on twos; the camera moves on ones. Idle breathing: body scale y plus 1.5% at 0.3 Hz. Blinks: closed 2-3 frames, every 2-4 s, seeded. Talk: the mouth alternates o/line on twos while the character speaks.
+- The six 2.5D tricks (all required):
+  - a) Billboard: the card yaw-faces the camera every frame; pitch-billboard limited to 15 deg.
+  - b) Volume shading: the head is shaded as a sphere, the body and limbs as cylinders, with a smooth radial/linear gradient (lit, mid, shade) in the card's own colours. The light direction is the scene key light converted into camera space each frame, so the lit side moves as the camera moves. Rim light 0.03 D in the key colour on the lit edge. The whole card is multiplied by the scene tint.
+  - c) Fake head turn: face features shift toward the look direction (0.05-0.18 D, from the angle between the character's facing and the camera) and the hat brim shifts with them.
+  - d) Ground shadow: an invisible shadow-proxy plane with the same silhouette, rotated to face the key light, casts a real shadow (alphaTest, colorWrite false). A soft contact ellipse at the feet.
+  - e) Depth order: the far arm and far leg are drawn behind the body, 10% darker.
+  - f) Lighting per scene: key direction, shade colour, rim colour and tint come from the look file (cast block), so the same character works in day and night.
+- Fleet at cam_lookout is a foreground edge silhouette in the edge pose: only the cap brim, shoulder and amber scarf catch light and fill the left 12-20% of frame width; the rest of him, face included, is on the shadow side (dark nest tone). His face is shown only in glance shots (FOV 52), framed head and shoulders.
 - 8 poses each; change pose every 1.5–2.5 s while on screen.
 
 ## Guide
