@@ -95,7 +95,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f "${{ steps.ep.outputs.dir }}"/audio/words.json "${{ steps.ep.outputs.dir }}"/audio/words.raw.json 2>/dev/null || true
+          for f in words.json words.raw.json; do
+            if [ -f "${{ steps.ep.outputs.dir }}/audio/$f" ]; then git add "${{ steps.ep.outputs.dir }}/audio/$f"; fi
+          done
           git diff --cached --quiet || git commit -m "audio: ${{ steps.ep.outputs.name }} words [skip ci]"
           for i in 1 2 3 4; do
             git pull --rebase -q origin "${{ github.ref_name }}" && git push -q origin "HEAD:${{ github.ref_name }}" && exit 0
