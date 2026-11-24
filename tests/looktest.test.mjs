@@ -10,6 +10,7 @@ import { hazeAmount } from '../engine/look/haze.mjs';
 import { LAYERS } from '../engine/look/layers.mjs';
 import { build, update, ANCHORS, SHIP, LOOKOUT, FLEET, PATH, PSI0, AERIAL, BERG_H, RANGE, SHIP_SPEED, shipPose, MONEY_FRAME } from '../kits/sets/titanic_crowsnest.mjs';
 import { CARD_HEIGHT, blinkFrames } from '../engine/rig/card.mjs';
+import { makeShotCam } from '../engine/rig/shotcam.mjs';
 import { CARD, D_METRES, billboardAngles } from '../engine/cast/stickmath.mjs';
 import { BASE_MOTION } from '../engine/rig/camera.mjs';
 import { poseCamera, shotAt, hookFrames } from '../engine/rig/camera.mjs';
@@ -181,23 +182,30 @@ function centre(o) {
   return new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3());
 }
 
-// Fix 2.1: from the rear eye (0.52 m from the rear wall) the front rim hides the forecastle deck props. Seen: 4 props at pitch -16 and
-// 4 at -12 (a 4 deg raise changes nothing: the rim line sits at -27 deg and the deck props below it). Reported, not hidden.
-test('framing: cam_lookout rim, horizon and props', { todo: 'Fix 2.1: only 4 of 12 props visible from the rear eye at pitch -16 and -12' }, () => {
-  const { scene, anchors, cam, fromTop } = frame('cam_lookout');
+// Fix 2.2: the eye sits at the rear of the basket, so the deck props are counted on the lean pose of the look-down shot (the eye eased
+// 0.6 m toward the front rim and 0.1 m down, pitch -38): the last frame of shot 1 of the walkthrough.
+test('framing: cam_lookout rim, horizon and props (lean pose of the look-down shot)', () => {
+  const { scene, anchors, ...kit } = buildScene();
+  const cam = new THREE.PerspectiveCamera(90, 1080 / 1920, 0.05, 9000);
+  scene.add(cam);
+  const sc = makeShotCam({ spec, anchors, kit, camera: cam, fps: 24 });
+  const n = spec.shots[0].frames + spec.shots[1].frames - 1;
+  update(n, { fps: 24, shot: shotAt(spec, n) });
+  scene.updateMatrixWorld(true);
+  const view = sc.pose(n);
+  update(n, { camera: cam, fps: 24, shot: shotAt(spec, n) });
+  assert.ok(view.lean > 0.99, `leaned in (${view.lean})`);
   const eye = cam.position.clone();
+  const home = anchors.cam_lookout.getWorldPosition(new THREE.Vector3());
+  const rimDist = LOOKOUT.back;
   const R = SHIP.basketR;
-  const bz = SHIP.basketZ;
-  const rimTop = new THREE.Vector3(0, SHIP.nestFloorY + SHIP.rimH, bz - (R - 0.06));
-  const a = fromTop(rimTop).y;
-  const horizon = fromTop(new THREE.Vector3(eye.x, eye.y, eye.z - 1e6)).y;
-  // Occlusion against the rim only (wall + frost crust).
-  const rim = ['basket_wall', 'cap_rail'].map((n) => scene.getObjectByName(n));
+  const horizon = new THREE.Vector3(eye.x, eye.y, eye.z - 1e6).project(cam).y;
+  const rim = ['basket_wall', 'cap_rail'].map((nm) => scene.getObjectByName(nm));
   const frustum = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse));
   const ray = new THREE.Raycaster();
   const units = [];
-  for (const [label, names] of Object.entries(PROP_GROUPS)) units.push({ label, objs: names.flatMap((n) => scene.getObjectsByProperty('name', n)) });
-  for (const n of PROP_NAMES) scene.getObjectsByProperty('name', n).forEach((o, i, all) => units.push({ label: all.length > 1 ? `${n}#${i}` : n, objs: [o] }));
+  for (const [label, names] of Object.entries(PROP_GROUPS)) units.push({ label, objs: names.flatMap((nm) => scene.getObjectsByProperty('name', nm)) });
+  for (const nm of PROP_NAMES) scene.getObjectsByProperty('name', nm).forEach((o, i, all) => units.push({ label: all.length > 1 ? `${nm}#${i}` : nm, objs: [o] }));
   const seen = [];
   for (const u of units) {
     const ok = u.objs.some((o) => {
@@ -211,9 +219,11 @@ test('framing: cam_lookout rim, horizon and props', { todo: 'Fix 2.1: only 4 of 
     });
     if (ok) seen.push(u.label);
   }
-  console.log(`framing lookout: back ${LOOKOUT.back} m, pitch ${LOOKOUT.pitch} deg, rim ${(a * 100).toFixed(1)}%, horizon ${(horizon * 100).toFixed(1)}%, props ${seen.length}: ${seen.join(', ')}`);
-  assert.ok(a >= 0.5 && a <= 0.88, `rim top at ${(a * 100).toFixed(1)}%`);
-  assert.ok(horizon >= 0.28 && horizon <= 0.38, `horizon at ${(horizon * 100).toFixed(1)}%`);
+  const moved = Math.hypot(eye.x - home.x, eye.z - home.z);
+  console.log(`framing lean pose: eye ${moved.toFixed(3)} m forward, ${(home.y - eye.y).toFixed(3)} m down, ${(rimDist - moved).toFixed(2)} m from the rim, props ${seen.length}: ${seen.join(', ')}; horizon y ${(horizon * 50 + 50).toFixed(0)}%`);
+  void R;
+  assert.ok(Math.abs(moved - 0.6) < 0.02 && Math.abs(home.y - eye.y - 0.1) < 0.01, 'lean: 0.6 m forward, 0.1 m down');
+  assert.ok(rimDist - moved >= 0.15, 'never closer than 0.15 m to the rim');
   assert.ok(seen.length >= 12, `only ${seen.length} props visible`);
 });
 

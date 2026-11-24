@@ -351,7 +351,9 @@ export async function makeHands(camera, tint, palette, poses) {
     holder,
     rigs,
     // m: frame index in the shot; poseAt(f): pose name (or null) at absolute frame f; all state derives from n.
-    update(n, m, poseAt, fps = 24) {
+    // lean: 0..1 (engine/rig/pov.mjs). The hand stays where it grips the rim in the world: when the eye is less far forward it is
+    // farther ahead and a little lower in camera space.
+    update(n, m, poseAt, fps = 24, lean = 1) {
       const pose = poseAtFrame(n, poseAt, poses);
       holder.visible = !!pose;
       for (const r of Object.values(rigs)) r.group.visible = false;
@@ -359,10 +361,11 @@ export async function makeHands(camera, tint, palette, poses) {
       const rig = rigs[pose.hand ?? 'right'];
       rig.group.visible = true;
       rig.setPose(pose);
+      const L = poseAt(n) === 'rail_grip' ? lean : 1; // only the rim grip follows the lean
       const k = Math.floor(m / 2);
       const bob = 0.003 * Math.sin(k * 0.52) + 0.0015 * Math.sin(k * 1.31);
       const lag = breathLag(m - (m % 2), fps);
-      placeHand(rig.group, rig.baseQuat, [pose.wrist[0] + lag.pitchDeg, pose.wrist[1], pose.wrist[2]], camera.fov, [0, bob + lag.lift, 0]);
+      placeHand(rig.group, rig.baseQuat, [pose.wrist[0] + lag.pitchDeg, pose.wrist[1], pose.wrist[2]], camera.fov, [0, bob + lag.lift - 0.1 * (1 - L), -0.6 * (1 - L)]);
       rig.group.updateMatrixWorld(true);
     },
   };

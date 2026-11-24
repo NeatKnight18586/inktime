@@ -147,7 +147,7 @@ async function renderFrame(n) {
   }
   passes.trans.setState(tr, view.smear ? { streak: view.streak } : null);
   kit.update?.(n, { camera, fps, shot });
-  hands.update(n, n - shot.start, (f) => shotAt(spec, f).hands ?? null, fps);
+  hands.update(n, n - shot.start, (f) => shotAt(spec, f).hands ?? null, fps, view.lean ?? 1);
   heldObj.visible = !!shot.camera?.object;
   if (heldObj.visible) {
     const m = n - shot.start;

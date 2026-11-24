@@ -2,7 +2,7 @@
 // The scene supplies world points through ctx (see engine/rig/shotcam.mjs). Eye height 1.62 m (the anchors carry it).
 // Layers, in order: preset (engine/rig/presets.mjs) -> base motion (breathing, FOV push, dolly) under every preset.
 import { BASE_MOTION, DOLLY_PRESETS } from './camera.mjs';
-import { PRESETS, DEG, EYE_HEIGHT, MAX_ROT, dirTo, wrap180, smooth } from './presets.mjs';
+import { PRESETS, DEG, EYE_HEIGHT, MAX_ROT, LEAN, dirTo, wrap180, smooth } from './presets.mjs';
 
 export { EYE_HEIGHT, MAX_ROT };
 export const NO_CLAMP = new Set(['whip', 'dive', 'rise']);
@@ -54,6 +54,20 @@ export function povState(cam, m, ctx) {
     p.at = Math.max(0, (s.start - ctx.n0) / fps);
   }
   const r = fn(p, t);
+  if (!r.hook && ctx.rimDist !== undefined) {
+    // Lean: a state that moves 1/12 per frame toward its target (1 when the raw pitch is below -20 deg or the preset is look-down),
+    // starting from the target at frame 0 for shots that begin below -20 so cuts stay continuous. Replayed from frame 0: pure.
+    const target = (f) => (preset === 'lookdown' || rawPitch(fn, p, f / fps) < LEAN.pitch ? 1 : 0);
+    let L = rawPitch(fn, p, 0) < LEAN.pitch ? 1 : 0;
+    for (let f = 1; f <= m; f++) L += Math.max(-1 / LEAN.frames, Math.min(1 / LEAN.frames, target(f) - L));
+    const Ls = smooth(L);
+    const amount = Math.min(LEAN.forward, Math.max(0, ctx.rimDist - LEAN.minRim)) * Ls;
+    const y = ctx.yaw0 * DEG;
+    const d = [-Math.sin(y) * amount, -LEAN.down * Ls, -Math.cos(y) * amount];
+    r.pos = r.pos.map((v, i) => v + d[i]);
+    r.target = r.target.map((v, i) => v + d[i]);
+    r.lean = Ls;
+  }
   if (r.hook) {
     const h = r.exact;
     return { pos: r.pos, yaw: h.yaw, pitch: h.pitch, roll: h.roll, fov: h.fov, panini: h.panini ?? h.fov >= 78, streak: h.streak ?? [0, 0], smear: false, rest: false, preset, hook: true };
@@ -80,8 +94,14 @@ export function povState(cam, m, ctx) {
     streak: r.streak ?? [0, 0],
     smear: !!r.smear,
     rest: !!r.rest && preset !== 'walk',
+    lean: r.lean ?? 0,
     preset,
   };
+}
+
+function rawPitch(fn, p, t) {
+  const r = fn(p, t);
+  return dirTo(r.pos, r.target).pitch;
 }
 
 export { wrap180 };

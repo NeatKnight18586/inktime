@@ -6,6 +6,9 @@
 export const DEG = Math.PI / 180;
 export const MAX_ROT = 90; // deg/s outside whip, dive and rise
 export const EYE_HEIGHT = 1.62;
+// Lean (Fix 2.2): when the pitch goes below -20 deg, or the preset is look-down, the eye eases 0.6 m forward toward the front rim and 0.1 m
+// down over 12 frames (never closer than 0.15 m to the rim), and eases back when the pitch returns above -20.
+export const LEAN = { pitch: -20, forward: 0.6, down: 0.1, frames: 12, minRim: 0.15 };
 // Held shots: object 0.45 m in front of the eye, 0.25 m below it, camera 12 deg down.
 export const HELD = { forward: 0.45, down: 0.25, tilt: 12 };
 // The held object in the camera's own space for a camera pitched `pitchDeg` (negative = down): the offset is fixed in the

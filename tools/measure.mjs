@@ -252,7 +252,7 @@ async function main() {
     let still = null;
     const before = cams?.[index - 1];
     if (pose && before && (before.shot ?? 0) === shot) still = isStill(before, pose);
-    frames.push({ index, shot, hook: HOOK_PRESETS.includes(pose?.preset), mean: st.mean, dark: st.dark, sat: st.sat, motion: st.motion, hist: st.hist, still });
+    frames.push({ index, shot, hook: HOOK_PRESETS.includes(pose?.preset), snap: pose?.preset === 'snap', mean: st.mean, dark: st.dark, sat: st.sat, motion: st.motion, hist: st.hist, still });
     prev = st.luma;
     lastLuma = st.luma;
     prevShot = shot;
@@ -273,7 +273,8 @@ async function main() {
     for (const s of shots) {
       const sf = frames.filter((f) => f.shot === s);
       const hook = sf.every((f) => f.hook);
-      const r = report(`shot ${s}${hook ? ' (dive/rise: reported, not judged)' : ''}`, summarize(sf), hook ? [...skip, ...HOOK_SKIP] : skip, hook ? 'hook' : 'insert', true);
+      const insert = sf.every((f) => f.snap); // a snap shot is an insert, like the F3 money shot: exempt from p5 and dark40
+      const r = report(`shot ${s}${hook ? ' (dive/rise: reported, not judged)' : insert ? ' (snap insert)' : ''}`, summarize(sf), hook ? [...skip, ...HOOK_SKIP] : insert ? [...skip, 'p5', 'dark40'] : skip, hook ? 'hook' : 'insert', true);
       out.push(r.text);
       misses.push(...r.misses.map((m) => `shot ${s} ${m}`));
     }
@@ -281,7 +282,10 @@ async function main() {
   // The whole film is judged without its dive and rise shots on the four exempt targets.
   const judged = frames.filter((f) => !f.hook);
   const hooks = frames.length - judged.length;
-  const all = report(hooks ? 'overall (dive/rise shots excluded from luma, dark40, p95, motion)' : 'overall', summarize(hooks ? judged : frames), skip);
+  const total = summarize(hooks ? judged : frames);
+  const noSnap = judged.filter((f) => !f.snap);
+  if (noSnap.length && noSnap.length < judged.length) Object.assign(total, { p5: summarize(noSnap).p5, dark40: summarize(noSnap).dark40 }); // snap inserts are exempt from p5 and dark40
+  const all = report(hooks ? 'overall (dive/rise shots excluded from luma, dark40, p95, motion; snap inserts from p5, dark40)' : 'overall', total, skip);
   out.push(all.text);
   misses.push(...all.misses.map((m) => `overall ${m}`));
   if (hooks) out.push(report('overall incl. dive/rise (reported, not judged)', summarize(frames), [...skip, ...HOOK_SKIP], 'hook').text);

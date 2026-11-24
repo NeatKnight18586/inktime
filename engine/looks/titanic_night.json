@@ -42,7 +42,7 @@
     ]
   },
   "sky": {
-    "zenith": "navy",
+    "zenith": "#263A55",
     "horizon": "steel",
     "horizonLift": 0.25,
     "bands": [

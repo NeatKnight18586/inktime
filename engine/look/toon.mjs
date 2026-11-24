@@ -42,23 +42,28 @@ void RE_IndirectDiffuse_Toon( const in vec3 irradiance, const in vec3 geometryPo
 //   noRim      the material takes no rim light (iceberg frost rim, hand ice rim)
 export const SHADOW_BIAS_SPAN = 0.3;
 export const DEFAULT_CONTROLS = { shadowBias: 0, spotBlack: 'unlit', lineScale: 1, noRim: false };
-const SPOT_MODE = { false: 0, true: 1, unlit: 2 };
+// spotBlack "hatch" (Fix 2.2): the darkest step is the shadow tone with 45 deg ink hatching in screen space (spacing px, line width px;
+// coverage = width / spacing), solid ink only below hatch.floorY (world y: where the wall meets the floor) and beyond hatch.radius
+// (object-space distance from the axis: the floor corners).
+export const HATCH = { spacing: 3, width: 1.2, floorY: -1e9, radius: 1e9 };
+const SPOT_MODE = { false: 0, true: 1, unlit: 2, hatch: 3 };
 export function controlsOf(opts = {}) {
   const c = { ...DEFAULT_CONTROLS };
   for (const k of Object.keys(DEFAULT_CONTROLS)) if (opts[k] !== undefined) c[k] = opts[k];
   if (!(c.shadowBias >= -1 && c.shadowBias <= 1)) throw new Error(`shadowBias ${c.shadowBias} outside -1..1`);
-  if (!(String(c.spotBlack) in SPOT_MODE)) throw new Error(`spotBlack ${c.spotBlack} must be false, true or "unlit"`);
+  if (!(String(c.spotBlack) in SPOT_MODE)) throw new Error(`spotBlack ${c.spotBlack} must be false, true, "unlit" or "hatch"`);
   if (!(c.lineScale > 0)) throw new Error(`lineScale ${c.lineScale} must be > 0`);
   return c;
 }
 export const controlsKey = (opts = {}) => {
   const c = controlsOf(opts);
-  return `${c.shadowBias}|${c.spotBlack}|${c.lineScale}|${c.noRim ? 1 : 0}|${opts.side ?? ''}`;
+  return `${c.shadowBias}|${c.spotBlack}|${c.lineScale}|${c.noRim ? 1 : 0}|${opts.side ?? ''}|${opts.hatch ? JSON.stringify(opts.hatch) : ''}`;
 };
 
 // Toon material for palette colour `color`; shadows tint toward `shadowTo`. opts.paint picks a painted texture.
 export function toonMaterial(color, shadowTo, opts = {}) {
-  const { paint, ramp = DEFAULT_RAMP, shadowBias, spotBlack, lineScale, noRim, ...rest } = opts;
+  const { paint, ramp = DEFAULT_RAMP, shadowBias, spotBlack, lineScale, noRim, hatch, ...rest } = opts;
+  const H = { ...HATCH, ...(hatch ?? {}) };
   const ctl = controlsOf({ shadowBias, spotBlack, lineScale, noRim });
   const mat = new THREE.MeshToonMaterial({ color, ...rest });
   const tint = new THREE.Color(shadowTo);
@@ -70,6 +75,7 @@ export function toonMaterial(color, shadowTo, opts = {}) {
     uRamp: { value: new THREE.Vector4(ramp.shadow, ramp.shadowTint, ramp.litMix, 0) },
     uThresh: { value: new THREE.Vector2(ramp.t1 + SHADOW_BIAS_SPAN * ctl.shadowBias, ramp.t2 + SHADOW_BIAS_SPAN * ctl.shadowBias) },
     uSpot: { value: SPOT_MODE[String(ctl.spotBlack)] },
+    uHatch: { value: new THREE.Vector4(H.spacing, H.width, H.floorY, H.radius) },
     uInkCol: { value: new THREE.Color(ramp.ink ?? '#141414') },
     uPaint: { value: tex },
     uPaintScale: { value: paint ? PAINT_SCALE[paint] : 1 },
@@ -88,7 +94,8 @@ attribute vec3 aBoxMin;
 attribute vec3 aBoxMax;
 varying vec3 vInkWPos;
 varying vec3 vInkWNrm;
-varying vec3 vInkLocal;`
+varying vec3 vInkLocal;
+varying vec3 vInkObj;`
       )
       .replace(
         '#include <begin_vertex>',
@@ -103,6 +110,7 @@ varying vec3 vInkLocal;`
   vInkWPos = ( modelMatrix * iwp ).xyz;
   vInkWNrm = normalize( mat3( modelMatrix ) * iwn );
   vInkLocal = ( position - aBoxMin ) / max( aBoxMax - aBoxMin, vec3( 1e-4 ) );
+  vInkObj = position;
 }`
       );
     shader.fragmentShader = shader.fragmentShader
@@ -113,12 +121,14 @@ uniform vec3 uShadowTint;
 uniform vec4 uRamp;
 uniform vec2 uThresh;
 uniform float uSpot;
+uniform vec4 uHatch;
 uniform vec3 uInkCol;
 uniform sampler2D uPaint;
 uniform float uPaintScale;
 varying vec3 vInkWPos;
 varying vec3 vInkWNrm;
-varying vec3 vInkLocal;`
+varying vec3 vInkLocal;
+varying vec3 vInkObj;`
       )
       .replace('#include <lights_pars_begin>', POOL + lightsPars)
       .replace('#include <lights_toon_pars_fragment>', toonPars)
@@ -151,11 +161,17 @@ varying vec3 vInkLocal;`
   shadow = max( shadow, base * 0.3 );
   vec3 lit = mix( base, lc, uRamp.z );
   vec3 dark = uSpot > 1.5 ? ( inkLampFacing < 0.5 ? uInkCol : shadow ) : ( uSpot > 0.5 ? uInkCol : shadow );
+  if ( uSpot > 2.5 ) {
+    float hu = ( gl_FragCoord.x + gl_FragCoord.y ) * 0.70710678;
+    bool line = mod( hu, uHatch.x ) < uHatch.y;
+    bool solid = vInkWPos.y < uHatch.z || length( vInkObj.xz ) > uHatch.w;
+    dark = ( solid || line ) ? uInkCol : shadow;
+  }
   outgoingLight = ( e < uThresh.x ? dark : ( e < uThresh.y ? base : lit ) ) + totalEmissiveRadiance;
 }
 #include <opaque_fragment>`
       );
   };
-  mat.customProgramCacheKey = () => `inktime-toon4-${tex ? paint : 'flat'}`;
+  mat.customProgramCacheKey = () => `inktime-toon5-${tex ? paint : 'flat'}`;
   return mat;
 }

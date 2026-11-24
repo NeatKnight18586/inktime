@@ -26,6 +26,8 @@ SHIP.basketZ = SHIP.mastZ - 0.75;
 export const MASTHEAD = { aft: 0.25, aimZ: -120, aimY: 18, angle: 20 * (Math.PI / 180), penumbra: 0.05, range: 36 };
 // Fix 2.1: the eye sits at the rear of the basket on the centreline, 0.34 m aft of the basket centre (0.52 m from the rear inner
 // wall, 0.2 m clear of the foremast); back = distance behind the inner face of the front rim. POV lens vFOV 90.
+// Hatched basket interior: 45 deg ink lines in screen space, 3 px spacing, line width in px (coverage = width / spacing = 40%).
+export const HATCH_NEST = { spacing: 3, width: 1.2 };
 export const LOOKOUT = { back: 1.2, pitch: -16, fov: 90, minRim: 0.45 };
 // The ship steams ahead (-Z) at 22 knots; everything aboard (and the camera anchors) rides ship_root.
 export const SHIP_SPEED = 11.3; // spec 0.75 / -14 showed 11 props; adjusted within the allowed range
@@ -356,6 +358,7 @@ function buildSea(pal) {
     uHalfBeam: { value: SHIP.halfBeam },
     uPortZ: { value: new THREE.Vector2(-84, 108) },
     uShip: fxUniforms.uShip,
+    uTwos: fxUniforms.uTwos,
   });
   const mat = new THREE.ShaderMaterial({
     transparent: true,
@@ -377,6 +380,7 @@ function buildSea(pal) {
       }`,
     fragmentShader: `
       uniform float uT; uniform float uFlicker; uniform vec2 uDir; uniform vec3 uSwell;
+      uniform float uTwos;
       uniform vec3 uNavy, uSteel, uFrost, uLamp; uniform float uHalfBeam; uniform vec2 uPortZ; uniform vec3 uShip;
       varying vec3 vW; varying float vPhase;
       #include <fog_pars_fragment>
@@ -391,8 +395,12 @@ function buildSea(pal) {
         q.x -= uT * uSwell.z / uSwell.y;
         vec2 cs = vec2(3.0, 9.0);
         vec2 cell = floor(q / cs);
+        // Fix 2.2: twice the dash density (40% of cells) and a slow shimmer on twos: every 2 frames each dash nudges along the crest,
+        // every 6 frames about 1 in 6 drops out, so a still sea view moves.
+        float tk = floor(uTwos / 3.0);
         vec2 f = fract(q / cs);
-        float dash = step(0.8, h2(cell)) * step(abs(f.x - 0.5), 0.07) * step(abs(f.y - 0.5), 0.2) * step(0.55, s) * step(dist, 900.0);
+        f.y += (h2(cell + uTwos * 0.37) - 0.5) * 0.05;
+        float dash = step(0.6, h2(cell)) * step(0.17, h2(cell + tk * 1.91)) * step(abs(f.x - 0.5), 0.07) * step(abs(f.y - 0.5), 0.2) * step(0.55, s) * step(dist, 900.0);
         c = mix(c, uFrost, dash);
         // Porthole pools: 3 hard rings per porthole, just off the hull side.
         // Ship frame: world = R_y(yaw) local + position.
@@ -964,8 +972,9 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   // Authored nest values (night vision: the basket is kept dark). Interior walls, floor and inner rim face are spot black;
   // the cap rail top catches a thin cool fill line (its thresholds drop so the up-facing fill reaches the lit step).
   const railMat = pal.toon(pal.mix('lamp', 'navy', 0.45), { paint: 'rail', shadowBias: -0.5, lineScale: 1.2 });
-  const inkLiner = pal.toon('navy', { spotBlack: true, shadowBias: 0.5, noRim: true, side: THREE.BackSide });
-  const floorMat = pal.toon('navy', { spotBlack: true, shadowBias: 0.8, noRim: true });
+  // Basket interior (Fix 2.2): navy shadow tone with 45 deg ink hatching; solid ink only where the wall meets the floor and in the floor corners.
+  const inkLiner = pal.toon('navy', { spotBlack: 'hatch', hatch: { ...HATCH_NEST, floorY: SHIP.nestFloorY + 0.07 }, shadowBias: 0.5, noRim: true, side: THREE.BackSide });
+  const floorMat = pal.toon('navy', { spotBlack: 'hatch', hatch: { ...HATCH_NEST, radius: SHIP.basketR - 0.2 }, shadowBias: 0.8, noRim: true });
   const fine = pal.toon('navy', { lineScale: 0.5 });
   const oilMat = pal.toon('lamp', { paint: 'canvas' });
   const F = SHIP.nestFloorY;
@@ -1172,6 +1181,8 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   cameraAnchor(g, anchors, 'cam_lookout', eye, { yaw: 0, pitch: LOOKOUT.pitch, fov: LOOKOUT.fov });
   // The dolly may never bring the eye closer than LOOKOUT.minRim to the rim.
   anchors.cam_lookout.userData.maxDolly = LOOKOUT.back - LOOKOUT.minRim;
+  // The lean (engine/rig/pov.mjs) eases the eye toward the front rim but never closer than 0.15 m to it.
+  anchors.cam_lookout.userData.rimDist = LOOKOUT.back;
   // forestay_top: the point on the forestay 60 deg above the eye line, ahead of the eye (about 2.7 m ahead, 4.7 m up), where the
   // forestay rises toward the mast head above the nest.
   const stayRise = (topY - 0.6 - (SHIP.forecastleY + 0.6)) / (SHIP.mastZ - (SHIP.bowZ + 0.8)); // metres up per metre aft
