@@ -197,6 +197,10 @@ export function entries(ep) {
 }
 
 export function sfx(dir) {
+  if (!existsSync(join(dir, 'episode.json'))) {
+    console.log('sfx: no episode.json yet, nothing to make');
+    return 0;
+  }
   const ep = episodeOf(dir);
   const out = join(dir, 'out', 'sfx');
   mkdirSync(out, { recursive: true });
