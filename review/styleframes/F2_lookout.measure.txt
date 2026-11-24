@@ -11,4 +11,4 @@ overall (1 frames)
   stillRun       n/a   target <=19      
 all targets met
 notan 18x32 (cuts 60/140): dark 24.8%  mid 70.1%  light 5.0%   dark-mass target 20-55% ok
-notan brightest cluster: 1 cells, centre cell (16.0, 26.0), peak luma 177; nearest focus anchor 2 cells away, target <= 1 WARN
+notan brightest cluster: 1 cells, centre cell (16.0, 26.0), peak luma 177; nearest focus anchor 1 cells away, target <= 1 ok
