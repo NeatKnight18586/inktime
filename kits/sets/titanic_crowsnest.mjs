@@ -669,7 +669,7 @@ function buildShip(scene, rng, pal) {
       pts.push(new THREE.Vector2(side * (4 + d * Math.tan(kelvin)), SHIP.sternZ - 6 + d));
       w.push(1.5 + d * 0.05);
     }
-    fx.push(Object.assign(new THREE.Mesh(ribbon(pts, w), wakeMat), { renderOrder: 0.6, name: 'wake' }));
+    fx.push(Object.assign(new THREE.Mesh(ribbon(pts, w, 0.45), wakeMat), { renderOrder: 0.6, name: 'wake' }));
     const bp = [];
     const bw = [];
     for (let i = 0; i <= 16; i++) {
@@ -677,7 +677,7 @@ function buildShip(scene, rng, pal) {
       bp.push(new THREE.Vector2(side * (halfWidth(z) + 0.6 + i * 0.5), z));
       bw.push(0.8 + i * 0.25);
     }
-    fx.push(Object.assign(new THREE.Mesh(ribbon(bp, bw, 0.06), wakeMat), { renderOrder: 0.6, name: 'bow_wave' }));
+    fx.push(Object.assign(new THREE.Mesh(ribbon(bp, bw, 0.46), wakeMat), { renderOrder: 0.6, name: 'bow_wave' }));
   }
   const trail = [];
   const tw = [];
@@ -686,7 +686,7 @@ function buildShip(scene, rng, pal) {
     trail.push(new THREE.Vector2(Math.sin(i * 0.7) * 1.5, SHIP.sternZ + d));
     tw.push(14 + d * 0.08);
   }
-  fx.push(Object.assign(new THREE.Mesh(ribbon(trail, tw, 0.04), wakeMat), { renderOrder: 0.6, name: 'wake_trail' }));
+  fx.push(Object.assign(new THREE.Mesh(ribbon(trail, tw, 0.44), wakeMat), { renderOrder: 0.6, name: 'wake_trail' }));
 
   // Faint reflection of the ship under the translucent sea.
   const mirror = ship.clone(true);

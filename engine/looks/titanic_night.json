@@ -4,7 +4,7 @@
   "paper": "#F4EFE6",
   "fog": "#1B2A41",
   "shadowTo": "navy",
-  "ramp": { "shadow": 0.55, "shadowTint": 0.5, "litMix": 0.4, "t1": 0.1, "t2": 0.3 },
+  "ramp": { "shadow": 0.55, "shadowTint": 0.5, "litMix": 0.4, "t1": 0.13, "t2": 0.3 },
   "light": { "key": "lamp", "lamp": 3.0, "lampRange": 12, "masthead": 2.2, "mastheadRange": 10, "fill": "ice", "fillIntensity": 0.35, "flicker": 0.03 },
   "haze": { "colors": ["steel", "ice"], "iceMix": 0.35, "near": 250, "far": 1200, "bands": [0, 0.3, 0.6] },
   "sky": { "zenith": "navy", "horizon": "steel", "horizonLift": 0.25, "bands": [6, 16], "starMinElevation": 15, "twinkle": 0.05 },
