@@ -168,7 +168,7 @@ export function summarize(frames) {
     p95: percentile(hist, 0.95),
     dark40: frames.reduce((s, f) => s + f.dark, 0) / k,
     sat: frames.reduce((s, f) => s + f.sat, 0) / k,
-    motion: median(frames.filter((f) => f.motion !== null).map((f) => f.motion)),
+    motion: frames.some((f) => f.motion !== null) ? median(frames.filter((f) => f.motion !== null).map((f) => f.motion)) : null,
     still: known ? stills / known : null,
     stillRun: known ? longest : null,
   };

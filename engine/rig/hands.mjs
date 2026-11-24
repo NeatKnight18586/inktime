@@ -21,7 +21,7 @@ async function svgTexture(url, scale = 2) {
 
 // Hand light (until the 3D hands of Fix 1b.3): a warm amber key from below and a cool ice rim on the upper edge.
 // key/rim are palette colours (lamp, ice). The quad is lit in its own shader: uv.y 0 = bottom.
-export const HAND_LIGHT = { keyMix: 0.55, keyFall: 0.75, topDim: 0.62, rimPx: 0.02, rimMix: 0.9 };
+export const HAND_LIGHT = { keyMix: 0.55, keyFall: 0.75, topDim: 0.62, rimPx: 0.045, rimMix: 0.9 };
 
 export async function makeHands(camera, tint, poses = HAND_POSES, light = null) {
   const textures = {};

@@ -533,7 +533,8 @@ function buildIceberg(scene, rng, pal, anchors) {
   }
   geo.computeVertexNormals();
   const z = ICEBERG_Z;
-  const bergMat = pal.toon(pal.mix('navy', 'ink', 0.42), { paint: 'ice' });
+  // Round 2: the dark berg is a spot-black silhouette (no haze lift) so its frost rim is the brightest edge at the horizon.
+  const bergMat = pal.toon(pal.mix('navy', 'ink', 0.42), { paint: 'ice', spotBlack: true, shadowBias: 0.8, fog: false });
   const berg = mesh(geo, bergMat, 0, 0, z, 'iceberg_dark');
   scene.add(berg);
   anchors.iceberg_dark = berg;
@@ -866,6 +867,8 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   const frostMat = pal.toon('frost');
   const navy = pal.toon('navy', { paint: 'steel' });
   const inkMat = pal.toon('ink');
+  // Round 2: rigging stays stay ink (the lamp cone turned the forestay amber and split the frame).
+  const stayMat = pal.toon('ink', { spotBlack: true, shadowBias: 1 });
   const lampMat = pal.toon('lamp');
   const iceMat = pal.toon('ice', { paint: 'canvas' });
   // Authored nest values (night vision: the basket is kept dark). Interior walls, floor and inner rim face are spot black;
@@ -912,7 +915,7 @@ function buildMastAndNest(scene, rng, pal, anchors) {
     stays.push([new THREE.Vector3(s * 0.15, topY - 0.8, SHIP.mastZ), new THREE.Vector3(s * 12.8, SHIP.forecastleY + 0.4, -104)]);
   }
   const stayGeo = new THREE.CylinderGeometry(0.022, 0.022, 1, 5);
-  const stayMesh = instanced(stayGeo, inkMat, stays.map(([a, b]) => between(a, b)), 'stays');
+  const stayMesh = instanced(stayGeo, stayMat, stays.map(([a, b]) => between(a, b)), 'stays');
   stayMesh.frustumCulled = false;
   g.add(stayMesh);
   anim.stays = { mesh: stayMesh, list: stays.map(([a, b], i) => ({ a, b, phase: i * 1.7 })) };
