@@ -1,0 +1,1056 @@
+{
+ "meta": {
+  "lead": -0.1,
+  "matchRate": 0.9771
+ },
+ "words": [
+  {
+   "line": "L1",
+   "w": 0,
+   "word": "You",
+   "start": 0.1,
+   "end": 0.28,
+   "matched": true
+  },
+  {
+   "line": "L1",
+   "w": 1,
+   "word": "have",
+   "start": 0.28,
+   "end": 0.42,
+   "matched": true
+  },
+  {
+   "line": "L1",
+   "w": 2,
+   "word": "forty",
+   "start": 0.42,
+   "end": 0.78,
+   "matched": true
+  },
+  {
+   "line": "L1",
+   "w": 3,
+   "word": "seconds",
+   "start": 0.78,
+   "end": 1.16,
+   "matched": true
+  },
+  {
+   "line": "L1",
+   "w": 4,
+   "word": "to",
+   "start": 1.16,
+   "end": 1.4,
+   "matched": true
+  },
+  {
+   "line": "L1",
+   "w": 5,
+   "word": "find",
+   "start": 1.4,
+   "end": 1.6,
+   "matched": true
+  },
+  {
+   "line": "L1",
+   "w": 6,
+   "word": "the",
+   "start": 1.6,
+   "end": 1.74,
+   "matched": true
+  },
+  {
+   "line": "L1",
+   "w": 7,
+   "word": "key",
+   "start": 1.74,
+   "end": 1.92,
+   "matched": true
+  },
+  {
+   "line": "L1",
+   "w": 8,
+   "word": "that",
+   "start": 1.92,
+   "end": 2.1,
+   "matched": true
+  },
+  {
+   "line": "L1",
+   "w": 9,
+   "word": "could",
+   "start": 2.1,
+   "end": 2.22,
+   "matched": true
+  },
+  {
+   "line": "L1",
+   "w": 10,
+   "word": "save",
+   "start": 2.22,
+   "end": 2.58,
+   "matched": true
+  },
+  {
+   "line": "L1",
+   "w": 11,
+   "word": "Titanic.",
+   "start": 2.58,
+   "end": 3.06,
+   "matched": true
+  },
+  {
+   "line": "L2",
+   "w": 0,
+   "word": "You're",
+   "start": 3.92,
+   "end": 3.98,
+   "matched": true
+  },
+  {
+   "line": "L2",
+   "w": 1,
+   "word": "in",
+   "start": 3.98,
+   "end": 4.06,
+   "matched": true
+  },
+  {
+   "line": "L2",
+   "w": 2,
+   "word": "the",
+   "start": 4.06,
+   "end": 4.2,
+   "matched": true
+  },
+  {
+   "line": "L2",
+   "w": 3,
+   "word": "crow's",
+   "start": 4.2,
+   "end": 4.5,
+   "matched": true
+  },
+  {
+   "line": "L2",
+   "w": 4,
+   "word": "nest,",
+   "start": 4.5,
+   "end": 4.78,
+   "matched": true
+  },
+  {
+   "line": "L2",
+   "w": 5,
+   "word": "freezing.",
+   "start": 5.0,
+   "end": 5.34,
+   "matched": true
+  },
+  {
+   "line": "L2",
+   "w": 6,
+   "word": "The",
+   "start": 5.92,
+   "end": 6.06,
+   "matched": true
+  },
+  {
+   "line": "L2",
+   "w": 7,
+   "word": "binoculars",
+   "start": 6.06,
+   "end": 6.62,
+   "matched": true
+  },
+  {
+   "line": "L2",
+   "w": 8,
+   "word": "should",
+   "start": 6.62,
+   "end": 6.72,
+   "matched": true
+  },
+  {
+   "line": "L2",
+   "w": 9,
+   "word": "be",
+   "start": 6.72,
+   "end": 6.86,
+   "matched": true
+  },
+  {
+   "line": "L2",
+   "w": 10,
+   "word": "in",
+   "start": 6.86,
+   "end": 6.96,
+   "matched": true
+  },
+  {
+   "line": "L2",
+   "w": 11,
+   "word": "this",
+   "start": 6.96,
+   "end": 7.12,
+   "matched": true
+  },
+  {
+   "line": "L2",
+   "w": 12,
+   "word": "box.",
+   "start": 7.12,
+   "end": 7.42,
+   "matched": true
+  },
+  {
+   "line": "L2",
+   "w": 13,
+   "word": "Locked.",
+   "start": 8.12,
+   "end": 8.32,
+   "matched": true
+  },
+  {
+   "line": "L3",
+   "w": 0,
+   "word": "Lee",
+   "start": 8.32,
+   "end": 9.18,
+   "matched": true
+  },
+  {
+   "line": "L3",
+   "w": 1,
+   "word": "doesn't",
+   "start": 9.18,
+   "end": 9.5,
+   "matched": true
+  },
+  {
+   "line": "L3",
+   "w": 2,
+   "word": "even",
+   "start": 9.5,
+   "end": 9.72,
+   "matched": true
+  },
+  {
+   "line": "L3",
+   "w": 3,
+   "word": "look",
+   "start": 9.72,
+   "end": 9.88,
+   "matched": true
+  },
+  {
+   "line": "L3",
+   "w": 4,
+   "word": "up.",
+   "start": 9.88,
+   "end": 10.26,
+   "matched": true
+  },
+  {
+   "line": "L3",
+   "w": 5,
+   "word": "'No",
+   "start": 10.68,
+   "end": 10.84,
+   "matched": true
+  },
+  {
+   "line": "L3",
+   "w": 6,
+   "word": "glasses",
+   "start": 10.84,
+   "end": 11.14,
+   "matched": true
+  },
+  {
+   "line": "L3",
+   "w": 7,
+   "word": "tonight,",
+   "start": 11.14,
+   "end": 11.6,
+   "matched": true
+  },
+  {
+   "line": "L3",
+   "w": 8,
+   "word": "mate.",
+   "start": 11.72,
+   "end": 11.82,
+   "matched": true
+  },
+  {
+   "line": "L3",
+   "w": 9,
+   "word": "Ship",
+   "start": 12.36,
+   "end": 12.4,
+   "matched": true
+  },
+  {
+   "line": "L3",
+   "w": 10,
+   "word": "can't",
+   "start": 12.4,
+   "end": 12.72,
+   "matched": true
+  },
+  {
+   "line": "L3",
+   "w": 11,
+   "word": "sink",
+   "start": 12.72,
+   "end": 12.98,
+   "matched": true
+  },
+  {
+   "line": "L3",
+   "w": 12,
+   "word": "anyway.'",
+   "start": 12.98,
+   "end": 13.32,
+   "matched": true
+  },
+  {
+   "line": "L4",
+   "w": 0,
+   "word": "Thirty",
+   "start": 14.06,
+   "end": 14.2,
+   "matched": true
+  },
+  {
+   "line": "L4",
+   "w": 1,
+   "word": "seconds.",
+   "start": 14.2,
+   "end": 14.62,
+   "matched": true
+  },
+  {
+   "line": "L4",
+   "w": 2,
+   "word": "You",
+   "start": 15.06,
+   "end": 15.16,
+   "matched": true
+  },
+  {
+   "line": "L4",
+   "w": 3,
+   "word": "check",
+   "start": 15.16,
+   "end": 15.36,
+   "matched": true
+  },
+  {
+   "line": "L4",
+   "w": 4,
+   "word": "every",
+   "start": 15.36,
+   "end": 15.76,
+   "matched": true
+  },
+  {
+   "line": "L4",
+   "w": 5,
+   "word": "pocket.",
+   "start": 15.76,
+   "end": 16.12,
+   "matched": true
+  },
+  {
+   "line": "L4",
+   "w": 6,
+   "word": "Nothing.",
+   "start": 16.66,
+   "end": 16.9,
+   "matched": true
+  },
+  {
+   "line": "L5",
+   "w": 0,
+   "word": "The",
+   "start": 17.5,
+   "end": 17.62,
+   "matched": true
+  },
+  {
+   "line": "L5",
+   "w": 1,
+   "word": "sea",
+   "start": 17.62,
+   "end": 17.86,
+   "matched": true
+  },
+  {
+   "line": "L5",
+   "w": 2,
+   "word": "is",
+   "start": 17.86,
+   "end": 18.1,
+   "matched": true
+  },
+  {
+   "line": "L5",
+   "w": 3,
+   "word": "dead",
+   "start": 18.1,
+   "end": 18.38,
+   "matched": true
+  },
+  {
+   "line": "L5",
+   "w": 4,
+   "word": "flat.",
+   "start": 18.38,
+   "end": 18.74,
+   "matched": true
+  },
+  {
+   "line": "L5",
+   "w": 5,
+   "word": "No",
+   "start": 19.14,
+   "end": 19.36,
+   "matched": true
+  },
+  {
+   "line": "L5",
+   "w": 6,
+   "word": "waves",
+   "start": 19.36,
+   "end": 19.6,
+   "matched": true
+  },
+  {
+   "line": "L5",
+   "w": 7,
+   "word": "breaking",
+   "start": 19.6,
+   "end": 19.9,
+   "matched": true
+  },
+  {
+   "line": "L5",
+   "w": 8,
+   "word": "on",
+   "start": 19.9,
+   "end": 20.12,
+   "matched": true
+  },
+  {
+   "line": "L5",
+   "w": 9,
+   "word": "the",
+   "start": 20.12,
+   "end": 20.22,
+   "matched": true
+  },
+  {
+   "line": "L5",
+   "w": 10,
+   "word": "ice...",
+   "start": 20.22,
+   "end": 20.42,
+   "matched": true
+  },
+  {
+   "line": "L5",
+   "w": 11,
+   "word": "you",
+   "start": 20.88,
+   "end": 21.0,
+   "matched": true
+  },
+  {
+   "line": "L5",
+   "w": 12,
+   "word": "won't",
+   "start": 21.0,
+   "end": 21.2,
+   "matched": true
+  },
+  {
+   "line": "L5",
+   "w": 13,
+   "word": "see",
+   "start": 21.2,
+   "end": 21.4,
+   "matched": true
+  },
+  {
+   "line": "L5",
+   "w": 14,
+   "word": "it",
+   "start": 21.4,
+   "end": 21.54,
+   "matched": true
+  },
+  {
+   "line": "L5",
+   "w": 15,
+   "word": "till",
+   "start": 21.54,
+   "end": 21.66,
+   "matched": true
+  },
+  {
+   "line": "L5",
+   "w": 16,
+   "word": "it's",
+   "start": 21.66,
+   "end": 21.84,
+   "matched": true
+  },
+  {
+   "line": "L5",
+   "w": 17,
+   "word": "close.",
+   "start": 21.84,
+   "end": 22.12,
+   "matched": true
+  },
+  {
+   "line": "L6",
+   "w": 0,
+   "word": "You",
+   "start": 22.68,
+   "end": 22.84,
+   "matched": true
+  },
+  {
+   "line": "L6",
+   "w": 1,
+   "word": "reach",
+   "start": 22.84,
+   "end": 22.98,
+   "matched": true
+  },
+  {
+   "line": "L6",
+   "w": 2,
+   "word": "for",
+   "start": 22.98,
+   "end": 23.16,
+   "matched": true
+  },
+  {
+   "line": "L6",
+   "w": 3,
+   "word": "your",
+   "start": 23.16,
+   "end": 23.24,
+   "matched": true
+  },
+  {
+   "line": "L6",
+   "w": 4,
+   "word": "phone",
+   "start": 23.24,
+   "end": 23.54,
+   "matched": true
+  },
+  {
+   "line": "L6",
+   "w": 5,
+   "word": "light...",
+   "start": 23.54,
+   "end": 23.86,
+   "matched": true
+  },
+  {
+   "line": "L6",
+   "w": 6,
+   "word": "right.",
+   "start": 24.32,
+   "end": 24.66,
+   "matched": true
+  },
+  {
+   "line": "L6",
+   "w": 7,
+   "word": "Nineteen",
+   "start": 25.26,
+   "end": 25.52,
+   "matched": true
+  },
+  {
+   "line": "L6",
+   "w": 8,
+   "word": "twelve.",
+   "start": 25.52,
+   "end": 25.92,
+   "matched": true
+  },
+  {
+   "line": "L7",
+   "w": 0,
+   "word": "Twenty",
+   "start": 26.44,
+   "end": 26.66,
+   "matched": true
+  },
+  {
+   "line": "L7",
+   "w": 1,
+   "word": "seconds.",
+   "start": 26.66,
+   "end": 27.04,
+   "matched": true
+  },
+  {
+   "line": "L7",
+   "w": 2,
+   "word": "Here's",
+   "start": 27.48,
+   "end": 27.66,
+   "matched": true
+  },
+  {
+   "line": "L7",
+   "w": 3,
+   "word": "the",
+   "start": 27.66,
+   "end": 27.78,
+   "matched": true
+  },
+  {
+   "line": "L7",
+   "w": 4,
+   "word": "problem.",
+   "start": 27.78,
+   "end": 28.0,
+   "matched": true
+  },
+  {
+   "line": "L7",
+   "w": 5,
+   "word": "Five",
+   "start": 28.34,
+   "end": 28.54,
+   "matched": true
+  },
+  {
+   "line": "L7",
+   "w": 6,
+   "word": "days",
+   "start": 28.54,
+   "end": 28.72,
+   "matched": true
+  },
+  {
+   "line": "L7",
+   "w": 7,
+   "word": "ago,",
+   "start": 28.72,
+   "end": 29.0,
+   "matched": true
+  },
+  {
+   "line": "L7",
+   "w": 8,
+   "word": "the",
+   "start": 29.08,
+   "end": 29.22,
+   "matched": true
+  },
+  {
+   "line": "L7",
+   "w": 9,
+   "word": "officer",
+   "start": 29.22,
+   "end": 29.5,
+   "matched": true
+  },
+  {
+   "line": "L7",
+   "w": 10,
+   "word": "with",
+   "start": 29.5,
+   "end": 29.78,
+   "matched": true
+  },
+  {
+   "line": "L7",
+   "w": 11,
+   "word": "the",
+   "start": 29.78,
+   "end": 29.92,
+   "matched": true
+  },
+  {
+   "line": "L7",
+   "w": 12,
+   "word": "key",
+   "start": 29.92,
+   "end": 30.1,
+   "matched": true
+  },
+  {
+   "line": "L7",
+   "w": 13,
+   "word": "got",
+   "start": 30.1,
+   "end": 30.3,
+   "matched": true
+  },
+  {
+   "line": "L7",
+   "w": 14,
+   "word": "bumped",
+   "start": 30.3,
+   "end": 30.62,
+   "matched": true
+  },
+  {
+   "line": "L7",
+   "w": 15,
+   "word": "off",
+   "start": 30.62,
+   "end": 30.82,
+   "matched": true
+  },
+  {
+   "line": "L7",
+   "w": 16,
+   "word": "this",
+   "start": 30.82,
+   "end": 31.02,
+   "matched": true
+  },
+  {
+   "line": "L7",
+   "w": 17,
+   "word": "crew.",
+   "start": 31.02,
+   "end": 31.34,
+   "matched": true
+  },
+  {
+   "line": "L8",
+   "w": 0,
+   "word": "He",
+   "start": 31.78,
+   "end": 31.92,
+   "matched": true
+  },
+  {
+   "line": "L8",
+   "w": 1,
+   "word": "walked",
+   "start": 31.92,
+   "end": 32.16,
+   "matched": true
+  },
+  {
+   "line": "L8",
+   "w": 2,
+   "word": "off",
+   "start": 32.16,
+   "end": 32.34,
+   "matched": true
+  },
+  {
+   "line": "L8",
+   "w": 3,
+   "word": "the",
+   "start": 32.34,
+   "end": 32.5,
+   "matched": true
+  },
+  {
+   "line": "L8",
+   "w": 4,
+   "word": "ship...",
+   "start": 32.5,
+   "end": 32.8,
+   "matched": true
+  },
+  {
+   "line": "L8",
+   "w": 5,
+   "word": "with",
+   "start": 32.8,
+   "end": 33.22,
+   "matched": true
+  },
+  {
+   "line": "L8",
+   "w": 6,
+   "word": "the",
+   "start": 33.22,
+   "end": 33.36,
+   "matched": true
+  },
+  {
+   "line": "L8",
+   "w": 7,
+   "word": "key",
+   "start": 33.36,
+   "end": 33.64,
+   "matched": true
+  },
+  {
+   "line": "L8",
+   "w": 8,
+   "word": "in",
+   "start": 33.64,
+   "end": 33.78,
+   "matched": true
+  },
+  {
+   "line": "L8",
+   "w": 9,
+   "word": "his",
+   "start": 33.78,
+   "end": 33.92,
+   "matched": true
+  },
+  {
+   "line": "L8",
+   "w": 10,
+   "word": "pocket.",
+   "start": 33.92,
+   "end": 34.3,
+   "matched": true
+  },
+  {
+   "line": "L9",
+   "w": 0,
+   "word": "Then",
+   "start": 34.86,
+   "end": 35.14,
+   "matched": true
+  },
+  {
+   "line": "L9",
+   "w": 1,
+   "word": "Fleet",
+   "start": 35.14,
+   "end": 35.5,
+   "matched": true
+  },
+  {
+   "line": "L9",
+   "w": 2,
+   "word": "leans",
+   "start": 35.5,
+   "end": 35.8,
+   "matched": true
+  },
+  {
+   "line": "L9",
+   "w": 3,
+   "word": "over",
+   "start": 35.8,
+   "end": 36.08,
+   "matched": true
+  },
+  {
+   "line": "L9",
+   "w": 4,
+   "word": "the",
+   "start": 36.08,
+   "end": 36.26,
+   "matched": true
+  },
+  {
+   "line": "L9",
+   "w": 5,
+   "word": "rim.",
+   "start": 36.26,
+   "end": 36.44,
+   "matched": true
+  },
+  {
+   "line": "L9",
+   "w": 6,
+   "word": "'...What's",
+   "start": 37.04,
+   "end": 37.38,
+   "matched": true
+  },
+  {
+   "line": "L9",
+   "w": 7,
+   "word": "that?'",
+   "start": 37.38,
+   "end": 37.6,
+   "matched": true
+  },
+  {
+   "line": "L10",
+   "w": 0,
+   "word": "'Iceberg,",
+   "start": 37.6,
+   "end": 38.073,
+   "matched": false
+  },
+  {
+   "line": "L10",
+   "w": 1,
+   "word": "right",
+   "start": 38.073,
+   "end": 38.547,
+   "matched": false
+  },
+  {
+   "line": "L10",
+   "w": 2,
+   "word": "ahead!'",
+   "start": 38.547,
+   "end": 39.02,
+   "matched": false
+  },
+  {
+   "line": "L11",
+   "w": 0,
+   "word": "There",
+   "start": 39.02,
+   "end": 39.64,
+   "matched": true
+  },
+  {
+   "line": "L11",
+   "w": 1,
+   "word": "was",
+   "start": 39.64,
+   "end": 40.26,
+   "matched": true
+  },
+  {
+   "line": "L11",
+   "w": 2,
+   "word": "never",
+   "start": 40.26,
+   "end": 40.56,
+   "matched": true
+  },
+  {
+   "line": "L11",
+   "w": 3,
+   "word": "a",
+   "start": 40.56,
+   "end": 40.74,
+   "matched": true
+  },
+  {
+   "line": "L11",
+   "w": 4,
+   "word": "key",
+   "start": 40.74,
+   "end": 40.9,
+   "matched": true
+  },
+  {
+   "line": "L11",
+   "w": 5,
+   "word": "to",
+   "start": 40.9,
+   "end": 41.06,
+   "matched": true
+  },
+  {
+   "line": "L11",
+   "w": 6,
+   "word": "find.",
+   "start": 41.06,
+   "end": 41.42,
+   "matched": true
+  },
+  {
+   "line": "L11",
+   "w": 7,
+   "word": "It",
+   "start": 41.98,
+   "end": 42.08,
+   "matched": true
+  },
+  {
+   "line": "L11",
+   "w": 8,
+   "word": "sold",
+   "start": 42.08,
+   "end": 42.34,
+   "matched": true
+  },
+  {
+   "line": "L11",
+   "w": 9,
+   "word": "in",
+   "start": 42.34,
+   "end": 42.56,
+   "matched": true
+  },
+  {
+   "line": "L11",
+   "w": 10,
+   "word": "2007...",
+   "start": 42.56,
+   "end": 43.32,
+   "matched": true
+  },
+  {
+   "line": "L11",
+   "w": 11,
+   "word": "for",
+   "start": 43.32,
+   "end": 43.86,
+   "matched": true
+  },
+  {
+   "line": "L11",
+   "w": 12,
+   "word": "ninety",
+   "start": 43.86,
+   "end": 44.23,
+   "matched": true
+  },
+  {
+   "line": "L11",
+   "w": 13,
+   "word": "thousand",
+   "start": 44.23,
+   "end": 44.6,
+   "matched": true
+  },
+  {
+   "line": "L11",
+   "w": 14,
+   "word": "pounds.",
+   "start": 44.6,
+   "end": 44.92,
+   "matched": true
+  },
+  {
+   "line": "L12",
+   "w": 0,
+   "word": "So",
+   "start": 45.52,
+   "end": 45.72,
+   "matched": true
+  },
+  {
+   "line": "L12",
+   "w": 1,
+   "word": "this",
+   "start": 45.72,
+   "end": 46.0,
+   "matched": true
+  },
+  {
+   "line": "L12",
+   "w": 2,
+   "word": "time...",
+   "start": 46.0,
+   "end": 46.62,
+   "matched": true
+  }
+ ]
+}

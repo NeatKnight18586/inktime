@@ -28,6 +28,42 @@ def norm(word):
     return re.sub(r"[^a-z0-9]", "", word.lower())
 
 
+ONES = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split()
+TENS = "_ _ twenty thirty forty fifty sixty seventy eighty ninety".split()
+
+
+def number_words(n):
+    """Cardinal words for 0 <= n < 1e6; 4-digit years 1100-1999 (not whole hundreds) are read in pairs ("nineteen twelve")."""
+    if 1100 <= n <= 1999 and n % 100:
+        return number_words(n // 100) + number_words(n % 100)
+    if n < 20:
+        return [ONES[n]]
+    if n < 100:
+        return [TENS[n // 10]] + ([ONES[n % 10]] if n % 10 else [])
+    if n < 1000:
+        return [ONES[n // 100], "hundred"] + (number_words(n % 100) if n % 100 else [])
+    return number_words(n // 1000) + ["thousand"] + (number_words(n % 1000) if n % 1000 else [])
+
+
+def tokens(word):
+    """Normalised match tokens of one word: digits become number words (40 -> forty, 90,000 -> ninety thousand)."""
+    w = norm(word)
+    if w.isdigit() and len(w) <= 6:
+        return number_words(int(w))
+    return [w] if w else []
+
+
+def join_thousands(rec):
+    """Whisper may split "90,000" into "90" + ",000": join those back into one recognised word."""
+    out = []
+    for r in rec:
+        if out and re.fullmatch(r",\d{3}[.,!?]*", r["word"].strip()) and re.fullmatch(r"\d{1,3}", norm(out[-1]["word"])):
+            out[-1] = {"word": out[-1]["word"] + r["word"].strip(), "start": out[-1]["start"], "end": r["end"]}
+        else:
+            out.append(dict(r))
+    return out
+
+
 def script_words(script):
     out = []
     for line in script["lines"]:
@@ -35,7 +71,7 @@ def script_words(script):
         for tok in strip_tags(line["text"]).split():
             if not norm(tok):
                 continue
-            out.append({"line": line["id"], "w": w, "word": tok, "norm": norm(tok)})
+            out.append({"line": line["id"], "w": w, "word": tok, "norm": norm(tok), "toks": tokens(tok)})
             w += 1
     return out
 
@@ -46,15 +82,30 @@ def prompt_text(script):
 
 def map_words(swords, rec):
     """swords: script_words(); rec: [{word,start,end}]. Returns (words, matchRate)."""
-    a = [s["norm"] for s in swords]
-    b = [norm(r["word"]) for r in rec]
+    # Match on number-normalised tokens; a script word is matched when all of its tokens are.
+    a, owner = [], []
+    for i, s in enumerate(swords):
+        for tk in s.get("toks") or [s["norm"]]:
+            a.append(tk)
+            owner.append(i)
+    b, bt = [], []
+    for r in join_thousands(rec):
+        tk = tokens(r["word"])
+        d = (r["end"] - r["start"]) / max(1, len(tk))
+        for k, x in enumerate(tk):
+            b.append(x)
+            bt.append((r["start"] + k * d, r["start"] + (k + 1) * d))
     sm = difflib.SequenceMatcher(None, a, b, autojunk=False)
-    t = [None] * len(a)
+    ta = [None] * len(a)
     for blk in sm.get_matching_blocks():
         for k in range(blk.size):
-            r = rec[blk.b + k]
-            t[blk.a + k] = (r["start"], r["end"])
-    n = len(a)
+            ta[blk.a + k] = bt[blk.b + k]
+    n = len(swords)
+    t = [None] * n
+    for i in range(n):
+        own = [ta[j] for j in range(len(a)) if owner[j] == i]
+        if own and all(x is not None for x in own):
+            t[i] = (own[0][0], own[-1][1])
     words = [None] * n
     avg = 0.3
     if rec:

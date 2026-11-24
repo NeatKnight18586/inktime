@@ -137,6 +137,7 @@ jobs:
             ${{ steps.ep.outputs.dir }}/audio/words.json
             ${{ steps.ep.outputs.dir }}/audio/words.raw.json
             ${{ steps.ep.outputs.dir }}/audio/voice_edit.wav
+            ${{ steps.ep.outputs.dir }}/audio/voice_cut.wav
           if-no-files-found: ignore
           retention-days: 7
       - if: ${{ steps.ep.outputs.voiced == 'true' }}

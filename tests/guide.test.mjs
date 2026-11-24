@@ -85,7 +85,7 @@ test('Tick design: a 0.34 m pocket watch, 0.035 D ink, 4 tick marks, one dot eye
 });
 
 test('Tick poses: params only; panic 3 drawings, slap 3 (once), mime_walk_away 4, all on twos', () => {
-  for (const n of ['idle', 'stare', 'point', 'panic', 'facepalm', 'shiver', 'slap', 'mime_walk_away']) assert.ok(poses[n], n);
+  for (const n of ['idle', 'stare', 'point', 'panic', 'facepalm', 'shiver', 'slap', 'mime_walk_away', 'worried']) assert.ok(poses[n], n);
   assert.equal(poses.panic.drawings.length, 3);
   assert.equal(poses.slap.drawings.length, 3);
   assert.equal(poses.slap.loop, false);

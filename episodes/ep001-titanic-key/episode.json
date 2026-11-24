@@ -1,0 +1,698 @@
+{
+ "id": "ep001-titanic-key",
+ "title": "The Missing Key on Titanic",
+ "fps": 24,
+ "look": "titanic_night",
+ "set": "titanic_crowsnest",
+ "cast": [
+  "fleet",
+  "lee",
+  "guide"
+ ],
+ "hookType": "countdown",
+ "voiceTempo": 1,
+ "voiceCuts": [
+  [
+   27.98,
+   28.1
+  ]
+ ],
+ "musicBpm": 70,
+ "musicHit": 37.71,
+ "beds": [
+  "wind_rigging",
+  "engine_hum",
+  "sea_calm"
+ ],
+ "sfxLibrary": [
+  {
+   "name": "wind_rigging",
+   "prompt": "gentle cold night wind whistling through steel ship rigging, calm, no gusts",
+   "seconds": 20,
+   "loop": true
+  },
+  {
+   "name": "engine_hum",
+   "prompt": "distant deep steamship engine hum felt through a steel mast, very low",
+   "seconds": 20,
+   "loop": true
+  },
+  {
+   "name": "sea_calm",
+   "prompt": "perfectly calm open ocean at night, faint water far below, no waves",
+   "seconds": 20,
+   "loop": true
+  },
+  {
+   "name": "dive_whoosh",
+   "prompt": "fast rush of cold air diving from high above, building, then cutting off",
+   "seconds": 2.5,
+   "loop": false
+  },
+  {
+   "name": "landing_thump",
+   "prompt": "heavy boots landing on a small steel platform, a faint metal ring",
+   "seconds": 0.8,
+   "loop": false
+  },
+  {
+   "name": "rise_whoosh",
+   "prompt": "fast rush of air rising straight up into the sky",
+   "seconds": 1.2,
+   "loop": false
+  },
+  {
+   "name": "lock_rattle",
+   "prompt": "small brass padlock rattled against a steel locker",
+   "seconds": 1,
+   "loop": false
+  },
+  {
+   "name": "cloth",
+   "prompt": "heavy wool coat rustle, close",
+   "seconds": 1,
+   "loop": false
+  },
+  {
+   "name": "slap",
+   "prompt": "quick light slap on a bare hand",
+   "seconds": 0.5,
+   "loop": false
+  },
+  {
+   "name": "bell3",
+   "prompt": "ship crow's nest bell struck three times fast, metallic, outdoors at night",
+   "seconds": 2,
+   "loop": false
+  },
+  {
+   "name": "phone_crank",
+   "prompt": "1912 ship telephone handset lifted and cranked",
+   "seconds": 1.5,
+   "loop": false
+  },
+  {
+   "name": "ice_scrape",
+   "prompt": "huge steel ship hull grinding along ice, deep, distant, long",
+   "seconds": 4,
+   "loop": false
+  }
+ ],
+ "countdown": [
+  [
+   "L1:0",
+   40
+  ],
+  [
+   "L4:0",
+   30
+  ],
+  [
+   "L7:0",
+   20
+  ],
+  [
+   "L9:7+22f",
+   0
+  ],
+  [
+   "L12:0",
+   40
+  ]
+ ],
+ "cards": [
+  {
+   "cast": "fleet",
+   "anchor": "fleet_spot",
+   "light": "nest",
+   "facing": 180,
+   "blink": true,
+   "track": [
+    [
+     0,
+     "idle"
+    ]
+   ]
+  },
+  {
+   "cast": "lee",
+   "anchor": "lee_spot",
+   "facing": -65,
+   "blink": true,
+   "track": [
+    [
+     0,
+     "idle"
+    ]
+   ],
+   "speak": [
+    [
+     "L3:5",
+     "L3:12+8f"
+    ]
+   ]
+  },
+  {
+   "cast": "guide",
+   "anchor": "guide_spot",
+   "blink": true,
+   "track": [
+    [
+     0,
+     "point"
+    ]
+   ]
+  }
+ ],
+ "shots": [
+  {
+   "id": "S1",
+   "start": 0,
+   "preset": "dive",
+   "params": {
+    "anchor": "aerial"
+   },
+   "show": [
+    "iceberg_rim"
+   ],
+   "guide": [
+    [
+     0,
+     "cam_right",
+     "point"
+    ]
+   ],
+   "sfxWords": [
+    [
+     0,
+     "WHOOOSH",
+     "cam_left",
+     {
+      "size": 0.12
+     }
+    ]
+   ],
+   "sfx": [
+    [
+     0,
+     "dive_whoosh"
+    ]
+   ],
+   "transitionIn": "sting",
+   "light": "night"
+  },
+  {
+   "id": "S1b",
+   "start": 3,
+   "preset": "glance",
+   "fov": 90,
+   "params": {
+    "from": "base",
+    "to": {
+     "yaw": 0,
+     "pitch": -12
+    },
+    "object": "padlock"
+   },
+   "hands": [
+    [
+     3,
+     "padlock_hold"
+    ]
+   ],
+   "sfx": [
+    [
+     3,
+     "landing_thump"
+    ]
+   ],
+   "light": "night"
+  },
+  {
+   "id": "S2",
+   "start": "L2:0",
+   "preset": "held",
+   "fov": 90,
+   "params": {
+    "object": "padlock"
+   },
+   "hands": [
+    [
+     "L2:0",
+     "padlock_hold"
+    ],
+    [
+     "L2:13",
+     "rattle"
+    ]
+   ],
+   "guide": [
+    [
+     "L2:0",
+     "cam_left",
+     "shiver"
+    ]
+   ],
+   "sfxWords": [
+    [
+     "L2:13",
+     "RATTLE",
+     "padlock",
+     {
+      "size": 0.07,
+      "lift": 0.07
+     }
+    ]
+   ],
+   "sfx": [
+    [
+     "L2:13",
+     "lock_rattle"
+    ]
+   ],
+   "light": "night"
+  },
+  {
+   "id": "S3",
+   "start": "L3:0+8f",
+   "preset": "glance",
+   "fov": 52,
+   "params": {
+    "from": {
+     "yaw": 0,
+     "pitch": -12
+    },
+    "to": {
+     "anchor": "lee_spot",
+     "lift": 1.4
+    },
+    "soundAt": "L3:0",
+    "delayFrames": 8,
+    "lean": 0
+   },
+   "guide": [
+    [
+     "L3:9",
+     "cam_left",
+     "facepalm"
+    ]
+   ],
+   "poses": {
+    "lee": [
+     [
+      "L3:0",
+      "idle"
+     ],
+     [
+      "L3:5",
+      "talk"
+     ],
+     [
+      "L3:9",
+      "scoff"
+     ]
+    ]
+   },
+   "light": "night"
+  },
+  {
+   "id": "S4",
+   "start": "L4:0",
+   "preset": "glance",
+   "fov": 52,
+   "params": {
+    "from": {
+     "anchor": "lee_spot",
+     "lift": 1.4
+    },
+    "to": {
+     "yaw": 0,
+     "pitch": -50
+    },
+    "lean": 0
+   },
+   "hands": [
+    [
+     "L4:2",
+     "pocket"
+    ]
+   ],
+   "guide": [
+    [
+     "L4:0",
+     "cam_right",
+     "worried"
+    ]
+   ],
+   "sfx": [
+    [
+     "L4:2",
+     "cloth"
+    ]
+   ],
+   "light": "night"
+  },
+  {
+   "id": "S5",
+   "start": "L5:0",
+   "preset": "lookup",
+   "fov": 84,
+   "params": {
+    "from": {
+     "yaw": 0,
+     "pitch": -15
+    },
+    "to": "iceberg_dark"
+   },
+   "guide": [
+    [
+     "L5:0",
+     "cam_right",
+     "stare"
+    ]
+   ],
+   "light": "night"
+  },
+  {
+   "id": "S6",
+   "start": "L6:0",
+   "preset": "held",
+   "fov": 90,
+   "hands": [
+    [
+     "L6:0",
+     "phone_reach"
+    ],
+    [
+     "L6:3",
+     "phone"
+    ],
+    [
+     "L6:6",
+     "slapped"
+    ]
+   ],
+   "guide": [
+    [
+     "L6:5+6f",
+     "cam_left",
+     "slap"
+    ]
+   ],
+   "poses": {
+    "lee": [
+     [
+      "L6:6",
+      "glance"
+     ]
+    ]
+   },
+   "sfxWords": [
+    [
+     "L6:6",
+     "SLAP",
+     "cam_hands",
+     {
+      "size": 0.12
+     }
+    ]
+   ],
+   "sfx": [
+    [
+     "L6:6",
+     "slap"
+    ]
+   ],
+   "light": "night"
+  },
+  {
+   "id": "S7",
+   "start": "L7:0",
+   "preset": "kneel",
+   "fov": 52,
+   "params": {
+    "object": "padlock"
+   },
+   "hands": [
+    [
+     "L7:0",
+     "padlock_hold"
+    ]
+   ],
+   "guide": [
+    [
+     "L7:0",
+     "cam_right",
+     "worried"
+    ],
+    [
+     "L8:0",
+     "cam_right",
+     "mime_walk_away"
+    ]
+   ],
+   "sfx": [
+    [
+     "L7:0",
+     "cloth"
+    ]
+   ],
+   "light": "night"
+  },
+  {
+   "id": "S8",
+   "start": "L9:0+6f",
+   "preset": "glance",
+   "fov": 52,
+   "params": {
+    "from": "base",
+    "to": {
+     "anchor": "fleet_spot",
+     "lift": 1.4
+    },
+    "soundAt": "L9:0",
+    "delayFrames": 6,
+    "lean": 0
+   },
+   "hands": [
+    [
+     "L9:0+6f",
+     "rail_grip"
+    ]
+   ],
+   "guide": [
+    [
+     "L9:0+6f",
+     "cam_right",
+     "stare"
+    ]
+   ],
+   "poses": {
+    "fleet": [
+     [
+      "L9:2",
+      "lean_forward"
+     ],
+     [
+      "L9:6",
+      "squint"
+     ]
+    ]
+   },
+   "light": "night"
+  },
+  {
+   "id": "S9",
+   "start": "L9:7+22f",
+   "preset": "lookup",
+   "fov": 84,
+   "params": {
+    "from": {
+     "anchor": "fleet_spot",
+     "lift": 1.4
+    },
+    "to": "iceberg_dark",
+    "held": false,
+    "lean": 0
+   },
+   "show": [
+    "iceberg_rim",
+    "iceberg_glow"
+   ],
+   "hands": [
+    [
+     "L9:7+22f",
+     "rail_grip"
+    ]
+   ],
+   "guide": [
+    [
+     "L9:7+22f",
+     "cam_right",
+     "panic"
+    ]
+   ],
+   "poses": {
+    "fleet": [
+     [
+      "L9:7+22f",
+      "bell_ring"
+     ],
+     [
+      "L9:7+38f",
+      "phone_shout"
+     ]
+    ]
+   },
+   "sfxWords": [
+    [
+     "L9:7+22f",
+     "DING-DING-DING",
+     "bell",
+     {
+      "size": 0.12,
+      "lift": 0.25
+     }
+    ]
+   ],
+   "sfx": [
+    [
+     "L9:7+22f",
+     "bell3"
+    ],
+    [
+     "L9:7+38f",
+     "phone_crank"
+    ]
+   ],
+   "light": "iceberg_reveal"
+  },
+  {
+   "id": "S9b",
+   "start": "L9:7+38f",
+   "preset": "snap",
+   "params": {
+    "to": "iceberg_dark",
+    "fov0": 84
+   },
+   "show": [
+    "iceberg_rim",
+    "iceberg_glow"
+   ],
+   "hands": [
+    [
+     "L9:7+38f",
+     "rail_grip"
+    ]
+   ],
+   "poses": {
+    "fleet": [
+     [
+      "L9:7+38f",
+      "idle"
+     ]
+    ]
+   },
+   "light": "iceberg_reveal"
+  },
+  {
+   "id": "S10",
+   "start": "L11:2-7f",
+   "preset": "held",
+   "fov": 90,
+   "params": {
+    "object": "padlock"
+   },
+   "hands": [
+    [
+     "L11:2-7f",
+     "padlock_hold"
+    ]
+   ],
+   "guide": [
+    [
+     "L11:2-7f",
+     "cam_left",
+     "facepalm"
+    ],
+    [
+     "L11:10",
+     "cam_left",
+     "idle"
+    ]
+   ],
+   "sfxWords": [
+    [
+     "L11:7",
+     "SKRRRK",
+     "deck",
+     {
+      "size": 4,
+      "lift": 8
+     }
+    ]
+   ],
+   "sfx": [
+    [
+     "L11:7",
+     "ice_scrape"
+    ]
+   ],
+   "light": "night"
+  },
+  {
+   "id": "S11",
+   "start": "L12:0",
+   "preset": "rise",
+   "params": {
+    "anchor": "aerial"
+   },
+   "show": [
+    "iceberg_rim"
+   ],
+   "guide": [
+    [
+     "L12:0",
+     "cam_right",
+     "point"
+    ]
+   ],
+   "poses": {
+    "fleet": [
+     [
+      "L12:0",
+      "alarm"
+     ]
+    ],
+    "lee": [
+     [
+      "L12:0",
+      "alarm"
+     ]
+    ]
+   },
+   "sfx": [
+    [
+     "L12:0",
+     "rise_whoosh"
+    ]
+   ],
+   "light": "night"
+  }
+ ],
+ "moneyShot": {
+  "shot": "S9b",
+  "hold": 0.8
+ },
+ "plant": {
+  "anchor": "iceberg_dark",
+  "frames": [
+   0,
+   10
+  ]
+ },
+ "loop": {
+  "lastLine": "L12",
+  "firstLine": "L1"
+ }
+}

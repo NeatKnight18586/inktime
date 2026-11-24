@@ -27,12 +27,40 @@ export function volume(file) {
   return { max: g('max'), mean: g('mean') };
 }
 
-// The voice file the pipeline uses: audio/voice_edit.wav when the episode asks for an edit, else the untouched take.
+// The voice file the pipeline uses: audio/voice_edit.wav when the episode asks for an edit, else audio/voice_cut.wav when it
+// names voiceCuts, else the untouched take.
 export function wantsVoiceEdit(ep) {
-  return ep.voicePauseMax != null || ep.voiceTempo != null;
+  return ep.voicePauseMax != null || (ep.voiceTempo != null && ep.voiceTempo !== 1);
 }
+export const wantsVoiceCut = (ep) => Array.isArray(ep.voiceCuts) && ep.voiceCuts.length > 0;
 export function voiceFile(dir, ep = episodeOf(dir)) {
-  return wantsVoiceEdit(ep) ? join(dir, 'audio', 'voice_edit.wav') : join(dir, 'audio', 'voice.mp3');
+  if (wantsVoiceEdit(ep)) return join(dir, 'audio', 'voice_edit.wav');
+  return wantsVoiceCut(ep) ? join(dir, 'audio', 'voice_cut.wav') : join(dir, 'audio', 'voice.mp3');
+}
+
+// voiceCuts [[start, end]] (seconds in voice.mp3) -> an ffmpeg filter_complex that keeps the spans between the cuts and joins
+// them with XFADE-second crossfades (each join overlaps by XFADE). Output label [out].
+export const CUT_XFADE = 0.01;
+export function voiceCutFilter(cuts, duration) {
+  const spans = [];
+  let t = 0;
+  for (const [a, b] of [...cuts].sort((x, y) => x[0] - y[0])) {
+    if (!(b > a) || a < t) throw new Error(`voiceCuts: bad span [${a}, ${b}]`);
+    spans.push([t, a]);
+    t = b;
+  }
+  spans.push([t, duration]);
+  const q = (v) => +v.toFixed(4);
+  const g = [`[0:a]asplit=${spans.length}${spans.map((_, i) => `[s${i}]`).join('')}`];
+  spans.forEach(([a, b], i) => g.push(`[s${i}]atrim=start=${q(a)}:end=${q(b)},asetpts=PTS-STARTPTS[p${i}]`));
+  let last = 'p0';
+  for (let i = 1; i < spans.length; i++) {
+    const lab = i === spans.length - 1 ? 'out' : `x${i}`;
+    g.push(`[${last}][p${i}]acrossfade=d=${CUT_XFADE}:c1=tri:c2=tri[${lab}]`);
+    last = lab;
+  }
+  if (spans.length === 1) g.push('[p0]anull[out]');
+  return g.join(';');
 }
 
 // "L3:0+8f" | "L3:0" | 12.5 -> seconds on the timeline. words: the words.json array.

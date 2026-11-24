@@ -1,0 +1,64 @@
+{
+ "lines": [
+  {
+   "id": "L1",
+   "speaker": "narrator",
+   "text": "[urgent, close to the mic] You have forty seconds to find the key that could save Titanic."
+  },
+  {
+   "id": "L2",
+   "speaker": "narrator",
+   "text": "[hushed, quick] You're in the crow's nest, freezing. The binoculars should be in this box. Locked."
+  },
+  {
+   "id": "L3",
+   "speaker": "narrator",
+   "text": "[matter-of-fact] Lee doesn't even look up. [gruff, bored sailor voice] 'No glasses tonight, mate. Ship can't sink anyway.'"
+  },
+  {
+   "id": "L4",
+   "speaker": "narrator",
+   "text": "[tense] Thirty seconds. You check every pocket. Nothing."
+  },
+  {
+   "id": "L5",
+   "speaker": "narrator",
+   "text": "[quiet, urgent] The sea is dead flat. No waves breaking on the ice... you won't see it till it's close."
+  },
+  {
+   "id": "L6",
+   "speaker": "narrator",
+   "text": "[casual] You reach for your phone light... [dry, deadpan] right. Nineteen twelve."
+  },
+  {
+   "id": "L7",
+   "speaker": "narrator",
+   "text": "[fast, tense] Twenty seconds. Here's the problem. Five days ago, the officer with the key got bumped off this crew."
+  },
+  {
+   "id": "L8",
+   "speaker": "narrator",
+   "text": "[bitter] He walked off the ship... with the key in his pocket."
+  },
+  {
+   "id": "L9",
+   "speaker": "narrator",
+   "text": "[uneasy] Then Fleet leans over the rim. [squinting, uneasy sailor voice] '...What's that?'"
+  },
+  {
+   "id": "L10",
+   "speaker": "narrator",
+   "text": "[shouting, panicked sailor voice] 'Iceberg, right ahead!'"
+  },
+  {
+   "id": "L11",
+   "speaker": "narrator",
+   "text": "[stunned, quiet] There was never a key to find. [dry] It sold in 2007... for ninety thousand pounds."
+  },
+  {
+   "id": "L12",
+   "speaker": "narrator",
+   "text": "[urgent, close to the mic] So this time..."
+  }
+ ]
+}

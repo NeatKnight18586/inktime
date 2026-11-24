@@ -5,7 +5,7 @@ import { existsSync, statSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { episodeOf, ffmpeg, voiceFile, wantsVoiceEdit } from './audiolib.mjs';
+import { episodeOf, ffmpeg, voiceFile, wantsVoiceEdit, wantsVoiceCut, voiceCutFilter, probeDuration } from './audiolib.mjs';
 
 const mtime = (f) => (existsSync(f) ? statSync(f).mtimeMs : 0);
 
@@ -26,8 +26,17 @@ export function align(dir) {
   const mp3 = join(audio, 'voice.mp3');
   if (!existsSync(mp3)) throw new Error('upload audio/voice.mp3');
   const voice = voiceFile(dir, ep);
-  if (wantsVoiceEdit(ep) && mtime(voice) < mtime(mp3)) {
-    ffmpeg(['-i', mp3, '-af', voiceEditFilter(ep), '-ar', '48000', voice]);
+  // voiceCuts first: remove each span from the take (10 ms crossfades) -> audio/voice_cut.wav; the edit (if any) works on that.
+  let src = mp3;
+  if (wantsVoiceCut(ep)) {
+    src = join(audio, 'voice_cut.wav');
+    if (mtime(src) < Math.max(mtime(mp3), mtime(join(dir, 'episode.json')))) {
+      ffmpeg(['-i', mp3, '-filter_complex', voiceCutFilter(ep.voiceCuts, probeDuration(mp3)), '-map', '[out]', '-ar', '48000', '-ac', '1', src]);
+      console.log(`voice cut: ${src} (${ep.voiceCuts.length} span${ep.voiceCuts.length > 1 ? 's' : ''} removed)`);
+    }
+  }
+  if (wantsVoiceEdit(ep) && mtime(voice) < mtime(src)) {
+    ffmpeg(['-i', src, '-af', voiceEditFilter(ep), '-ar', '48000', voice]);
     console.log(`voice edit: ${voice}`);
   }
   const script = join(dir, 'script.json');
