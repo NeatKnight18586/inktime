@@ -54,7 +54,7 @@ test('look 2.0: ramp, haze, ink hierarchy, light', () => {
 });
 
 test('camera base motion and blinks', () => {
-  assert.deepEqual(BASE_MOTION, { dolly: 0.25, breathHz: 0.25, breathPitch: 0.15, breathLift: 0.004, push: 1.0, pushMax: 8 });
+  assert.deepEqual(BASE_MOTION, { dolly: 0, breathHz: 0.25, breathPitch: 0.15, breathLift: 0.004, push: 1.0, pushMax: 8 });
   const b = [...blinkFrames('looktest:fleet', 288)].sort((x, y) => x - y);
   assert.ok(b.length >= 4);
   const runs = [];
@@ -248,12 +248,16 @@ test('framing: Fleet is a foreground edge silhouette in the left 12-20% (brim, s
   assert.equal(FLEET.pose, 'edge');
 });
 
-test('camera: bounded dolly keeps the eye 0.45 m from the rim; FOV push capped', () => {
+test('camera: lookout dolly is 0; a walk preset dollies at most 0.25 m and keeps the eye 0.45 m from the rim; FOV push capped', () => {
   const { anchors } = buildScene();
   const cam = new THREE.PerspectiveCamera(72, 1080 / 1920, 0.05, 9000);
-  const start = poseCamera(cam, { anchor: 'cam_lookout' }, anchors, 0, 24, 240);
+  poseCamera(cam, { anchor: 'cam_lookout' }, anchors, 0, 24, 240);
+  const zl = cam.position.z;
+  poseCamera(cam, { anchor: 'cam_lookout', preset: 'lookout' }, anchors, 239, 24, 240);
+  assert.ok(Math.abs(cam.position.z - zl) < 0.01, 'lookout does not dolly (breathing lift only)');
+  const start = poseCamera(cam, { anchor: 'cam_lookout', preset: 'walk' }, anchors, 0, 24, 240);
   const z0 = cam.position.z;
-  const end = poseCamera(cam, { anchor: 'cam_lookout' }, anchors, 239, 24, 240);
+  const end = poseCamera(cam, { anchor: 'cam_lookout', preset: 'walk' }, anchors, 239, 24, 240);
   const moved = z0 - cam.position.z;
   const rimZ = SHIP.basketZ - (SHIP.basketR - 0.04);
   assert.ok(moved <= 0.25 + 1e-9 && moved > 0.1, `dolly ${moved}`);
@@ -329,4 +333,93 @@ test('CI: Playwright container matches the installed Playwright', () => {
   assert.ok(images.length >= 2);
   for (const img of images) assert.equal(img, `mcr.microsoft.com/playwright:v${v}-noble`);
   assert.ok(!wf.includes('release create'), 'no releases');
+});
+
+// ---- Fix 1b.2: authored material controls, nest lighting, style frames, notan
+import { toonMaterial, controlsOf, lightsPars, RAMP } from '../engine/look/toon.mjs';
+import { notanGrid, notanReport, NOTAN } from '../tools/measure.mjs';
+
+test('material controls: defaults, ranges, cache key, hull lineScale', () => {
+  assert.deepEqual(controlsOf({}), { shadowBias: 0, spotBlack: 'unlit', lineScale: 1, noRim: false });
+  assert.throws(() => controlsOf({ shadowBias: 1.5 }));
+  assert.throws(() => controlsOf({ spotBlack: 'maybe' }));
+  assert.equal(look.ramp.t1, 0.1);
+  const pal = makePalette(look, 'titanic_night');
+  const a = pal.toon('navy');
+  const b = pal.toon('navy', { spotBlack: true, shadowBias: 0.5 });
+  assert.notEqual(a, b);
+  assert.equal(pal.toon('navy', { spotBlack: true, shadowBias: 0.5 }), b);
+  assert.ok(Math.abs(b.userData.inkUniforms.uThresh.value.x - (0.1 + 0.15)) < 1e-9);
+  assert.equal(b.userData.inkUniforms.uSpot.value, 1);
+  assert.equal(a.userData.inkUniforms.uSpot.value, 2);
+  const geo = new THREE.BoxGeometry(1, 1, 1);
+  const scene = new THREE.Scene();
+  const thin = new THREE.Mesh(geo, pal.toon('steel', { lineScale: 0.5 }));
+  scene.add(thin);
+  addHulls(scene);
+  assert.equal(thin.children[0].material.uniforms.uLine.value, 0.5);
+});
+
+test('toon pools apply to point and spot lights', () => {
+  assert.ok((lightsPars.match(/inkPool\(/g) ?? []).length >= 2);
+  assert.ok(!/getDistanceAttenuation\( lightDistance, (point|spot)Light\.distance/.test(lightsPars));
+});
+
+test('masthead: a forward cone that never reaches the basket interior; basket values authored per object', () => {
+  const { scene } = buildScene();
+  const spot = scene.getObjectByProperty('isSpotLight', true);
+  assert.ok(spot, 'masthead spot');
+  const dir = new THREE.Vector3().subVectors(spot.target.position, spot.position).normalize();
+  const basket = scene.getObjectByName('basket');
+  const bp = basket.position;
+  for (const [dx, dy, dz] of [[0, 0, 0], [0, 1, 0], [0.9, 0, 0], [-0.9, 0, 0], [0, 0, -0.9], [0, 0, 0.9], [0, 1, -0.9]]) {
+    const to = new THREE.Vector3(bp.x + dx, bp.y + dy, bp.z + dz).sub(spot.position).normalize();
+    assert.ok(Math.acos(to.dot(dir)) > spot.angle + 0.05, `basket point ${dx},${dy},${dz} outside the cone`);
+  }
+  assert.ok(spot.target.position.z < spot.position.z && spot.position.z > bp.z - 1.5, 'above and behind (aft of) the nest front, aimed forward');
+  const ctl = (n) => scene.getObjectByName(n).material.userData.ink;
+  for (const n of ['basket_interior', 'rim_inner_face', 'basket_floor']) assert.equal(ctl(n).spotBlack, true, n);
+  assert.ok(ctl('cap_rail').shadowBias < 0, 'cap rail top reaches the lit (cool fill) step');
+});
+
+test('camera: dolly only in walk, dive and rise', () => {
+  const { anchors } = buildScene();
+  const cam = new THREE.PerspectiveCamera(72, 1080 / 1920, 0.05, 9000);
+  for (const preset of ['lookout', 'held', undefined]) {
+    poseCamera(cam, { anchor: 'cam_lookout', preset }, anchors, 0, 24, 240);
+    const z0 = cam.position.z;
+    const v = poseCamera(cam, { anchor: 'cam_lookout', preset }, anchors, 239, 24, 240);
+    assert.equal(v.dolly, 0, `${preset}`);
+    assert.ok(Math.abs(cam.position.z - z0) < 0.01);
+  }
+  for (const preset of ['walk', 'dive', 'rise']) assert.ok(poseCamera(cam, { anchor: 'cam_lookout', preset }, anchors, 239, 24, 240).dolly > 0, preset);
+});
+
+test('notan: 3 values on an 18x32 grid, dark share and focus warning', () => {
+  const w = 270;
+  const h = 480;
+  const luma = new Uint8Array(w * h).fill(100);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (y >= 240) luma[y * w + x] = 20; // bottom half dark
+    if (x >= 135 && x < 165 && y >= 120 && y < 150) luma[y * w + x] = 230; // bright block at cells (9..10, 8..9)
+  }
+  const g = notanGrid(luma, w, h);
+  assert.equal(g.cells.length, NOTAN.cols * NOTAN.rows);
+  const near = notanReport(g, [[0.5, 0.27]]);
+  assert.ok(Math.abs(near.share[0] - 0.5) < 1e-9 && near.darkOk === true || near.share[0] === 0.5);
+  assert.equal(near.focusOk, true);
+  const far = notanReport(g, [[0.1, 0.9]]);
+  assert.equal(far.focusOk, false);
+  assert.ok(far.lines.some((l) => l.includes('WARN')));
+});
+
+test('styleframes.json: F2 and F3 as specified', () => {
+  const sf = JSON.parse(readFileSync(new URL('./styleframes.json', import.meta.url)));
+  const [f2, f3] = sf.frames;
+  assert.equal(f2.at, 48);
+  assert.equal(f2.camera.anchor, 'cam_lookout');
+  assert.equal(f2.cards[0].pose, 'edge');
+  assert.equal(f3.camera.fov, 52);
+  assert.deepEqual(f3.show, ['iceberg_rim']);
+  for (const f of sf.frames) assert.ok(f.focus.length && f.id && f.camera.preset === 'lookout');
 });

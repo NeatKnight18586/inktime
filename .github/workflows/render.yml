@@ -14,6 +14,10 @@ on:
         description: Full render (false = preview)
         type: boolean
         default: true
+      stills:
+        description: Render only the style frames in tests/styleframes.json (no video)
+        type: boolean
+        default: false
   # Every push reaches the plan job; it renders when the head commit says [render] or a render path changed.
   push:
     branches: ['**', '!renders']
@@ -37,6 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       go: ${{ steps.gate.outputs.go }}
+      stills: ${{ steps.gate.outputs.stills }}
       name: ${{ steps.plan.outputs.name }}
       scene: ${{ steps.plan.outputs.scene }}
       frames: ${{ steps.plan.outputs.frames }}
@@ -50,15 +55,19 @@ jobs:
           EVENT: ${{ github.event_name }}
           MSG: ${{ github.event.head_commit.message }}
           BEFORE: ${{ github.event.before }}
+          STILLS_IN: ${{ inputs.stills }}
         run: |
           go=false
-          if [ "$EVENT" != "push" ]; then go=true
+          stills=false
+          if [ "$STILLS_IN" = "true" ] || { [ "$EVENT" = "push" ] && printf '%s' "$MSG" | grep -qF '[stills]'; }; then stills=true
+          elif [ "$EVENT" != "push" ]; then go=true
           elif printf '%s' "$MSG" | grep -qF '[render]'; then go=true
           elif ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then go=true
           elif git diff --name-only "$BEFORE" "$GITHUB_SHA" | grep -qE '^(engine|kits|cast|episodes)/|^tests/looktest\.json$'; then go=true
           fi
           echo "go=$go" >> "$GITHUB_OUTPUT"
-          echo "render: $go"
+          echo "stills=$stills" >> "$GITHUB_OUTPUT"
+          echo "render: $go, stills: $stills"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -207,13 +216,65 @@ jobs:
           done
           exit 1
 
+  # Style frames: only the frames in tests/styleframes.json, full quality, no video. Published to renders/styleframes/.
+  stills:
+    needs: plan
+    if: ${{ needs.plan.outputs.stills == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.1-noble
+      options: --ipc=host
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - id: ffcache
+        uses: actions/cache@v4
+        with:
+          path: .ffmpeg
+          key: ${{ env.FFMPEG_KEY }}
+      - if: steps.ffcache.outputs.cache-hit != 'true'
+        run: node tools/get-ffmpeg.mjs .ffmpeg
+      - run: echo "$PWD/.ffmpeg" >> "$GITHUB_PATH"
+      - name: Render style frames
+        run: node tools/stills.mjs --frames tests/styleframes.json --out out/styleframes
+      - name: Publish to the renders branch
+        run: |
+          D=out/styleframes
+          PAIRS=""
+          for f in $D/*.png $D/*.measure.txt $D/contact.jpg $D/render.json; do PAIRS="$PAIRS $f=$(basename $f)"; done
+          node tools/publish-renders.mjs styleframes $PAIRS
+      - name: Commit review files
+        run: |
+          D=out/styleframes
+          mkdir -p review/styleframes
+          cp $D/*.measure.txt $D/contact.jpg $D/notan.png $D/render.json review/styleframes/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add review/styleframes
+          git diff --cached --quiet || git commit -m "review: styleframes [skip ci]"
+          for i in 1 2 3 4; do
+            git pull --rebase -q origin "${{ github.ref_name }}" && git push -q origin "HEAD:${{ github.ref_name }}" && exit 0
+            sleep $(( i * 5 ))
+          done
+          exit 1
+
   status-failed:
-    needs: [plan, render, assemble]
+    needs: [plan, render, assemble, stills]
     if: ${{ failure() }}
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
-      NAME: ${{ needs.plan.outputs.name || 'looktest' }}
+      NAME: ${{ needs.plan.outputs.stills == 'true' && 'styleframes' || needs.plan.outputs.name || 'looktest' }}
     steps:
       - uses: actions/checkout@v4
         with:

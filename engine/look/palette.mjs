@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { toonMaterial, DEFAULT_RAMP } from './toon.mjs';
+import { toonMaterial, DEFAULT_RAMP, controlsKey } from './toon.mjs';
 
 export const GUIDE_ACCENT = '#E8336D';
 
@@ -38,7 +38,7 @@ export function makePalette(json, name = 'look') {
     },
     // Shared toon material per colour key (+ paint); shadows shift toward shadowTo.
     toon(key, opts = {}) {
-      const id = typeof key === 'string' ? `${key}|${opts.paint ?? ''}|${opts.fog ?? ''}` : null;
+      const id = typeof key === 'string' ? `${key}|${opts.paint ?? ''}|${opts.fog ?? ''}|${controlsKey(opts)}` : null;
       if (id && cache.has(id)) return cache.get(id);
       const c = key instanceof THREE.Color ? key : color(key);
       const m = toonMaterial(c, shadowTo, { ramp, ...opts });

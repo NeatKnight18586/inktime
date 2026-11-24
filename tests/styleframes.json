@@ -1,0 +1,27 @@
+{
+  "fps": 24,
+  "seed": "looktest",
+  "look": "titanic_night",
+  "set": "titanic_crowsnest",
+  "frames": [
+    {
+      "id": "F2_lookout",
+      "title": "Lookout at 2 s: hands and deck lamps, Fleet's edge at the left",
+      "at": 48,
+      "camera": { "anchor": "cam_lookout", "preset": "lookout", "yawDrift": 3, "yawDriftSeconds": 10 },
+      "hands": "rail_grip",
+      "cards": [{ "cast": "fleet", "pose": "edge", "anchor": "fleet_spot", "blink": true }],
+      "focus": [[0.283, 0.664], [0.717, 0.664], [0.84, 0.86]]
+    },
+    {
+      "id": "F3_iceberg",
+      "title": "Lookout facing iceberg_dark at FOV 52: the iceberg's rim",
+      "at": 0,
+      "camera": { "anchor": "cam_lookout", "preset": "lookout", "pitch": 12, "fov": 52 },
+      "hands": "rail_grip",
+      "show": ["iceberg_rim"],
+      "cards": [],
+      "focus": [[0.5, 0.43]]
+    }
+  ]
+}

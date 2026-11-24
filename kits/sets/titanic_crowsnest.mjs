@@ -23,6 +23,9 @@ SHIP.basketZ = SHIP.mastZ - 0.75;
 const ICEBERG_DIST = 1500;
 export const ICEBERG_Z = SHIP.mastZ - ICEBERG_DIST;
 // FIX 1.1 framing. back: eye distance behind the inner face of the front rim (allowed 0.60-0.90 m).
+// Masthead lamp: above and behind the nest, a narrow cone aimed forward-down at the forecastle deck. The cone is
+// narrower than the angle to the basket (>= 27 deg off axis), so the basket interior never receives it.
+export const MASTHEAD = { aft: 0.25, aimZ: -120, aimY: 18, angle: 20 * (Math.PI / 180), penumbra: 0.05, range: 36 };
 export const LOOKOUT = { back: 0.65, pitch: -16, fov: 72, minRim: 0.45 };
 // The ship steams ahead (-Z) at 22 knots; everything aboard (and the camera anchors) rides ship_root.
 export const SHIP_SPEED = 11.3; // spec 0.75 / -14 showed 11 props; adjusted within the allowed range
@@ -530,7 +533,8 @@ function buildIceberg(scene, rng, pal, anchors) {
   }
   geo.computeVertexNormals();
   const z = ICEBERG_Z;
-  const berg = mesh(geo, pal.toon(pal.mix('navy', 'ink', 0.42), { paint: 'ice' }), 0, 0, z, 'iceberg_dark');
+  const bergMat = pal.toon(pal.mix('navy', 'ink', 0.42), { paint: 'ice' });
+  const berg = mesh(geo, bergMat, 0, 0, z, 'iceberg_dark');
   scene.add(berg);
   anchors.iceberg_dark = berg;
   // Rim light: back-face shell pushed out in screen space, so the frost edge is at most uPx wide at any range.
@@ -539,7 +543,7 @@ function buildIceberg(scene, rng, pal, anchors) {
     uniforms: {
       uColor: { value: pal.color('frost') },
       uBody: { value: pal.mix('navy', 'ink', 0.42) },
-      uStrength: { value: 1.0 },
+      uStrength: { value: bergMat.userData.ink.noRim ? 0 : 1.0 },
       uPx: { value: 2.0 },
       uRes: { value: new THREE.Vector2(1080, 1920) },
     },
@@ -864,7 +868,12 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   const inkMat = pal.toon('ink');
   const lampMat = pal.toon('lamp');
   const iceMat = pal.toon('ice', { paint: 'canvas' });
-  const railMat = pal.toon(pal.mix('lamp', 'navy', 0.45), { paint: 'rail' });
+  // Authored nest values (night vision: the basket is kept dark). Interior walls, floor and inner rim face are spot black;
+  // the cap rail top catches a thin cool fill line (its thresholds drop so the up-facing fill reaches the lit step).
+  const railMat = pal.toon(pal.mix('lamp', 'navy', 0.45), { paint: 'rail', shadowBias: -0.5, lineScale: 1.2 });
+  const inkLiner = pal.toon('navy', { spotBlack: true, shadowBias: 0.5, noRim: true, side: THREE.BackSide });
+  const floorMat = pal.toon('navy', { spotBlack: true, shadowBias: 0.8, noRim: true });
+  const fine = pal.toon('navy', { lineScale: 0.5 });
   const oilMat = pal.toon('lamp', { paint: 'canvas' });
   const F = SHIP.nestFloorY;
   const bz = SHIP.basketZ;
@@ -876,13 +885,14 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   g.add(mesh(new THREE.CylinderGeometry(0.17, 0.3, mastH, 16), steel, 0, SHIP.forecastleY + mastH / 2, SHIP.mastZ, 'foremast'));
   g.add(mesh(new THREE.SphereGeometry(0.24, 10, 6), steel, 0, topY, SHIP.mastZ, 'mast_truck'));
   g.add(mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.25, 16), navy, 0, SHIP.forecastleY + 0.12, SHIP.mastZ, 'mast_collar'));
-  const masthead = mesh(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: pal.color('lamp') }), 0, topY - 1.2, SHIP.mastZ - 0.25, 'masthead_light');
+  const masthead = mesh(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: pal.color('lamp') }), 0, topY - 1.2, SHIP.mastZ + MASTHEAD.aft, 'masthead_light');
   masthead.layers.set(LAYERS.FX);
   g.add(masthead);
-  // The masthead lamp lights the nest from above (3 hard pools).
-  const mastLight = new THREE.PointLight(pal.color('lamp'), L.masthead, L.mastheadRange, 2);
+  // The masthead lamp lights forward only (3 hard pools inside a hard-edged cone); the basket interior is outside the cone.
+  const mastLight = new THREE.SpotLight(pal.color('lamp'), L.masthead, MASTHEAD.range, MASTHEAD.angle, MASTHEAD.penumbra, 2);
   mastLight.position.copy(masthead.position);
-  g.add(mastLight);
+  mastLight.target.position.set(0, MASTHEAD.aimY, MASTHEAD.aimZ);
+  g.add(mastLight, mastLight.target);
   anim.lamps.push({ light: mastLight, base: L.masthead, seed: 11 });
   const mastHalo = lampHalos([masthead.position.clone()], pal, { world: 1.2, minPx: 8, maxPx: 200, name: 'masthead_halo' });
   mastHalo.layers.set(LAYERS.FX);
@@ -890,7 +900,7 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   // Mast ladder rungs below the nest.
   const rungs = [];
   for (let y = SHIP.forecastleY + 0.6; y < F - 0.2; y += 0.38) rungs.push(between(new THREE.Vector3(-0.22, y, SHIP.mastZ + 0.32), new THREE.Vector3(0.22, y, SHIP.mastZ + 0.32)));
-  g.add(instanced(new THREE.CylinderGeometry(0.015, 0.015, 1, 5), steel, rungs, 'ladder_rungs'));
+  g.add(instanced(new THREE.CylinderGeometry(0.015, 0.015, 1, 5), pal.toon('steel', { paint: 'steel', lineScale: 0.6 }), rungs, 'ladder_rungs'));
 
   // Rigging stays: forestay, shrouds.
   const stays = [
@@ -924,6 +934,14 @@ function buildMastAndNest(scene, rng, pal, anchors) {
     72
   );
   nest.add(mesh(cap, railMat, 0, 0, 0, 'cap_rail'));
+  // Spot-black liners on the interior faces (single-sided, seen from inside, no hull): wall below the cap, and the cap's inner face.
+  const liner = (r, h, y, name) => {
+    const m = mesh(new THREE.CylinderGeometry(r, r, h, 56, 1, true), inkLiner, 0, y + h / 2, 0, name);
+    m.userData.noHull = true;
+    return m;
+  };
+  nest.add(liner(R - 0.045, wallH, 0, 'basket_interior'));
+  nest.add(liner(R - 0.062, capH, wallH, 'rim_inner_face'));
   // Frost: small drifts in the corners where the floor meets the wall (hatch strokes live in the rail paint).
   const drift = new THREE.SphereGeometry(1, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2);
   for (let k = 0; k < 7; k++) {
@@ -933,7 +951,7 @@ function buildMastAndNest(scene, rng, pal, anchors) {
     d.rotation.y = -a;
     nest.add(d);
   }
-  nest.add(mesh(new THREE.CylinderGeometry(R - 0.02, R - 0.1, 0.12, 40), navy, 0, -0.06, 0, 'basket_floor'));
+  nest.add(mesh(new THREE.CylinderGeometry(R - 0.02, R - 0.1, 0.12, 40), floorMat, 0, -0.06, 0, 'basket_floor'));
   for (const y of [0.08, wallH - 0.06]) {
     const band = mesh(new THREE.TorusGeometry(R + 0.012, 0.016, 5, 56), navy, 0, y, 0, 'band');
     band.rotation.x = Math.PI / 2;
@@ -947,7 +965,7 @@ function buildMastAndNest(scene, rng, pal, anchors) {
       for (const r of [R + 0.004, R - 0.044]) rivets.push(at(Math.sin(a) * r, y, -Math.cos(a) * r));
     }
   }
-  nest.add(instanced(new THREE.SphereGeometry(0.013, 6, 4), navy, rivets, 'rivets'));
+  nest.add(instanced(new THREE.SphereGeometry(0.013, 6, 4), fine, rivets, 'rivets'));
   // Support brackets under the basket.
   const struts = [];
   for (const a of [-50, 0, 50, 180]) {

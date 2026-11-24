@@ -3,6 +3,14 @@
 ## Format
 1080x1920, 24 fps, H.264 yuv420p. Episode 30–55 s, target 35–50 s.
 
+## Method
+- Shading, ink and blacks are authored per material and per object, never fixed with global light knobs (the Guilty Gear Xrd rule). Each material takes four controls, set by the kit per object:
+  - shadowBias (-1..1): shifts both toon thresholds by bias x 0.3 (+ = more of the surface in shadow).
+  - spotBlack (false | true | "unlit"): the darkest step becomes ink #141414 — never, always, or only where no lamp faces it (default "unlit").
+  - lineScale: multiplies the outline width. noRim: the material takes no rim light.
+- The ramp thresholds are fixed (t1 0.10, t2 0.30) and are never tuned again.
+- The look is approved on still style frames (tests/styleframes.json, commit with [stills]) before any motion render. Each still is measured and reduced to a notan: 3 values (dark < 60, mid, light >= 140 luma) on an 18x32 grid. WARN only: dark mass 20-55% of cells, and the brightest cell cluster within 1 cell of the frame's focus anchor.
+
 ## Look
 - Painted textures (engine/look/paint.mjs): seeded canvas textures, 512 px, cached per material. Each uses 2-3 flat values with hard edges (painted, never noise) plus 5% paper grain.
   - wood: planks with 1-2 px ink seams, grain streaks, worn patches.
@@ -71,6 +79,7 @@
 ## Camera (POV)
 - Eye height 1.62 m. three.js vertical FOV: 72° default, 84° scale, 52° insert. At or above 80° the Panini pass keeps verticals straight.
 - Bands: top 30% scale/sky, middle 40% subject/eye-line, bottom 30% hands/foreground.
+- Dolly only in walk, dive and rise. Lookout and held shots have dolly 0: FOV push and breathing only.
 - Walk bob only while walking: 1.8 Hz, 1.5 cm vertical, 0.4° roll. Breathing at rest: 0.25 Hz, 4 mm (0.15 deg pitch).
 - Glance 0.35–0.6 s ease-in-out, then a 2–3 frame settle. Max rotation 90°/s except whip (8 frames).
 - Sound leads camera: the head turns to an off-frame sound 6–10 frames after it starts.

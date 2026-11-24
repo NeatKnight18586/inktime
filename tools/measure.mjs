@@ -1,8 +1,9 @@
 // Measure a render against the night look targets.
-// Usage: node tools/measure.mjs <mp4> [--cams out/cams.json] [--strict]
+// Usage: node tools/measure.mjs <mp4|png> [--cams out/cams.json] [--strict] [--focus "x,y;x,y"] [--notan-out file.png]
 // Downscales to 270 px wide, then prints per shot and overall: luma mean, p5, p95, share of pixels < 40,
 // saturation mean, in-frame motion (median share of pixels changing > 25 levels frame to frame),
 // still frames (pose delta < 0.02 deg and < 1 mm, from cams.json) and the longest still run.
+// Stills (png) also get the notan check: --focus "x,y;x,y" (normalised frame coords) --notan-out <png>.
 import { spawn, execFileSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -18,6 +19,73 @@ export const TARGETS = {
   still: [0, 0.1],
   stillRun: [0, 19],
 };
+
+// Notan: the frame as 3 values on an 18x32 grid (cell = mean luma). Cuts: dark < 60, light >= 140 (authored, docs/STYLE.md).
+// WARN only, never a miss: the dark-mass share (target 20-55%) and whether the brightest cell cluster lies within
+// 1 cell of a focus anchor. The brightest cluster = the connected cells (8-neighbour) within 15% of the brightest cell.
+export const NOTAN = { cols: 18, rows: 32, cuts: [60, 140], values: [20, 128, 235], dark: [0.2, 0.55], scale: 10 };
+
+export function notanGrid(luma, w, h) {
+  const { cols, rows, cuts } = NOTAN;
+  const cw = w / cols;
+  const ch = h / rows;
+  const cells = new Float64Array(cols * rows);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      let sum = 0;
+      let n = 0;
+      for (let y = Math.floor(r * ch); y < Math.floor((r + 1) * ch); y++) for (let x = Math.floor(c * cw); x < Math.floor((c + 1) * cw); x++, n++) sum += luma[y * w + x];
+      cells[r * cols + c] = n ? sum / n : 0;
+    }
+  }
+  const cls = Uint8Array.from(cells, (v) => (v < cuts[0] ? 0 : v < cuts[1] ? 1 : 2));
+  return { cells, cls };
+}
+
+export function notanReport({ cells, cls }, focus = []) {
+  const { cols, rows, dark } = NOTAN;
+  const n = cells.length;
+  const share = [0, 1, 2].map((k) => cls.reduce((a, c) => a + (c === k ? 1 : 0), 0) / n);
+  let peak = 0;
+  for (let i = 1; i < n; i++) if (cells[i] > cells[peak]) peak = i;
+  const floor = cells[peak] * 0.85;
+  const seen = new Set([peak]);
+  const stack = [peak];
+  while (stack.length) {
+    const i = stack.pop();
+    const r = Math.floor(i / cols);
+    const c = i % cols;
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        const rr = r + dr;
+        const cc = c + dc;
+        const j = rr * cols + cc;
+        if (rr < 0 || rr >= rows || cc < 0 || cc >= cols || seen.has(j) || cells[j] < floor) continue;
+        seen.add(j);
+        stack.push(j);
+      }
+    }
+  }
+  const cluster = [...seen].map((i) => [i % cols, Math.floor(i / cols)]);
+  const anchors = focus.map(([x, y]) => [Math.min(cols - 1, Math.floor(x * cols)), Math.min(rows - 1, Math.floor(y * rows))]);
+  const dist = anchors.length ? Math.min(...anchors.flatMap(([ax, ay]) => cluster.map(([cx, cy]) => Math.max(Math.abs(cx - ax), Math.abs(cy - ay))))) : null;
+  const darkOk = share[0] >= dark[0] && share[0] <= dark[1];
+  const focusOk = dist === null ? null : dist <= 1;
+  const [cx, cy] = cluster.reduce((a, c) => [a[0] + c[0] / cluster.length, a[1] + c[1] / cluster.length], [0, 0]);
+  const lines = [
+    `notan 18x32 (cuts ${NOTAN.cuts.join('/')}): dark ${(share[0] * 100).toFixed(1)}%  mid ${(share[1] * 100).toFixed(1)}%  light ${(share[2] * 100).toFixed(1)}%   dark-mass target 20-55% ${darkOk ? 'ok' : 'WARN'}`,
+    `notan brightest cluster: ${cluster.length} cells, centre cell (${cx.toFixed(1)}, ${cy.toFixed(1)}), peak luma ${cells[peak].toFixed(0)}${focusOk === null ? '' : `; nearest focus anchor ${dist} cells away, target <= 1 ${focusOk ? 'ok' : 'WARN'}`}`,
+  ];
+  return { share, cluster, dist, darkOk, focusOk, lines };
+}
+
+export function notanPixels({ cls }) {
+  const { cols, rows, values, scale } = NOTAN;
+  const W = cols * scale;
+  const out = Buffer.alloc(W * rows * scale);
+  for (let y = 0; y < rows * scale; y++) for (let x = 0; x < W; x++) out[y * W + x] = values[cls[Math.floor(y / scale) * cols + Math.floor(x / scale)]];
+  return { gray: out, width: W, height: rows * scale };
+}
 
 export function frameStats(rgb, w, h, prevLuma = null) {
   const n = w * h;
@@ -143,8 +211,13 @@ export function report(label, s) {
 
 async function main() {
   const args = process.argv.slice(2);
-  const mp4 = args.find((x) => !x.startsWith('--') && args[args.indexOf(x) - 1] !== '--cams');
-  const camsPath = args.includes('--cams') ? args[args.indexOf('--cams') + 1] : null;
+  const valueFlags = ['--cams', '--focus', '--notan-out'];
+  const mp4 = args.find((x, i) => !x.startsWith('--') && !valueFlags.includes(args[i - 1]));
+  const flag = (k) => (args.includes(k) ? args[args.indexOf(k) + 1] : null);
+  const camsPath = flag('--cams');
+  const focus = (flag('--focus') ?? '').split(';').filter(Boolean).map((p) => p.split(',').map(Number));
+  const notanOut = flag('--notan-out');
+  const isStillImage = /\.(png|jpe?g)$/i.test(mp4 ?? '');
   const strict = args.includes('--strict');
   if (!mp4) {
     console.error('usage: measure.mjs <mp4> [--cams out/cams.json] [--strict]');
@@ -163,6 +236,7 @@ async function main() {
   let prev = null;
   let prevShot = null;
   let index = 0;
+  let lastLuma = null;
   const frames = [];
   const handle = (rgb) => {
     const pose = cams?.[index];
@@ -173,6 +247,7 @@ async function main() {
     if (pose && before && (before.shot ?? 0) === shot) still = isStill(before, pose);
     frames.push({ index, shot, mean: st.mean, dark: st.dark, sat: st.sat, motion: st.motion, hist: st.hist, still });
     prev = st.luma;
+    lastLuma = st.luma;
     prevShot = shot;
     index++;
   };
@@ -198,6 +273,14 @@ async function main() {
   out.push(all.text);
   misses.push(...all.misses.map((m) => `overall ${m}`));
   out.push(misses.length ? `MISSES: ${misses.join(', ')}` : 'all targets met');
+  if (isStillImage && lastLuma) {
+    const grid = notanGrid(lastLuma, w, h);
+    out.push(...notanReport(grid, focus).lines);
+    if (notanOut) {
+      const { gray, width, height } = notanPixels(grid);
+      execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'gray', '-s', `${width}x${height}`, '-i', '-', '-frames:v', '1', notanOut], { input: gray });
+    }
+  }
   console.log(out.join('\n'));
   if (strict && misses.length) process.exit(1);
 }

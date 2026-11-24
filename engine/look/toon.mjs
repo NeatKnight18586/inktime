@@ -7,10 +7,9 @@ import { paintTexture, PAINT_SCALE } from './paint.mjs';
 export const RAMP = [0.55, 1.0, 1.4];
 export const DEFAULT_RAMP = { shadow: 0.55, shadowTint: 0.5, litMix: 0.4, t1: 0.1, t2: 0.3 };
 
-const lightsPars = THREE.ShaderChunk.lights_pars_begin.replace(
-  'light.color *= getDistanceAttenuation( lightDistance, pointLight.distance, pointLight.decay );',
-  'light.color *= inkPool( lightDistance, pointLight.distance );'
-);
+// Point and spot lights both use the 3 hard pools instead of smooth attenuation.
+const ATTEN = /light\.color \*= getDistanceAttenuation\( lightDistance, (\w+)\.distance, \1\.decay \);/g;
+export const lightsPars = THREE.ShaderChunk.lights_pars_begin.replace(ATTEN, 'light.color *= inkPool( lightDistance, $1.distance );');
 const POOL = /* glsl */ `
 // Toon falloff: 3 hard-edged pools.
 float inkPool( const in float d, const in float range ) {
@@ -36,9 +35,31 @@ void RE_IndirectDiffuse_Toon( const in vec3 irradiance, const in vec3 geometryPo
 #define RE_IndirectDiffuse RE_IndirectDiffuse_Toon
 `;
 
+// Authored per-material controls (Method, docs/STYLE.md). Shading, ink and blacks are set per material and per object.
+//   shadowBias -1..1  shifts both toon thresholds by bias x 0.3 (+ = more of the surface in shadow, - = less)
+//   spotBlack  false | true | "unlit"  the darkest step becomes ink: never / always / only where no lamp faces (default "unlit")
+//   lineScale  multiplies the outline width of every mesh using the material (hull.mjs)
+//   noRim      the material takes no rim light (iceberg frost rim, hand ice rim)
+export const SHADOW_BIAS_SPAN = 0.3;
+export const DEFAULT_CONTROLS = { shadowBias: 0, spotBlack: 'unlit', lineScale: 1, noRim: false };
+const SPOT_MODE = { false: 0, true: 1, unlit: 2 };
+export function controlsOf(opts = {}) {
+  const c = { ...DEFAULT_CONTROLS };
+  for (const k of Object.keys(DEFAULT_CONTROLS)) if (opts[k] !== undefined) c[k] = opts[k];
+  if (!(c.shadowBias >= -1 && c.shadowBias <= 1)) throw new Error(`shadowBias ${c.shadowBias} outside -1..1`);
+  if (!(String(c.spotBlack) in SPOT_MODE)) throw new Error(`spotBlack ${c.spotBlack} must be false, true or "unlit"`);
+  if (!(c.lineScale > 0)) throw new Error(`lineScale ${c.lineScale} must be > 0`);
+  return c;
+}
+export const controlsKey = (opts = {}) => {
+  const c = controlsOf(opts);
+  return `${c.shadowBias}|${c.spotBlack}|${c.lineScale}|${c.noRim ? 1 : 0}|${opts.side ?? ''}`;
+};
+
 // Toon material for palette colour `color`; shadows tint toward `shadowTo`. opts.paint picks a painted texture.
 export function toonMaterial(color, shadowTo, opts = {}) {
-  const { paint, ramp = DEFAULT_RAMP, ...rest } = opts;
+  const { paint, ramp = DEFAULT_RAMP, shadowBias, spotBlack, lineScale, noRim, ...rest } = opts;
+  const ctl = controlsOf({ shadowBias, spotBlack, lineScale, noRim });
   const mat = new THREE.MeshToonMaterial({ color, ...rest });
   const tint = new THREE.Color(shadowTo);
   const lum = 0.2126 * tint.r + 0.7152 * tint.g + 0.0722 * tint.b || 1;
@@ -47,13 +68,15 @@ export function toonMaterial(color, shadowTo, opts = {}) {
   const uniforms = {
     uShadowTint: { value: tintVec },
     uRamp: { value: new THREE.Vector4(ramp.shadow, ramp.shadowTint, ramp.litMix, 0) },
-    uThresh: { value: new THREE.Vector2(ramp.t1, ramp.t2) },
+    uThresh: { value: new THREE.Vector2(ramp.t1 + SHADOW_BIAS_SPAN * ctl.shadowBias, ramp.t2 + SHADOW_BIAS_SPAN * ctl.shadowBias) },
+    uSpot: { value: SPOT_MODE[String(ctl.spotBlack)] },
     uInkCol: { value: new THREE.Color(ramp.ink ?? '#141414') },
     uPaint: { value: tex },
     uPaintScale: { value: paint ? PAINT_SCALE[paint] : 1 },
   };
   mat.userData.inkUniforms = uniforms;
   mat.userData.paint = paint ?? null;
+  mat.userData.ink = ctl;
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     if (tex) shader.defines = { ...(shader.defines ?? {}), INK_PAINT: '' };
@@ -89,6 +112,7 @@ varying vec3 vInkLocal;`
 uniform vec3 uShadowTint;
 uniform vec4 uRamp;
 uniform vec2 uThresh;
+uniform float uSpot;
 uniform vec3 uInkCol;
 uniform sampler2D uPaint;
 uniform float uPaintScale;
@@ -126,12 +150,12 @@ varying vec3 vInkLocal;`
   vec3 shadow = base * uRamp.x * mix( vec3( 1.0 ), uShadowTint, uRamp.y );
   shadow = max( shadow, base * 0.3 );
   vec3 lit = mix( base, lc, uRamp.z );
-  vec3 dark = inkLampFacing < 0.5 ? uInkCol : shadow;
+  vec3 dark = uSpot > 1.5 ? ( inkLampFacing < 0.5 ? uInkCol : shadow ) : ( uSpot > 0.5 ? uInkCol : shadow );
   outgoingLight = ( e < uThresh.x ? dark : ( e < uThresh.y ? base : lit ) ) + totalEmissiveRadiance;
 }
 #include <opaque_fragment>`
       );
   };
-  mat.customProgramCacheKey = () => `inktime-toon3-${tex ? paint : 'flat'}`;
+  mat.customProgramCacheKey = () => `inktime-toon4-${tex ? paint : 'flat'}`;
   return mat;
 }

@@ -19,11 +19,14 @@ export function totalFrames(spec) {
   return spec.shots ? spec.shots.reduce((s, x) => s + x.frames, 0) : spec.frames;
 }
 
-// Base motion on every shot (STYLE), bounded: the dolly eases in and out and moves at most 0.25 m per shot
+// Base motion on every shot (STYLE). The dolly is 0 unless the shot names a preset that dollies (walk, dive, rise);
+// lookout and held shots get FOV push and breathing only. A dollying shot eases in and out and moves at most 0.25 m
 // (less if the anchor says so, e.g. so the eye stays 0.45 m from the rim); beyond that only the FOV push
 // (1 deg/s, at most 8 deg per shot) plus breathing sway (0.25 Hz, 0.15 deg pitch, 4 mm). No frame is still.
 // cam.pushPct adds a push along the view of that percentage of the anchor's aim distance per second (aerial).
-export const BASE_MOTION = { dolly: 0.25, breathHz: 0.25, breathPitch: 0.15, breathLift: 0.004, push: 1.0, pushMax: 8 };
+export const BASE_MOTION = { dolly: 0, breathHz: 0.25, breathPitch: 0.15, breathLift: 0.004, push: 1.0, pushMax: 8 };
+
+export const DOLLY_PRESETS = { walk: 0.25, dive: 0.25, rise: 0.25 };
 
 // m is the frame index within the shot, shotFrames its length. Camera anchors carry userData
 // {yaw, pitch, fov, panini, maxDolly, aimDist}.
@@ -36,7 +39,7 @@ export function poseCamera(camera, cam, anchors, m, fps, shotFrames = m + 1) {
   const pos = new THREE.Vector3();
   const base = new THREE.Quaternion();
   anchor.matrixWorld.decompose(pos, base, new THREE.Vector3());
-  const M = { ...BASE_MOTION, ...(cam.motion ?? {}) };
+  const M = { ...BASE_MOTION, dolly: DOLLY_PRESETS[cam.preset] ?? BASE_MOTION.dolly, ...(cam.motion ?? {}) };
   const ud = anchor.userData ?? {};
   const drift = (cam.yawDrift ?? 0) * easeInOut(t / (cam.yawDriftSeconds ?? 10));
   const yaw = (drift + (cam.yaw ?? 0)) * DEG;

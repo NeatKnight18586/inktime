@@ -73,7 +73,7 @@ async function load(scenePath) {
 
   const camera = new THREE.PerspectiveCamera(72, W / H, NEAR, FAR);
   scene.add(camera);
-  const hands = await makeHands(camera, tint);
+  const hands = await makeHands(camera, tint, undefined, { key: palette.color(look.light.key), rim: palette.color(look.light.fill) });
 
   state.normalRT?.dispose();
   const normalRT = new THREE.WebGLRenderTarget(W, H, { type: THREE.UnsignedByteType });

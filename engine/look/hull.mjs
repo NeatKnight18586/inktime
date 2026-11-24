@@ -32,6 +32,7 @@ const vertexShader = /* glsl */ `
 uniform vec2 uRes;
 uniform float uFocal;
 uniform float uWorld;
+uniform float uLine;
 uniform float uBoil;
 ${INK_SCALE_GLSL}
 void main() {
@@ -45,8 +46,8 @@ void main() {
   float d = max(-vp.z, 0.01);
   // Outer half of the silhouette width; seeded +-20% variation along the line (brush).
   float vary = 1.0 + 0.2 * (fract(sin(dot(wp.xyz + uBoil, vec3(12.9898, 78.233, 37.719))) * 43758.5453) * 2.0 - 1.0);
-  float maxPx = 0.5 * ${SILHOUETTE_PX.toFixed(1)} * inkScale(d) * vary;
-  float px = clamp(uWorld * uFocal / d, 0.0, maxPx);
+  float maxPx = 0.5 * ${SILHOUETTE_PX.toFixed(1)} * inkScale(d) * vary * uLine;
+  float px = clamp(uWorld * uLine * uFocal / d, 0.0, maxPx);
   vec4 clip = projectionMatrix * vp;
   vec3 vn = mat3(viewMatrix) * wn;
   vec2 dir = (projectionMatrix * vec4(vn, 0.0)).xy;
@@ -72,9 +73,10 @@ function hullGeometry(geo) {
   return merged;
 }
 
-export function hullMaterial(worldThickness) {
+// lineScale (material control) multiplies the outline width.
+export function hullMaterial(worldThickness, lineScale = 1) {
   return new THREE.ShaderMaterial({
-    uniforms: { ...hullUniforms, uWorld: { value: worldThickness } },
+    uniforms: { ...hullUniforms, uWorld: { value: worldThickness }, uLine: { value: lineScale } },
     vertexShader,
     fragmentShader,
     side: THREE.BackSide,
@@ -105,7 +107,8 @@ export function addHulls(root) {
     mesh.getWorldScale(ws);
     const scale = Math.max(Math.abs(ws.x), Math.abs(ws.y), Math.abs(ws.z)) || 1;
     // uWorld is applied after the world transform, so express it in world units.
-    const mat = hullMaterial(objectSize(mesh) * HULL_FRACTION);
+    const lineScale = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material)?.userData?.ink?.lineScale ?? 1;
+    const mat = hullMaterial(objectSize(mesh) * HULL_FRACTION, lineScale);
     let hull;
     if (mesh.isInstancedMesh) {
       hull = new THREE.InstancedMesh(geo, mat, mesh.count);

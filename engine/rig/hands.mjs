@@ -19,10 +19,40 @@ async function svgTexture(url, scale = 2) {
   return { tex, aspect: canvas.width / canvas.height };
 }
 
-export async function makeHands(camera, tint, poses = HAND_POSES) {
+// Hand light (until the 3D hands of Fix 1b.3): a warm amber key from below and a cool ice rim on the upper edge.
+// key/rim are palette colours (lamp, ice). The quad is lit in its own shader: uv.y 0 = bottom.
+export const HAND_LIGHT = { keyMix: 0.55, keyFall: 0.75, topDim: 0.62, rimPx: 0.02, rimMix: 0.9 };
+
+export async function makeHands(camera, tint, poses = HAND_POSES, light = null) {
   const textures = {};
   for (const p of poses) textures[p] = await svgTexture(`/cast/hands/${p}.svg`);
   const mat = new THREE.MeshBasicMaterial({ color: tint, transparent: true, alphaTest: 0.5, depthTest: false, depthWrite: false, fog: false });
+  if (light) {
+    const H = HAND_LIGHT;
+    mat.onBeforeCompile = (shader) => {
+      shader.uniforms.uKey = { value: new THREE.Color(light.key) };
+      shader.uniforms.uRim = { value: new THREE.Color(light.rim) };
+      shader.fragmentShader = shader.fragmentShader
+        .replace("#include <common>", "#include <common>\nuniform vec3 uKey;\nuniform vec3 uRim;")
+        .replace(
+          "#include <map_fragment>",
+          `#include <map_fragment>
+#ifdef USE_MAP
+{
+  float lum = dot( diffuseColor.rgb, vec3( 0.2126, 0.7152, 0.0722 ) );
+  float below = 1.0 - smoothstep( 0.0, ${H.keyFall.toFixed(2)}, vMapUv.y );
+  // Key from below: surfaces warm toward amber at the bottom of the hand and dim toward the top. Ink stays ink.
+  vec3 lit = mix( diffuseColor.rgb * ${H.topDim.toFixed(2)}, mix( diffuseColor.rgb, diffuseColor.rgb * uKey * 1.6, ${H.keyMix.toFixed(2)} ), below );
+  // Rim: pixels whose neighbour straight above is empty paper get the ice rim (not on ink outlines).
+  float aboveA = texture2D( map, vMapUv + vec2( 0.0, ${H.rimPx.toFixed(3)} ) ).a;
+  float rim = ( aboveA < 0.5 && lum > 0.25 ) ? ${H.rimMix.toFixed(2)} : 0.0;
+  diffuseColor.rgb = mix( lit, uRim, rim );
+}
+#endif`
+        );
+    };
+    mat.customProgramCacheKey = () => "inktime-hands-lit";
+  }
   const quad = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
   quad.name = 'hands';
   quad.renderOrder = 1000;
