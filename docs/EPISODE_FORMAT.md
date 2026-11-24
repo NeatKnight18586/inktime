@@ -1,7 +1,7 @@
 # Episode folder: episodes/<id>/
 - script.json: {"lines":[{"id":"L1","speaker":"narrator|<castId>","text":"..."}]}
 - episode.json: the spec below.
-- audio/: voice.mp3 (ONE file, all lines in order, recorded by the user in ElevenLabs; never generated), words.json (from forced alignment), sfx/<name>.mp3 (generated), music.mp3 (supplied by the user).
+- audio/: voice.mp3 (ONE file, all lines in order, made by the user by hand; never generated), words.json ({meta:{lead,matchRate}, words:[{line,w,word,start,end,matched}]}, times in timeline seconds, from tools/align.mjs; words.raw.json when there is no script), sfx/<name>.mp3|wav (optional uploads; missing ones are synthesized into out/sfx), music.mp3 (made by the user by hand), voice_edit.wav (only when voicePauseMax or voiceTempo is set).
 - facts.md: claim | status (verified / contested / dramatised / device / user verifying) | sources.
 - results.md: YouTube link and 48-hour stats, added after posting.
 - out/: never committed.
@@ -19,6 +19,7 @@
  "voiceTempo": 1.0,
  "voicePauseMax": 0.28,
  "musicBpm": 70,
+ "musicHit": 12.0,
  "sfxLibrary": [{"name":"creak","prompt":"...","seconds":1.5,"loop":false}],
  "beds": ["wind_rigging","engine_hum","sea_calm"],
  "shots": [{

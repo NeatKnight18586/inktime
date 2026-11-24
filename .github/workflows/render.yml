@@ -36,8 +36,108 @@ env:
   FFMPEG_KEY: ffmpeg-static-b6.0-linux-x64
 
 jobs:
-  plan:
+  # Voice alignment and sfx for episode targets (no API keys: voice and music are made by hand, alignment is faster-whisper).
+  audio:
     if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      episode: ${{ steps.ep.outputs.dir }}
+      name: ${{ steps.ep.outputs.name }}
+      waiting: ${{ steps.ep.outputs.waiting }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - id: ep
+        run: |
+          dir=""
+          case "$TARGET" in episodes/*) dir=$(echo "$TARGET" | cut -d/ -f1-2);; esac
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$dir")" >> "$GITHUB_OUTPUT"
+          waiting=false
+          if [ -n "$dir" ] && [ ! -f "$dir/episode.json" ]; then waiting=true; fi
+          echo "waiting=$waiting" >> "$GITHUB_OUTPUT"
+      - name: upload audio/voice.mp3
+        if: ${{ steps.ep.outputs.dir != '' }}
+        run: test -f "${{ steps.ep.outputs.dir }}/audio/voice.mp3" || { echo "upload audio/voice.mp3"; exit 1; }
+      - if: ${{ steps.ep.outputs.dir != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - if: ${{ steps.ep.outputs.dir != '' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - if: ${{ steps.ep.outputs.dir != '' }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/huggingface
+          key: whisper-small.en-faster-whisper-v1
+      - id: ffcache
+        if: ${{ steps.ep.outputs.dir != '' }}
+        uses: actions/cache@v4
+        with:
+          path: .ffmpeg
+          key: ${{ env.FFMPEG_KEY }}
+      - if: ${{ steps.ep.outputs.dir != '' && steps.ffcache.outputs.cache-hit != 'true' }}
+        run: node tools/get-ffmpeg.mjs .ffmpeg
+      - if: ${{ steps.ep.outputs.dir != '' }}
+        run: echo "$PWD/.ffmpeg" >> "$GITHUB_PATH"
+      - if: ${{ steps.ep.outputs.dir != '' }}
+        run: pip install faster-whisper
+      - name: Align voice
+        if: ${{ steps.ep.outputs.dir != '' }}
+        run: node tools/align.mjs "${{ steps.ep.outputs.dir }}"
+      - name: Sound effects
+        if: ${{ steps.ep.outputs.dir != '' }}
+        run: node tools/sfx.mjs "${{ steps.ep.outputs.dir }}"
+      - name: Commit words.json
+        if: ${{ steps.ep.outputs.dir != '' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for f in words.json words.raw.json; do
+            if [ -f "${{ steps.ep.outputs.dir }}/audio/$f" ]; then git add "${{ steps.ep.outputs.dir }}/audio/$f"; fi
+          done
+          git diff --cached --quiet || git commit -m "audio: ${{ steps.ep.outputs.name }} words [skip ci]"
+          for i in 1 2 3 4; do
+            git pull --rebase -q origin "${{ github.ref_name }}" && git push -q origin "HEAD:${{ github.ref_name }}" && exit 0
+            sleep $(( i * 5 ))
+          done
+          exit 1
+      - name: Waiting for episode.json (no render yet, not a failure)
+        if: ${{ steps.ep.outputs.waiting == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NAME: ${{ steps.ep.outputs.name }}
+        run: |
+          mkdir -p "review/$NAME"
+          printf '{\n  "status": "waiting",\n  "commit": "%s",\n  "reason": "episodes/%s/episode.json is missing; audio aligned, render skipped",\n  "run_url": "%s/%s/actions/runs/%s"\n}\n' "$GITHUB_SHA" "$NAME" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "review/$NAME/render.json"
+          node tools/publish-renders.mjs "$NAME" "review/$NAME/render.json=render.json"
+      - if: ${{ steps.ep.outputs.dir != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: audio-words
+          path: |
+            ${{ steps.ep.outputs.dir }}/audio/words.json
+            ${{ steps.ep.outputs.dir }}/audio/words.raw.json
+            ${{ steps.ep.outputs.dir }}/audio/voice_edit.wav
+          if-no-files-found: ignore
+          retention-days: 7
+      - if: ${{ steps.ep.outputs.dir != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: audio-sfx
+          path: ${{ steps.ep.outputs.dir }}/out/sfx/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  plan:
+    needs: audio
+    if: ${{ !cancelled() && needs.audio.outputs.waiting != 'true' && (needs.audio.result == 'success' || needs.audio.result == 'skipped') && (github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')) }}
     runs-on: ubuntu-latest
     outputs:
       go: ${{ steps.gate.outputs.go }}
@@ -75,7 +175,7 @@ jobs:
         run: node tools/plan.mjs "$TARGET" "$SHARDS"
 
   render:
-    needs: plan
+    needs: [plan, audio]
     if: ${{ needs.plan.outputs.go == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -89,6 +189,12 @@ jobs:
     steps:
       - run: echo "JOB_T0=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
+      - name: Aligned words (episode targets)
+        if: ${{ needs.audio.outputs.episode != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: audio-words
+          path: ${{ needs.audio.outputs.episode }}/audio
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -122,7 +228,7 @@ jobs:
           retention-days: 7
 
   assemble:
-    needs: [plan, render]
+    needs: [plan, render, audio]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     container:
@@ -130,6 +236,7 @@ jobs:
     env:
       NAME: ${{ needs.plan.outputs.name }}
       FRAMES: ${{ needs.plan.outputs.frames }}
+      EP: ${{ needs.audio.outputs.episode }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - run: echo "JOB_T0=$(date +%s)" >> "$GITHUB_ENV"
@@ -150,6 +257,29 @@ jobs:
           pattern: seg-*
           path: segs
           merge-multiple: true
+      - name: Audio inputs (episode targets)
+        if: ${{ needs.audio.outputs.episode != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: audio-words
+          path: ${{ needs.audio.outputs.episode }}/audio
+      - name: Sfx (episode targets)
+        if: ${{ needs.audio.outputs.episode != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: audio-sfx
+          path: ${{ needs.audio.outputs.episode }}/out/sfx
+      - id: fontcache
+        if: ${{ needs.audio.outputs.episode != '' }}
+        uses: actions/cache@v4
+        with:
+          path: assets/fonts/Anton-Regular.ttf
+          key: font-anton-regular-v1
+      - name: Fetch Anton
+        if: ${{ needs.audio.outputs.episode != '' && steps.fontcache.outputs.cache-hit != 'true' }}
+        run: |
+          mkdir -p assets/fonts
+          node -e 'fetch("https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf").then(async (r) => { if (!r.ok) { console.error("font " + r.status); process.exit(1); } require("fs").writeFileSync("assets/fonts/Anton-Regular.ttf", Buffer.from(await r.arrayBuffer())); })'
       - name: Concat and encode
         run: |
           mkdir -p out
@@ -157,6 +287,14 @@ jobs:
           for f in $(ls segs/seg-*.mp4 | sed -E 's/.*seg-([0-9]+)\.mp4/\1/' | sort -n); do echo "file '$PWD/segs/seg-$f.mp4'" >> list.txt; done
           ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt \
             -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -movflags +faststart "out/$NAME.mp4"
+      - name: Captions, mix and mux (episode targets)
+        if: ${{ needs.audio.outputs.episode != '' }}
+        run: |
+          node tools/captions.mjs "$EP"
+          node tools/mix.mjs "$EP" --duration "$(node -e 'console.log(+process.argv[1] / 24)' "$FRAMES")"
+          ffmpeg -hide_banner -loglevel error -y -i "out/$NAME.mp4" -i "$EP/out/mix.wav" -map 0:v -map 1:a -c:v copy -c:a aac -b:a 192k -shortest out/clean.mp4
+          ffmpeg -hide_banner -loglevel error -y -i "out/$NAME.mp4" -i "$EP/out/mix.wav" -map 0:v -map 1:a \
+            -vf "ass=$EP/out/captions.ass:fontsdir=assets/fonts" -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -c:a aac -b:a 192k -shortest -movflags +faststart out/final.mp4
       - name: Contact sheet (5x2)
         run: |
           mkdir -p "review/$NAME"
@@ -202,19 +340,10 @@ jobs:
           ' "$RUN_URL" "$MP4"
       - name: Publish to the renders branch
         run: |
-          node tools/publish-renders.mjs "$NAME" "out/$NAME.mp4=$MP4" "review/$NAME/contact.jpg=contact.jpg" \
+          VIDEO="out/$NAME.mp4=$MP4"
+          if [ -n "$EP" ]; then VIDEO="out/final.mp4=final.mp4 out/clean.mp4=clean.mp4 $EP/out/captions.srt=captions.srt"; fi
+          node tools/publish-renders.mjs "$NAME" $VIDEO "review/$NAME/contact.jpg=contact.jpg" \
             "review/$NAME/measure.txt=measure.txt" "review/$NAME/render.json=render.json"
-      - name: Commit review files
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "review/$NAME/contact.jpg" "review/$NAME/measure.txt" "review/$NAME/render.json"
-          git diff --cached --quiet || git commit -m "review: $NAME [skip ci]"
-          for i in 1 2 3 4; do
-            git pull --rebase -q origin "${{ github.ref_name }}" && git push -q origin "HEAD:${{ github.ref_name }}" && exit 0
-            sleep $(( i * 5 ))
-          done
-          exit 1
 
   # Style frames: only the frames in tests/styleframes.json, full quality, no video. Published to renders/styleframes/.
   stills:
@@ -253,28 +382,14 @@ jobs:
           PAIRS=""
           for f in $D/*.png $D/*.measure.txt $D/contact.jpg $D/render.json $D/critique.md $D/urls.txt $D/solid.txt; do PAIRS="$PAIRS $f=$(basename $f)"; done
           node tools/publish-renders.mjs styleframes $PAIRS
-      - name: Commit review files
-        run: |
-          D=out/styleframes
-          mkdir -p review/styleframes
-          cp $D/*.measure.txt $D/contact.jpg $D/notan.png $D/render.json $D/critique.md $D/urls.txt $D/solid.txt review/styleframes/
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add review/styleframes
-          git diff --cached --quiet || git commit -m "review: styleframes [skip ci]"
-          for i in 1 2 3 4; do
-            git pull --rebase -q origin "${{ github.ref_name }}" && git push -q origin "HEAD:${{ github.ref_name }}" && exit 0
-            sleep $(( i * 5 ))
-          done
-          exit 1
 
   status-failed:
-    needs: [plan, render, assemble, stills]
+    needs: [audio, plan, render, assemble, stills]
     if: ${{ failure() }}
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
-      NAME: ${{ needs.plan.outputs.stills == 'true' && 'styleframes' || needs.plan.outputs.name || 'looktest' }}
+      NAME: ${{ needs.plan.outputs.stills == 'true' && 'styleframes' || needs.plan.outputs.name || needs.audio.outputs.name || 'looktest' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -295,12 +410,3 @@ jobs:
           ' "$RUN_URL"
           rm -f jobs.json
           node tools/publish-renders.mjs "$NAME" "review/$NAME/render.json=render.json"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "review/$NAME/render.json"
-          git diff --cached --quiet || git commit -m "review: $NAME failed [skip ci]"
-          for i in 1 2 3 4; do
-            git pull --rebase -q origin "${{ github.ref_name }}" && git push -q origin "HEAD:${{ github.ref_name }}" && exit 0
-            sleep $(( i * 5 ))
-          done
-          exit 1
