@@ -32,6 +32,8 @@ for (const f of cfg.frames) {
     set: f.set ?? cfg.set,
     shots: [{ frames: f.at + 1, camera: f.camera, ...(f.hands ? { hands: f.hands } : {}), ...(f.show ? { show: f.show } : {}) }],
     cards: f.cards ?? [],
+    ...(f.countdown ? { countdown: f.countdown } : {}),
+    ...(f.sfx ? { sfx: f.sfx } : {}),
   };
   const specPath = join(out, 'spec', `${f.id}.json`);
   writeFileSync(specPath, JSON.stringify(spec, null, 2));

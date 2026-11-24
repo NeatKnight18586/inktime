@@ -1,0 +1,124 @@
+{
+  "design": {
+    "expressions": {
+      "calm": {
+        "hour": 305,
+        "minute": 60
+      },
+      "alert": {
+        "hour": 0,
+        "minute": 0
+      },
+      "sad": {
+        "hour": 250,
+        "minute": 120
+      },
+      "worried": {
+        "hour": 277.5,
+        "minute": 90
+      }
+    },
+    "bob": [
+      0,
+      0.02,
+      0,
+      -0.02
+    ]
+  },
+  "poses": {
+    "facepalmR": [
+      -174.819,
+      109.3553
+    ],
+    "panicHours": [
+      0,
+      120,
+      240
+    ],
+    "blendArmL": [
+      21.3333,
+      28.6667
+    ]
+  },
+  "tick_billboard": {
+    "yawDeg": -11.3099,
+    "pitchDeg": 15,
+    "clampedDeg": -15
+  },
+  "tick_light": {
+    "hx0": 23.3842,
+    "hy0": -15.5894,
+    "hx180": -23.3842
+  },
+  "tick_faceShift": {
+    "0": {
+      "shift": 0.05,
+      "eyePx": 9
+    },
+    "30": {
+      "shift": 0.0933,
+      "eyePx": 16.8
+    },
+    "90": {
+      "shift": 0.18,
+      "eyePx": 32.4
+    },
+    "-30": {
+      "shift": -0.0933,
+      "eyePx": -16.8
+    }
+  },
+  "tick_shadow": {
+    "wall": [
+      0.25,
+      [
+        1,
+        0,
+        0
+      ]
+    ],
+    "floor": [
+      0.4,
+      [
+        0,
+        1,
+        0
+      ]
+    ]
+  },
+  "tick_depthOrder": {
+    "far": "rgb(38,46,62)",
+    "near": "rgb(42,51,69)"
+  },
+  "tick_lighting": {
+    "night": [
+      "rgb(255,235,188)",
+      "rgb(251,238,217)",
+      "rgb(244,239,230)",
+      "rgb(91,96,104)"
+    ],
+    "day": [
+      "rgb(255,255,233)",
+      "rgb(254,247,231)",
+      "rgb(244,239,230)",
+      "rgb(105,116,129)"
+    ]
+  },
+  "countdown": {
+    "looktest": [
+      1,
+      0.75,
+      0.5
+    ],
+    "refill": [
+      0,
+      1.5,
+      3,
+      6
+    ]
+  },
+  "letter": {
+    "slapWidth": 3.8247,
+    "creakV1": 39505
+  }
+}

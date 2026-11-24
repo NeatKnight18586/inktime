@@ -21,6 +21,9 @@ export const HAND_FRAME = { x: 0.12, y: -0.2, z: 0.42, scale: 1, refFov: 72 };
 // Lighting (kept from 1b.2): warm amber key from below, ice rim on the upper edges. keyDir is view space (towards the light).
 export const HAND_LOOK = { lineScale: 1.3, shadowBias: 0, t2: 0.3, keyDir: [0.2, -0.62, 0.76], warm: 0.3, rimFrom: 0.8, rimUp: 0.15, rimMix: 0.9, ink: 0.022 };
 
+// A modern phone held in the right hand (pose "prop": "phone"): metres; the screen glows lamp colour and lights the fingers.
+export const PHONE = { w: 0.072, h: 0.15, d: 0.008, screenInset: 0.004, palm: 0.022, along: 0.075, glowR: 0.12 };
+
 export const curlAngles = (c) => ({ proximal: CURL_DEG.proximal * c, intermediate: CURL_DEG.intermediate * c, distal: CURL_DEG.distal * c });
 
 // Linear blend of two poses (numbers only; the wrist is an array).
@@ -28,7 +31,7 @@ export function blendPose(a, b, w) {
   const l = (x, y) => x + (y - x) * w;
   const curl = {};
   for (const k of Object.keys(b.curl)) curl[k] = l(a.curl[k], b.curl[k]);
-  return { hand: b.hand ?? 'right', curl, spread: l(a.spread, b.spread), thumbOppose: l(a.thumbOppose, b.thumbOppose), wrist: b.wrist.map((v, i) => l(a.wrist[i], v)) };
+  return { hand: b.hand ?? 'right', ...(b.prop ? { prop: b.prop } : {}), curl, spread: l(a.spread, b.spread), thumbOppose: l(a.thumbOppose, b.thumbOppose), wrist: b.wrist.map((v, i) => l(a.wrist[i], v)) };
 }
 
 // Pose weights at frame n for a stateless render: pose changes blend over BLEND_FRAMES, on twos.
@@ -70,6 +73,7 @@ const SKIN_FRAG = /* glsl */ `
 uniform vec3 uLit; uniform vec3 uShadow; uniform vec3 uKey; uniform vec3 uRim; uniform vec3 uTint;
 uniform vec3 uKeyDir; uniform vec4 uP; // t2, warm, rimFrom, rimUp
 uniform float uRimMix; uniform sampler2D uMap; uniform float uUseMap;
+uniform vec3 uGlowPos; uniform vec3 uGlowDir; uniform vec3 uGlowCol; uniform float uGlowOn; uniform float uGlowR;
 varying vec3 vN; varying vec2 vUv; varying vec3 vVP;
 void main() {
   vec3 n = normalize( vN );
@@ -80,6 +84,12 @@ void main() {
   vec3 c = e < uP.x ? shadow : mix( base, base * uKey * 1.5, uP.y );
   float edge = 1.0 - max( dot( n, normalize( -vVP ) ), 0.0 );
   if ( edge > uP.z && n.y > uP.w ) c = mix( c, uRim, uRimMix );
+  // Phone screen glow: one hard-edged lamp-coloured pool on the skin that faces the screen, in front of it, within uGlowR.
+  if ( uGlowOn > 0.5 ) {
+    vec3 L = uGlowPos - vVP;
+    float d = length( L );
+    if ( d < uGlowR && dot( vVP - uGlowPos, uGlowDir ) > -0.004 && dot( n, L / d ) > 0.15 ) c = mix( base, uGlowCol, 0.55 );
+  }
   gl_FragColor = vec4( c * uTint, 1.0 );
 }`;
 
@@ -125,6 +135,11 @@ export function skinMaterial(colors, { map = null } = {}) {
       uRimMix: { value: K.rimMix },
       uMap: { value: map },
       uUseMap: { value: map ? 1 : 0 },
+      uGlowPos: { value: new THREE.Vector3() },
+      uGlowDir: { value: new THREE.Vector3(0, 0, 1) },
+      uGlowCol: { value: colors.glow ?? colors.key },
+      uGlowOn: { value: 0 },
+      uGlowR: { value: PHONE.glowR },
     },
   });
 }
@@ -309,6 +324,46 @@ export function buildHand(gltf, colors, hex = {}) {
   return { group, setPose, bones, rest, skinned, hull, cuff, axes: { f, n, across, toThumb }, baseQuat };
 }
 
+// Phone in the palm: its back on the palm, the screen facing out of the palm (+n), its long axis across the palm.
+// Parented to the wrist bone, so it follows the wrist; returns the group and the screen mesh.
+export function buildPhone(rig, colors) {
+  const { rest, axes, bones } = rig;
+  const { f, n, across } = axes;
+  const wrist = rest.wrist.pos;
+  const centre = wrist.clone().addScaledVector(f, PHONE.along).addScaledVector(n, PHONE.palm + PHONE.d / 2);
+  const inv = rest.wrist.quat.clone().invert();
+  const group = new THREE.Group();
+  group.name = 'phone';
+  // Phone local axes: x = f (short side), y = across (long side), z = n (screen normal).
+  const m = new THREE.Matrix4().makeBasis(f.clone(), new THREE.Vector3().crossVectors(n, f).normalize(), n.clone());
+  group.quaternion.setFromRotationMatrix(m).premultiply(inv);
+  group.position.copy(centre.clone().sub(wrist).applyQuaternion(inv));
+  const bodyMat = skinMaterial({ ...colors, lit: colors.navy.clone().multiplyScalar(0.6), shadow: colors.navy.clone().multiplyScalar(0.35) });
+  bodyMat.uniforms.uRimMix.value = 0.6;
+  const geo = new THREE.BoxGeometry(PHONE.w, PHONE.h, PHONE.d);
+  const body = new THREE.Mesh(geo, bodyMat);
+  body.layers.set(LAYERS.SOLID);
+  body.frustumCulled = false;
+  const hullGeo = geo;
+  const hull = new THREE.Mesh(hullGeo, inkHullMaterial(0.15 * HAND_LOOK.ink));
+  hull.layers.set(LAYERS.HULL);
+  hull.frustumCulled = false;
+  hull.userData.isHull = true;
+  body.add(hull);
+  const screen = new THREE.Mesh(
+    new THREE.PlaneGeometry(PHONE.w - 2 * PHONE.screenInset, PHONE.h - 2 * PHONE.screenInset * 2),
+    new THREE.MeshBasicMaterial({ color: colors.glow ?? colors.key, fog: false, toneMapped: false })
+  );
+  screen.position.z = PHONE.d / 2 + 0.0006;
+  screen.name = 'phone_screen';
+  screen.layers.set(LAYERS.SOLID);
+  screen.frustumCulled = false;
+  group.add(body, screen);
+  group.visible = false;
+  bones.wrist.add(group);
+  return { group, screen, body };
+}
+
 export async function loadHand(hand = 'right', colors, hex) {
   const gltf = await new GLTFLoader().loadAsync(HAND_MODEL[hand]);
   return buildHand(gltf, colors, hex);
@@ -336,9 +391,10 @@ export async function makeHands(camera, tint, palette, poses) {
   const lit = new THREE.Color(palette.mixHex('lamp', 'paper', 0.55));
   const navy = palette.color('navy');
   const shadow = lit.clone().multiplyScalar(0.7).lerp(navy, 0.2);
-  const colors = { lit, shadow, key: palette.color(L.key), rim: palette.color(L.fill), tint, navy };
+  const colors = { lit, shadow, key: palette.color(L.key), rim: palette.color(L.fill), tint, navy, glow: palette.color('lamp') };
   const rigs = {};
   for (const hand of new Set(Object.values(poses).map((p) => p.hand ?? 'right'))) rigs[hand] = await loadHand(hand, colors, { navy: palette.hexOf('navy'), ink: palette.json.ink });
+  const phone = rigs.right ? buildPhone(rigs.right, colors) : null;
   const holder = new THREE.Group();
   holder.name = 'hands';
   holder.visible = false;
@@ -350,6 +406,7 @@ export async function makeHands(camera, tint, palette, poses) {
   return {
     holder,
     rigs,
+    phone,
     // m: frame index in the shot; poseAt(f): pose name (or null) at absolute frame f; all state derives from n.
     // lean: 0..1 (engine/rig/pov.mjs). The hand stays where it grips the rim in the world: when the eye is less far forward it is
     // farther ahead and a little lower in camera space.
@@ -367,6 +424,17 @@ export async function makeHands(camera, tint, palette, poses) {
       const lag = breathLag(m - (m % 2), fps);
       placeHand(rig.group, rig.baseQuat, [pose.wrist[0] + lag.pitchDeg, pose.wrist[1], pose.wrist[2]], camera.fov, [0, bob + lag.lift - 0.1 * (1 - L), -0.6 * (1 - L)]);
       rig.group.updateMatrixWorld(true);
+      const lit = !!phone && pose.prop === 'phone' && rig === rigs.right;
+      if (phone) phone.group.visible = lit;
+      rig.skinned.material.uniforms.uGlowOn.value = lit ? 1 : 0;
+      if (lit) {
+        camera.updateMatrixWorld(true);
+        phone.group.updateMatrixWorld(true);
+        const inv = camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+        const u = rig.skinned.material.uniforms;
+        u.uGlowPos.value.setFromMatrixPosition(phone.screen.matrixWorld).applyMatrix4(inv);
+        u.uGlowDir.value.set(0, 0, 1).transformDirection(phone.screen.matrixWorld).transformDirection(inv);
+      }
     },
   };
 }

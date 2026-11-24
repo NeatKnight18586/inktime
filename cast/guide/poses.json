@@ -1,0 +1,213 @@
+{
+  "idle": {
+    "armL": [
+      28,
+      40
+    ],
+    "armR": [
+      28,
+      40
+    ],
+    "face": "calm",
+    "eye": "dot",
+    "tilt": 0
+  },
+  "stare": {
+    "armL": [
+      8,
+      6
+    ],
+    "armR": [
+      4,
+      -10
+    ],
+    "face": "alert",
+    "eye": "wide",
+    "tilt": 0
+  },
+  "point": {
+    "armL": [
+      20,
+      30
+    ],
+    "armR": [
+      96,
+      -4
+    ],
+    "face": "alert",
+    "eye": "wide",
+    "tilt": -5
+  },
+  "panic": {
+    "face": "alert",
+    "eye": "wide",
+    "drawings": [
+      {
+        "armL": [
+          150,
+          30
+        ],
+        "armR": [
+          115,
+          45
+        ],
+        "spin": 0,
+        "dy": 0
+      },
+      {
+        "armL": [
+          115,
+          45
+        ],
+        "armR": [
+          150,
+          30
+        ],
+        "spin": 120,
+        "dy": 0.03
+      },
+      {
+        "armL": [
+          140,
+          60
+        ],
+        "armR": [
+          140,
+          60
+        ],
+        "spin": 240,
+        "dy": 0
+      }
+    ],
+    "loop": true
+  },
+  "facepalm": {
+    "armL": [
+      24,
+      34
+    ],
+    "reachR": [
+      0.02,
+      0.08
+    ],
+    "face": "sad",
+    "eye": "closed",
+    "tilt": 9,
+    "dy": -0.03
+  },
+  "shiver": {
+    "armL": [
+      30,
+      125
+    ],
+    "armR": [
+      30,
+      125
+    ],
+    "face": "worried",
+    "eye": "dot",
+    "shake": 0.025,
+    "tilt": 2
+  },
+  "slap": {
+    "face": "alert",
+    "eye": "wide",
+    "drawings": [
+      {
+        "armR": [
+          4,
+          -10
+        ],
+        "armL": [
+          155,
+          -25
+        ],
+        "tilt": -6
+      },
+      {
+        "armR": [
+          4,
+          -10
+        ],
+        "armL": [
+          105,
+          10
+        ],
+        "tilt": 2
+      },
+      {
+        "armR": [
+          4,
+          -10
+        ],
+        "armL": [
+          35,
+          45
+        ],
+        "tilt": 8,
+        "dx": 0.04
+      }
+    ],
+    "loop": false
+  },
+  "mime_walk_away": {
+    "face": "calm",
+    "eye": "dot",
+    "drawings": [
+      {
+        "reachR": [
+          0.36,
+          -0.2
+        ],
+        "armL": [
+          35,
+          20
+        ],
+        "tilt": 5,
+        "dy": 0
+      },
+      {
+        "reachR": [
+          0.37,
+          -0.24
+        ],
+        "armL": [
+          45,
+          30
+        ],
+        "tilt": 0,
+        "dy": 0.04
+      },
+      {
+        "reachR": [
+          0.36,
+          -0.2
+        ],
+        "armL": [
+          35,
+          20
+        ],
+        "tilt": -5,
+        "dy": 0
+      },
+      {
+        "reachR": [
+          0.37,
+          -0.24
+        ],
+        "armL": [
+          45,
+          30
+        ],
+        "tilt": 0,
+        "dy": 0.04
+      }
+    ],
+    "loop": true,
+    "drift": [
+      -0.15,
+      0,
+      0
+    ]
+  }
+}

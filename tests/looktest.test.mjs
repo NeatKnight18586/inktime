@@ -525,10 +525,13 @@ test('notan: 3 values on an 18x32 grid, dark share and focus warning', () => {
   assert.ok(far.lines.some((l) => l.includes('WARN')));
 });
 
-test('styleframes.json: F1 aerial, F2 lookout, F3 money shot, F4 day proof', () => {
+test('styleframes.json: F1 aerial, F2 lookout (Fleet + Tick), F3 money shot, F4 day proof, F5 Tick close-up', () => {
   const sf = JSON.parse(readFileSync(new URL('./styleframes.json', import.meta.url)));
-  const [f1, f2, f3, f4] = sf.frames;
-  assert.deepEqual(sf.frames.map((f) => f.id), ['F1_aerial', 'F2_lookout', 'F3_money', 'F4_day']);
+  const [f1, f2, f3, f4, f5] = sf.frames;
+  assert.deepEqual(sf.frames.map((f) => f.id), ['F1_aerial', 'F2_lookout', 'F3_money', 'F4_day', 'F5_tick_day']);
+  assert.deepEqual(f2.cards.map((c) => c.cast), ['fleet', 'guide']);
+  assert.equal(f5.look, 'day');
+  assert.deepEqual(f5.cards.map((c) => c.face), ['calm', 'alert', 'sad', 'worried']);
   assert.equal(f4.look, 'day');
   assert.equal(f4.set, 'plain_deck');
   assert.deepEqual(f4.cards.map((c) => c.cast), ['fleet', 'lee']);
@@ -559,7 +562,7 @@ const handColors = () => ({ lit: new THREE.Color('#EFCEA0'), shadow: new THREE.C
 test('hands: SVG hands and the quad are gone; poses are tiny JSON; assets are credited', () => {
   assert.ok(!existsSync(new URL('../engine/rig/hands.mjs', import.meta.url)));
   assert.ok(!existsSync(new URL('../cast/hands/rail_grip.svg', import.meta.url)));
-  assert.deepEqual(Object.keys(poses), ['rail_grip', 'padlock_hold', 'rattle', 'pocket', 'phone_reach', 'slapped', 'point']);
+  assert.deepEqual(Object.keys(poses), ['rail_grip', 'padlock_hold', 'rattle', 'pocket', 'phone_reach', 'slapped', 'point', 'phone']);
   for (const p of Object.values(poses)) {
     assert.deepEqual(Object.keys(p.curl).sort(), ['index', 'middle', 'pinky', 'ring', 'thumb']);
     assert.ok(p.spread >= 0 && p.spread <= 1 && p.thumbOppose >= 0 && p.thumbOppose <= 1 && p.wrist.length === 3);
@@ -669,5 +672,5 @@ test('Fleet in the dark nest: look cast block lists cap brim, shoulder and scarf
   assert.deepEqual(nest.lit, ['brim', 'shoulder', 'scarf']);
   assert.ok(nest.dark < 0.5, 'dark nest tint');
   assert.equal(spec.cards[0].light, 'nest');
-  assert.equal(spec.cards[0].pose, 'edge');
+  assert.deepEqual(spec.cards[0].track.map((t) => [t.at, t.pose]), [[0, 'idle'], [96, 'squint'], [372, 'bell_ring']]);
 });

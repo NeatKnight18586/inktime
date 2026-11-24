@@ -28,6 +28,8 @@ export const MASTHEAD = { aft: 0.25, aimZ: -120, aimY: 18, angle: 20 * (Math.PI 
 // wall, 0.2 m clear of the foremast); back = distance behind the inner face of the front rim. POV lens vFOV 90.
 // Hatched basket interior: 45 deg ink lines in screen space, 3 px spacing, line width in px (coverage = width / spacing = 40%).
 export const HATCH_NEST = { spacing: 3, width: 1.2 };
+// Tick, the guide (cast/guide/README.md): where it floats relative to the eye.
+export const GUIDE = { bearing: -25, dist: 1.1, up: 0.3 };
 export const LOOKOUT = { back: 1.2, pitch: -16, fov: 90, minRim: 0.45 };
 // The ship steams ahead (-Z) at 22 knots; everything aboard (and the camera anchors) rides ship_root.
 export const SHIP_SPEED = 11.3; // spec 0.75 / -14 showed 11 props; adjusted within the allowed range
@@ -1192,7 +1194,10 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   anchorAt(g, anchors, 'lee_spot', new THREE.Vector3(eye.x + LEE.x, F, eye.z - LEE.forward));
   // Fleet stands front-left so that from cam_lookout his card fills the left FLEET.cover of frame width.
   anchorAt(g, anchors, 'fleet_spot', new THREE.Vector3(eye.x + FLEET.x, F, eye.z - FLEET.forward));
-  anchorAt(g, anchors, 'guide_spot', new THREE.Vector3(-(R - 0.12), F + 1.42, bz - 0.1));
+  // Tick floats at a free spot inside the basket: GUIDE.bearing deg left of forward, GUIDE.dist m from the eye, GUIDE.up m above
+  // it, above Fleet's head line (never over a face) and outside the centre 40% of the POV frame (tests/rig.test.mjs).
+  const gb = GUIDE.bearing * DEG;
+  anchorAt(g, anchors, 'guide_spot', new THREE.Vector3(eye.x + Math.sin(gb) * GUIDE.dist, eye.y + GUIDE.up, eye.z - Math.cos(gb) * GUIDE.dist));
 }
 
 // ---------------------------------------------------------------- build

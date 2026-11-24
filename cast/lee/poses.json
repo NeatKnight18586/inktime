@@ -159,8 +159,8 @@
   },
   "scoff": {
     "armL": [
-      12,
-      18
+      4,
+      6
     ],
     "armR": [
       34,
@@ -178,5 +178,50 @@
     "eyes": "half",
     "brows": "raised",
     "mouth": "smirk"
+  },
+  "shrug": {
+    "armL": [
+      35,
+      80
+    ],
+    "armR": [
+      35,
+      80
+    ],
+    "legL": [
+      3,
+      0
+    ],
+    "legR": [
+      3,
+      0
+    ],
+    "tilt": 7,
+    "eyes": "half",
+    "brows": "raised",
+    "mouth": "frown"
+  },
+  "glance": {
+    "armL": [
+      -4,
+      0
+    ],
+    "armR": [
+      6,
+      8
+    ],
+    "legL": [
+      -10,
+      0
+    ],
+    "legR": [
+      3,
+      0
+    ],
+    "tilt": -6,
+    "look": -1,
+    "eyes": "half",
+    "brows": "flat",
+    "mouth": "line"
   }
 }
