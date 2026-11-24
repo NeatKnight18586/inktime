@@ -1,7 +1,0 @@
-{
-  "status": "failed",
-  "commit": "1199123fbebbc05b0da7f50cb5cbe1a2a31bde3e",
-  "job": "plan",
-  "step": "Run node tools/plan.mjs \"$TARGET\" \"$SHARDS\"",
-  "run_url": "https://github.com/NeatKnight18586/inktime/actions/runs/45409363659"
-}

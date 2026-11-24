@@ -44,6 +44,7 @@ jobs:
     outputs:
       episode: ${{ steps.ep.outputs.dir }}
       name: ${{ steps.ep.outputs.name }}
+      waiting: ${{ steps.ep.outputs.waiting }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -54,6 +55,9 @@ jobs:
           case "$TARGET" in episodes/*) dir=$(echo "$TARGET" | cut -d/ -f1-2);; esac
           echo "dir=$dir" >> "$GITHUB_OUTPUT"
           echo "name=$(basename "$dir")" >> "$GITHUB_OUTPUT"
+          waiting=false
+          if [ -n "$dir" ] && [ ! -f "$dir/episode.json" ]; then waiting=true; fi
+          echo "waiting=$waiting" >> "$GITHUB_OUTPUT"
       - name: upload audio/voice.mp3
         if: ${{ steps.ep.outputs.dir != '' }}
         run: test -f "${{ steps.ep.outputs.dir }}/audio/voice.mp3" || { echo "upload audio/voice.mp3"; exit 1; }
@@ -104,6 +108,22 @@ jobs:
             sleep $(( i * 5 ))
           done
           exit 1
+      - name: Waiting for episode.json (no render yet, not a failure)
+        if: ${{ steps.ep.outputs.waiting == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NAME: ${{ steps.ep.outputs.name }}
+        run: |
+          mkdir -p "review/$NAME"
+          printf '{\n  "status": "waiting",\n  "commit": "%s",\n  "reason": "episodes/%s/episode.json is missing; audio aligned, render skipped",\n  "run_url": "%s/%s/actions/runs/%s"\n}\n' "$GITHUB_SHA" "$NAME" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "review/$NAME/render.json"
+          node tools/publish-renders.mjs "$NAME" "review/$NAME/render.json=render.json"
+          git add "review/$NAME/render.json"
+          git diff --cached --quiet || git commit -m "review: $NAME waiting [skip ci]"
+          for i in 1 2 3 4; do
+            git pull --rebase -q origin "${{ github.ref_name }}" && git push -q origin "HEAD:${{ github.ref_name }}" && exit 0
+            sleep $(( i * 5 ))
+          done
+          exit 1
       - if: ${{ steps.ep.outputs.dir != '' }}
         uses: actions/upload-artifact@v4
         with:
@@ -124,7 +144,7 @@ jobs:
 
   plan:
     needs: audio
-    if: ${{ !cancelled() && (needs.audio.result == 'success' || needs.audio.result == 'skipped') && (github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')) }}
+    if: ${{ !cancelled() && needs.audio.outputs.waiting != 'true' && (needs.audio.result == 'success' || needs.audio.result == 'skipped') && (github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')) }}
     runs-on: ubuntu-latest
     outputs:
       go: ${{ steps.gate.outputs.go }}
