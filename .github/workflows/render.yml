@@ -148,6 +148,17 @@ jobs:
           '
           node tools/measure.mjs "out/$NAME.mp4" --cams out/cams.json | tee "review/$NAME/measure.txt"
           { echo; echo '```'; cat "review/$NAME/measure.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit contact sheet and measure
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "review/$NAME/contact.jpg" "review/$NAME/measure.txt"
+          git diff --cached --quiet || git commit -m "review: $NAME contact + measure [skip ci]"
+          for i in 1 2 3 4; do
+            git pull --rebase -q origin "${{ github.ref_name }}" && git push -q origin "HEAD:${{ github.ref_name }}" && exit 0
+            sleep $(( i * 5 ))
+          done
+          exit 1
       - name: Publish pre-release
         run: |
           TAG="preview-$NAME-${{ github.run_number }}"
@@ -184,8 +195,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "review/$NAME/contact.jpg" "review/$NAME/measure.txt"
-          git commit -m "review: $NAME contact + measure [skip ci]"
           git add "review/$NAME/render.json"
           git commit -m "review: $NAME render.json [skip ci]"
           for i in 1 2 3 4; do
@@ -222,7 +231,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "review/$NAME/render.json"
-          git commit -m "review: $NAME failed [skip ci]"
+          git diff --cached --quiet || git commit -m "review: $NAME failed [skip ci]"
           for i in 1 2 3 4; do
             git pull --rebase -q origin "${{ github.ref_name }}" && git push -q origin "HEAD:${{ github.ref_name }}" && exit 0
             sleep $(( i * 5 ))
