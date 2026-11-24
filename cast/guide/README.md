@@ -30,4 +30,5 @@ once), mime_walk_away (pats a pocket and struts, 4 drawings).
 ## Placement
 Card spec `{ "cast": "guide", "anchor": "guide_spot", "track": [...] }` (optional `face` override, `offset` [x, y, z] m,
 `facing` deg; by default Tick faces the eye). guide_spot is a free spot inside the basket above Fleet's head line, outside
-the centre 40% of the frame, never occluding a character's face (tests/rig.test.mjs).
+the centre 40% of the frame, never occluding a character's face (tests/rig.test.mjs). In the crow's nest: 25 deg left of
+forward, 1.1 m from the eye, 0.15 m above it (kits/sets/titanic_crowsnest.mjs GUIDE).
