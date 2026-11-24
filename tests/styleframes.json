@@ -1,0 +1,36 @@
+{
+  "fps": 24,
+  "seed": "looktest",
+  "look": "titanic_night",
+  "set": "titanic_crowsnest",
+  "frames": [
+    {
+      "id": "F1_aerial",
+      "title": "Aerial frame 0: telephoto from the iceberg's crest, the ship three-quarter at 850 m (focus: ship midships)",
+      "at": 0,
+      "camera": { "anchor": "aerial", "preset": "dive" },
+      "show": ["iceberg_rim"],
+      "cards": [],
+      "focus": [[0.5, 0.44]]
+    },
+    {
+      "id": "F2_lookout",
+      "title": "Lookout at 2 s: the hands and the deck lamps are the brightest; Fleet dark at the left (focus: hands and deck lamps)",
+      "at": 48,
+      "camera": { "anchor": "cam_lookout", "preset": "lookout", "yawDrift": 3, "yawDriftSeconds": 10 },
+      "hands": "rail_grip",
+      "cards": [{ "cast": "fleet", "pose": "edge", "anchor": "fleet_spot", "blink": true, "light": "nest" }],
+      "focus": [[0.31, 0.666], [0.703, 0.666], [0.88, 0.8]]
+    },
+    {
+      "id": "F3_money",
+      "title": "Money shot: subjective snap zoom to vFOV 20, iceberg at 457 m centred at 40% height, the bow out of frame (insert: p5 and dark40 do not apply)",
+      "at": 803,
+      "camera": { "anchor": "cam_lookout", "preset": "lookout", "pitch": 10.8, "fov": 20, "held": false },
+      "show": ["iceberg_rim", "iceberg_glow"],
+      "cards": [],
+      "skip": ["p5", "dark40"],
+      "focus": [[0.53, 0.35]]
+    }
+  ]
+}

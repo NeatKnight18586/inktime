@@ -1,0 +1,37 @@
+{
+  "name": "looktest",
+  "fps": 24,
+  "seed": "looktest",
+  "look": "titanic_night",
+  "set": "titanic_crowsnest",
+  "shots": [
+    {
+      "frames": 72,
+      "camera": {
+        "anchor": "aerial",
+        "preset": "dive"
+      },
+      "show": [
+        "iceberg_rim"
+      ]
+    },
+    {
+      "frames": 240,
+      "camera": {
+        "anchor": "cam_lookout",
+        "yawDrift": 3,
+        "yawDriftSeconds": 10
+      },
+      "hands": "rail_grip"
+    }
+  ],
+  "cards": [
+    {
+      "cast": "fleet",
+      "pose": "edge",
+      "anchor": "fleet_spot",
+      "blink": true,
+      "light": "nest"
+    }
+  ]
+}
