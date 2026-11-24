@@ -1,9 +1,10 @@
 {
   "status": "stills",
-  "commit": "089746e1df846c92afdf9969e18ca6e4b88cf9e5",
+  "commit": "d0530fd29a8a0209e52d8c92c7fd70cb5ca0654b",
   "frames": [
     "F1_aerial",
     "F2_lookout",
-    "F3_money"
+    "F3_money",
+    "F4_day"
   ]
 }

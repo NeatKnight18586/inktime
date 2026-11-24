@@ -1,0 +1,76 @@
+{
+  "billboard": {
+    "yawDeg": 45,
+    "clampedPitchDeg": -15,
+    "lowPitchDeg": -5.0512
+  },
+  "light": {
+    "night0": [
+      0.597,
+      0.398,
+      -0.6965
+    ],
+    "night180": [
+      -0.597,
+      0.398,
+      0.6965
+    ],
+    "day0": [
+      0.5433,
+      0.7408,
+      0.3951
+    ]
+  },
+  "faceShift": {
+    "0": {
+      "shift": 0.05,
+      "back": false
+    },
+    "20": {
+      "shift": 0.0789,
+      "back": false
+    },
+    "45": {
+      "shift": 0.115,
+      "back": false
+    },
+    "90": {
+      "shift": 0.18,
+      "back": false
+    },
+    "130": {
+      "shift": 0.18,
+      "back": true
+    },
+    "-45": {
+      "shift": -0.115,
+      "back": false
+    }
+  },
+  "depthOrder": {
+    "far": "R",
+    "order": [
+      "armR",
+      "legR",
+      "legL",
+      "body",
+      "armL",
+      "head",
+      "face",
+      "hat"
+    ],
+    "inkedBefore": 6,
+    "inkedAfter": 2
+  },
+  "proxy": {
+    "nightYawDeg": 139.3987,
+    "dayYawDeg": 53.9726
+  },
+  "animation": {
+    "mid": [
+      45.5,
+      6
+    ],
+    "breathMax": 0.015
+  }
+}

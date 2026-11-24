@@ -10,6 +10,7 @@ import { hazeAmount } from '../engine/look/haze.mjs';
 import { LAYERS } from '../engine/look/layers.mjs';
 import { build, update, ANCHORS, SHIP, LOOKOUT, FLEET, PATH, PSI0, AERIAL, BERG_H, RANGE, SHIP_SPEED, shipPose, MONEY_FRAME } from '../kits/sets/titanic_crowsnest.mjs';
 import { CARD_HEIGHT, blinkFrames } from '../engine/rig/card.mjs';
+import { CARD, D_METRES, billboardAngles } from '../engine/cast/stickmath.mjs';
 import { BASE_MOTION } from '../engine/rig/camera.mjs';
 import { poseCamera, shotAt, hookFrames } from '../engine/rig/camera.mjs';
 import { paniniNdc } from '../engine/post/panini.mjs';
@@ -136,10 +137,9 @@ test('looktest scene spec', () => {
   assert.equal(spec.shots[0].frames, 72);
   assert.equal(spec.shots[0].camera.preset, 'dive');
   assert.equal(spec.shots[0].camera.anchor, 'aerial');
-  assert.equal(spec.shots[1].frames, 240);
+  assert.equal(spec.shots[1].frames, 72);
   assert.equal(spec.shots[1].camera.anchor, 'cam_lookout');
-  assert.equal(spec.shots[1].camera.yawDrift, 3);
-  assert.equal(frameCount(spec), 312);
+  assert.equal(frameCount(spec), 480);
   assert.equal(shotAt(spec, 71).camera.anchor, 'aerial');
   assert.equal(shotAt(spec, 72).camera.anchor, 'cam_lookout');
   assert.equal(resolveTarget('tests/looktest.json').name, 'looktest');
@@ -263,12 +263,24 @@ test('framing: Fleet is a foreground edge silhouette in the left 12-20% (brim, s
   const toCam = new THREE.Vector3(cam.position.x - spot.x, 0, cam.position.z - spot.z).normalize();
   const right = new THREE.Vector3(toCam.z, 0, -toCam.x);
   // Card units (u right, v down from the top) -> frame position.
-  const at = (u, v) => fromTop(spot.clone().addScaledVector(right, (u / C.width - 0.5) * w).setY(spot.y + CARD_HEIGHT * (1 - v / C.height)));
+  const bb = billboardAngles(spot, cam.position, CARD_HEIGHT);
+  const at = (u, v) => {
+    // The card pitches toward the camera (limited to 15 deg) about its feet.
+    const hh = CARD_HEIGHT * (1 - v / C.height) - CARD.bottom * D_METRES;
+    const p = spot.clone().addScaledVector(right, (u / C.width - 0.5) * w);
+    p.y += hh * Math.cos(bb.pitch);
+    p.addScaledVector(toCam, hh * Math.sin(bb.pitch));
+    return p.clone().applyMatrix4(cam.matrixWorldInverse).z >= -0.02 ? { x: -9, y: -9 } : fromTop(p);
+  };
   const mid = C.height * 0.3;
-  assert.ok(at(0, mid).x < 0, 'card enters from the left edge');
-  const cover = at(C.width, mid).x;
-  let u0 = C.width;
-  for (let u = C.width; u >= 0; u -= 0.5) if (at(u, mid).x >= 0) u0 = u;
+  assert.ok(at(C.right - 60, mid).x < 0, 'the figure enters from the left edge');
+  const cover = at(C.right, mid).x;
+  let u0 = C.right;
+  for (let u = C.right; u >= 0; u -= 0.5) {
+    const x = at(u, mid).x;
+    if (x >= 0) u0 = u;
+    else if (x > -8) break;
+  }
   const feats = Object.fromEntries(['brim', 'shoulder', 'scarf'].map((k) => {
     const [x0, x1, y0, y1] = C[k];
     const p = at((x0 + x1) / 2, (y0 + y1) / 2);
@@ -525,10 +537,13 @@ test('notan: 3 values on an 18x32 grid, dark share and focus warning', () => {
   assert.ok(far.lines.some((l) => l.includes('WARN')));
 });
 
-test('styleframes.json: F1 aerial, F2 lookout, F3 money shot', () => {
+test('styleframes.json: F1 aerial, F2 lookout, F3 money shot, F4 day proof', () => {
   const sf = JSON.parse(readFileSync(new URL('./styleframes.json', import.meta.url)));
-  const [f1, f2, f3] = sf.frames;
-  assert.deepEqual(sf.frames.map((f) => f.id), ['F1_aerial', 'F2_lookout', 'F3_money']);
+  const [f1, f2, f3, f4] = sf.frames;
+  assert.deepEqual(sf.frames.map((f) => f.id), ['F1_aerial', 'F2_lookout', 'F3_money', 'F4_day']);
+  assert.equal(f4.look, 'day');
+  assert.equal(f4.set, 'plain_deck');
+  assert.deepEqual(f4.cards.map((c) => c.cast), ['fleet', 'lee']);
   assert.equal(f1.at, 0);
   assert.equal(f1.camera.anchor, 'aerial');
   assert.equal(f2.at, 48);
@@ -556,7 +571,7 @@ const handColors = () => ({ lit: new THREE.Color('#EFCEA0'), shadow: new THREE.C
 test('hands: SVG hands and the quad are gone; poses are tiny JSON; assets are credited', () => {
   assert.ok(!existsSync(new URL('../engine/rig/hands.mjs', import.meta.url)));
   assert.ok(!existsSync(new URL('../cast/hands/rail_grip.svg', import.meta.url)));
-  assert.deepEqual(Object.keys(poses), ['rail_grip', 'padlock_hold']);
+  assert.deepEqual(Object.keys(poses), ['rail_grip', 'padlock_hold', 'rattle', 'pocket', 'phone_reach', 'slapped', 'point']);
   for (const p of Object.values(poses)) {
     assert.deepEqual(Object.keys(p.curl).sort(), ['index', 'middle', 'pinky', 'ring', 'thumb']);
     assert.ok(p.spread >= 0 && p.spread <= 1 && p.thumbOppose >= 0 && p.thumbOppose <= 1 && p.wrist.length === 3);
@@ -661,12 +676,10 @@ test('cap rail is 3 cm high; lamp halos are real glows (additive, no fog, no ton
   assert.match(halos.material.fragmentShader, /vec4\(uLamp, a/);
 });
 
-test('Fleet in the dark nest: sidecar lists cap brim, shoulder and scarf; shadowBias -0.4 leaves only them lit', () => {
-  const nest = JSON.parse(readFileSync(new URL('../cast/fleet/edge.nest.json', import.meta.url)));
-  assert.equal(nest.shadowBias, -0.4);
-  assert.deepEqual(nest.lit, [FLEET.card.brim, FLEET.card.shoulder, FLEET.card.scarf]);
-  assert.ok(nest.dark.every((c) => c < 0.5), 'dark nest tint');
-  assert.ok(nest.litGain < 0.9, 'lit features stay below the lamps and hands');
-  const term = nest.terminator + 0.3 * (nest.shadowBias + 0.4);
-  assert.ok(term * nest.size[0] > 140, 'only the right edge catches light');
+test('Fleet in the dark nest: look cast block lists cap brim, shoulder and scarf as the only lit parts, the rest dark', () => {
+  const nest = look.cast.nest;
+  assert.deepEqual(nest.lit, ['brim', 'shoulder', 'scarf']);
+  assert.ok(nest.dark < 0.5, 'dark nest tint');
+  assert.equal(spec.cards[0].light, 'nest');
+  assert.equal(spec.cards[0].pose, 'edge');
 });

@@ -1,0 +1,184 @@
+{
+  "idle": {
+    "armL": [
+      6,
+      8
+    ],
+    "armR": [
+      6,
+      8
+    ],
+    "legL": [
+      3,
+      0
+    ],
+    "legR": [
+      3,
+      0
+    ],
+    "tilt": 0,
+    "eyes": "half",
+    "brows": "neutral",
+    "mouth": "line"
+  },
+  "lean_forward": {
+    "armL": [
+      18,
+      28
+    ],
+    "armR": [
+      14,
+      38
+    ],
+    "legL": [
+      6,
+      12
+    ],
+    "legR": [
+      -4,
+      0
+    ],
+    "tilt": 8,
+    "lean": 10,
+    "eyes": "half",
+    "brows": "neutral",
+    "mouth": "line"
+  },
+  "squint": {
+    "armL": [
+      8,
+      16
+    ],
+    "armR": [
+      50,
+      115
+    ],
+    "legL": [
+      3,
+      0
+    ],
+    "legR": [
+      3,
+      0
+    ],
+    "tilt": -3,
+    "eyes": "squint",
+    "brows": "frown",
+    "mouth": "line"
+  },
+  "point": {
+    "armL": [
+      8,
+      10
+    ],
+    "armR": [
+      85,
+      4
+    ],
+    "legL": [
+      4,
+      0
+    ],
+    "legR": [
+      -3,
+      0
+    ],
+    "tilt": 3,
+    "lean": 4,
+    "eyes": "wide",
+    "brows": "raised",
+    "mouth": "o"
+  },
+  "alarm": {
+    "armL": [
+      62,
+      30
+    ],
+    "armR": [
+      68,
+      24
+    ],
+    "legL": [
+      10,
+      6
+    ],
+    "legR": [
+      -8,
+      16
+    ],
+    "tilt": -5,
+    "eyes": "wide",
+    "brows": "raised",
+    "mouth": "shout"
+  },
+  "shiver": {
+    "armL": [
+      22,
+      120
+    ],
+    "armR": [
+      22,
+      120
+    ],
+    "legL": [
+      4,
+      10
+    ],
+    "legR": [
+      -2,
+      10
+    ],
+    "tilt": 2,
+    "lean": 1,
+    "shake": 1.2,
+    "eyes": "squint",
+    "brows": "worried",
+    "mouth": "gritted"
+  },
+  "edge": {
+    "armL": [
+      20,
+      28
+    ],
+    "armR": [
+      10,
+      55
+    ],
+    "legL": [
+      5,
+      6
+    ],
+    "legR": [
+      -3,
+      0
+    ],
+    "tilt": -24,
+    "lean": 24,
+    "view": "back34",
+    "eyes": "half",
+    "brows": "neutral",
+    "mouth": "line"
+  },
+  "phone_shout": {
+    "armL": [
+      28,
+      40
+    ],
+    "armR": [
+      62,
+      135
+    ],
+    "legL": [
+      5,
+      0
+    ],
+    "legR": [
+      -4,
+      6
+    ],
+    "tilt": 7,
+    "eyes": "squint",
+    "brows": "frown",
+    "mouth": "shout"
+  }
+}

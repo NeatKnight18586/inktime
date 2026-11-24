@@ -38,9 +38,13 @@ export const AERIAL = { back: 55, up: 6, fov: 30, side: 18.5, aimY: -16 };
 // The dive (hook): telephoto, then a dolly-zoom FPV dive into the nest. At most 3 s; the rise is its exact reverse.
 export const HOOK = { fov: [30, 84, 72], landHold: 2 };
 // Fleet card position relative to the cam_lookout eye (metres): left and forward.
-export const FLEET = { x: -0.49, forward: 0.4, pose: 'edge',
-  // Edge pose features in card units (viewBox 170 x 350): what the left 12-20% of frame must show.
-  card: { width: 170, height: 350, brim: [146, 169, 46, 56], shoulder: [144, 156, 120, 150], scarf: [146, 168, 124, 168] } };
+// card: the stick card in units of 0.01 D (3.2 D wide, 4.1 D tall, feet 0.2 D above the bottom). The edge pose (back three-quarter,
+// leaning right, face on the shadow side) puts its lit features (cap brim tip, shoulder edge, scarf tail) in the rightmost
+// 0.25 D of the silhouette (right = the silhouette's right edge), which is what the left 12-20% of frame must show.
+// Lee: 30 deg right of the lookout's forward (0.5 m ahead of the eye, 0.29 m right), inside the basket.
+export const LEE = { forward: 0.5 };
+export const FLEET = { x: -0.4, forward: 0.4, pose: 'edge',
+  card: {width: 320, height: 410, brim: [220, 250, 60, 75], shoulder: [239, 261, 150, 190], scarf: [239, 255, 154, 204], right: 261} };
 
 // ---------------------------------------------------------------- ship path
 // Heading psi(t) = PSI0 (1 - t/T)^2 (rotation about +Y; forward = (-sin psi, -cos psi)), straight and dead ahead from T.
@@ -417,19 +421,24 @@ function buildSea(pal) {
 }
 
 // ---------------------------------------------------------------- lamp sprites
+// Porthole and bridge-window cores emit a warm white inside the lamp-colour square (aerial brightness, per material).
+const CORE_WARM_WHITE = '#FFE7B8';
+const CORE_FRAC = '0.62';
 // Lit portholes and windows: lamp squares in 2 px ink frames (screen-facing points, at least minPx wide).
-function lampSquares(positions, pal, { world = 0.45, minPx = 5, maxPx = 18, name = 'lamps' } = {}) {
+function lampSquares(positions, pal, { world = 0.45, minPx = 5, maxPx = 18, name = 'lamps', core = false } = {}) {
   const geo = new THREE.BufferGeometry().setFromPoints(positions);
   const pts = new THREE.Points(
     geo,
     new THREE.ShaderMaterial({
-      uniforms: { uFocal: fxUniforms.uFocal, uFlicker: fxUniforms.uFlicker, uLamp: { value: pal.color('lamp') }, uInk: { value: pal.color('ink') }, uWorld: { value: world }, uPx: { value: new THREE.Vector2(minPx, maxPx) } },
+      uniforms: { uFocal: fxUniforms.uFocal, uFlicker: fxUniforms.uFlicker, uLamp: { value: pal.color('lamp') }, uInk: { value: pal.color('ink') }, uCore: { value: new THREE.Color(core ? CORE_WARM_WHITE : '#E8A64B') }, uWorld: { value: world }, uPx: { value: new THREE.Vector2(minPx, maxPx) } },
       vertexShader: `uniform float uFocal; uniform float uWorld; uniform vec2 uPx; varying float vSize;
         void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0);
           vSize = clamp(uWorld * uFocal / max(-mv.z, 0.1), uPx.x, uPx.y); gl_PointSize = vSize; gl_Position = projectionMatrix * mv; }`,
-      fragmentShader: `uniform vec3 uLamp; uniform vec3 uInk; uniform float uFlicker; varying float vSize;
+      fragmentShader: `uniform vec3 uLamp; uniform vec3 uInk; uniform vec3 uCore; uniform float uFlicker; varying float vSize;
         void main(){ vec2 q = abs(gl_PointCoord - 0.5) * vSize; float m = max(q.x, q.y);
-          gl_FragColor = vec4(m > vSize * 0.5 - 2.0 ? uInk : uLamp * uFlicker, 1.0); }`,
+          // Warm-white core (#FFE7B8) inside the lamp-colour square; the 2 px ink frame stays.
+          vec3 c = m > vSize * 0.5 - 2.0 ? uInk : ( m < vSize * 0.5 * ${CORE_FRAC} ? uCore : uLamp );
+          gl_FragColor = vec4(m > vSize * 0.5 - 2.0 ? c : c * uFlicker, 1.0); }`,
     })
   );
   pts.name = name;
@@ -523,7 +532,7 @@ function foamMaterial(pal) {
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
-    fog: true,
+    fog: false, // frost white at any distance (aerial brightness, per material)
     uniforms,
     vertexShader: `
       varying vec2 vUv; varying vec3 vW;
@@ -722,7 +731,7 @@ function buildShip(scene, rng, pal) {
       port.push(new THREE.Vector3(side * (halfWidth(z) + 0.12), 16.4, z));
     }
   }
-  fx.push(lampSquares(port, pal, { world: 0.45, minPx: 6, maxPx: 16, name: 'portholes' }));
+  fx.push(lampSquares(port, pal, { world: 0.45, minPx: 6, maxPx: 16, name: 'portholes', core: true }));
 
   // Deck lights and window rows on the superstructure.
   const win = [];
@@ -735,11 +744,11 @@ function buildShip(scene, rng, pal) {
   const bridgeWin = [];
   for (let x = -6.4; x <= 6.4; x += 1.6) bridgeWin.push(new THREE.Vector3(x, 29.6, -62.15));
   fx.push(lampSquares(win, pal, { world: 0.8, minPx: 6, maxPx: 20, name: 'windows' }));
-  fx.push(lampSquares(bridgeWin, pal, { world: 1.0, minPx: 7, maxPx: 24, name: 'bridge_windows' }));
+  fx.push(lampSquares(bridgeWin, pal, { world: 1.0, minPx: 7, maxPx: 24, name: 'bridge_windows', core: true }));
   const dl = [];
   for (let z = -60; z < 74; z += 4.5) for (const side of [1, -1]) dl.push(new THREE.Vector3(side * 11.3, 28.9, z));
   fx.push(lampSquares(dl, pal, { world: 0.35, minPx: 6, maxPx: 12, name: 'deck_lights' }));
-  fx.push(lampHalos([...port, ...win, ...bridgeWin, ...dl], pal, { world: 4.2, minPx: 11, maxPx: 80, name: 'ship_halos', gain: 1.0 }));
+  fx.push(lampHalos([...port, ...win, ...bridgeWin, ...dl], pal, { world: 6.5, minPx: 14, maxPx: 110, name: 'ship_halos', gain: 1.4 }));
 
   // Lifeboats.
   const boats = [];
@@ -979,6 +988,7 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   mastLight.target.position.set(0, MASTHEAD.aimY, MASTHEAD.aimZ);
   g.add(mastLight, mastLight.target);
   anim.lamps.push({ light: mastLight, base: L.masthead, seed: 11 });
+  anim.keyLight = mastLight; // casts the character shadow-proxy shadows (engine/rig/card.mjs)
   const mastHalo = lampHalos([masthead.position.clone()], pal, { world: 1.2, minPx: 8, maxPx: 200, name: 'masthead_halo' });
   mastHalo.layers.set(LAYERS.FX);
   g.add(mastHalo);
@@ -1163,8 +1173,13 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   cameraAnchor(g, anchors, 'cam_lookout', eye, { yaw: 0, pitch: LOOKOUT.pitch, fov: LOOKOUT.fov });
   // The dolly may never bring the eye closer than LOOKOUT.minRim to the rim.
   anchors.cam_lookout.userData.maxDolly = LOOKOUT.back - LOOKOUT.minRim;
-  anchorAt(g, anchors, 'mast_top', new THREE.Vector3(0, topY, SHIP.mastZ));
-  anchorAt(g, anchors, 'lee_spot', new THREE.Vector3(0.45, F, bz + 0.15));
+  // forestay_top: the point on the forestay 60 deg above the eye line, ahead of the eye (about 2.7 m ahead, 4.7 m up), where the
+  // forestay rises toward the mast head above the nest.
+  const stayRise = (topY - 0.6 - (SHIP.forecastleY + 0.6)) / (SHIP.mastZ - (SHIP.bowZ + 0.8)); // metres up per metre aft
+  const stayAhead = ((topY - 0.6 + stayRise * (eye.z - SHIP.mastZ)) - eye.y) / (Math.tan(60 * DEG) + stayRise);
+  anchorAt(g, anchors, 'forestay_top', new THREE.Vector3(0, eye.y + stayAhead * Math.tan(60 * DEG), eye.z - stayAhead));
+  // Lee stands 30 deg right of the lookout's forward, inside the basket (Fleet is on the left).
+  anchorAt(g, anchors, 'lee_spot', new THREE.Vector3(eye.x + LEE.forward * Math.tan(30 * DEG), F, eye.z - LEE.forward));
   // Fleet stands front-left so that from cam_lookout his card fills the left FLEET.cover of frame width.
   anchorAt(g, anchors, 'fleet_spot', new THREE.Vector3(eye.x + FLEET.x, F, eye.z - FLEET.forward));
   anchorAt(g, anchors, 'guide_spot', new THREE.Vector3(-(R - 0.12), F + 1.42, bz - 0.1));
@@ -1200,7 +1215,7 @@ export function build(scene, rng) {
   const aerial = aerialPose(anchors.berg_crest.position);
   cameraAnchor(scene, anchors, 'aerial', aerial.pos, { yaw: aerial.yaw, pitch: aerial.pitch, fov: AERIAL.fov, panini: false });
   anchorAt(anchorGroup, anchors, 'sea', new THREE.Vector3(0, 0, SHIP.mastZ - 220));
-  return { anchors, update, shipPose, hook: buildHook(aerial, anchors.berg_crest.position) };
+  return { anchors, update, shipPose, keyLight: anim.keyLight, hook: buildHook(aerial, anchors.berg_crest.position) };
 }
 
 // Frame-0 camera: horizontal distance AERIAL.back from the crest, rotated AERIAL.side deg off the crest -> ship line so
@@ -1288,6 +1303,6 @@ function swing(a, b, angle) {
 }
 
 export const ANCHORS = [
-  'aerial', 'berg_crest', 'iceberg_glow', 'cam_lookout', 'mast_top', 'lee_spot', 'fleet_spot', 'guide_spot', 'sea',
+  'aerial', 'berg_crest', 'iceberg_glow', 'cam_lookout', 'forestay_top', 'lee_spot', 'fleet_spot', 'guide_spot', 'sea',
   'bell', 'phone', 'locker', 'padlock', 'deck', 'iceberg_dark', 'iceberg_rim',
 ];
