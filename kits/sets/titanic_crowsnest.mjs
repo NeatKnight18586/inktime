@@ -34,7 +34,7 @@ export const RANGE = { start: 850, money: 457 };
 export const PSI0 = 42 * DEG;
 // Aerial frame 0: camera BACK m behind the crest (horizontal), UP m above it, vFOV 30, rotated SIDE deg off the crest -> ship line
 // so the berg sits bottom-left; aimY is the aim point's height (below the sea tilts the frame so the berg rises into the bottom 30%).
-export const AERIAL = { back: 55, up: 6, fov: 30, side: 20, aimY: -14 };
+export const AERIAL = { back: 55, up: 6, fov: 30, side: 18.5, aimY: -16 };
 // The dive (hook): telephoto, then a dolly-zoom FPV dive into the nest. At most 3 s; the rise is its exact reverse.
 export const HOOK = { fov: [30, 84, 72], landHold: 2 };
 // Fleet card position relative to the cam_lookout eye (metres): left and forward.
@@ -600,10 +600,17 @@ function buildIceberg(scene, rng, pal, anchors) {
   const z = PATH.berg.z;
   const bx = PATH.berg.x;
   // Round 2: the dark berg is a spot-black silhouette (no haze lift) so its frost rim is the brightest edge at the horizon.
-  const bergMat = pal.toon(pal.mix('navy', 'ink', 0.42), { paint: 'ice', spotBlack: true, shadowBias: 0.8, fog: false });
+  // Near-black mass: ice paint, but spot black and shadowBias 0.8 keep every facet ink unless the crest light (shown only in
+  // reveal shots) reaches it; then the lit crest facets are frost.
+  const bergMat = pal.toon('ice', { paint: 'ice', spotBlack: true, shadowBias: 0.8, fog: false });
   const berg = mesh(geo, bergMat, bx, 0, z, 'iceberg_dark');
   scene.add(berg);
   anchors.iceberg_dark = berg;
+  const glow = new THREE.PointLight(pal.color('ice'), 2.4, 48, 2);
+  glow.position.set(bx + crest.x, crest.y + 12, z + crest.z + 10);
+  glow.visible = false; // shown per shot (scene "show" list), with the frost rim
+  scene.add(glow);
+  anchors.iceberg_glow = glow;
   anchors.berg_crest = new THREE.Object3D();
   anchors.berg_crest.position.set(bx + crest.x, crest.y, z + crest.z);
   anchors.berg_crest.name = 'anchor:berg_crest';
@@ -654,11 +661,12 @@ function buildIceberg(scene, rng, pal, anchors) {
 function buildShip(scene, rng, pal) {
   const ship = new THREE.Group();
   ship.name = 'ship';
-  const hullMat = pal.toon(pal.mix('ink', 'navy', 0.5), { paint: 'steel' });
-  const frost = pal.toon('frost', { paint: 'steel' });
-  const steel = pal.toon('steel', { paint: 'steel' });
-  const lampMat = pal.toon('lamp', { paint: 'steel' });
-  const inkMat = pal.toon('ink');
+  // The ship is the key light: her exterior takes no depth haze (fog false) so she glows at 850 m.
+  const hullMat = pal.toon(pal.mix('ink', 'navy', 0.5), { paint: 'steel', fog: false });
+  const frost = pal.toon('frost', { paint: 'steel', fog: false });
+  const steel = pal.toon('steel', { paint: 'steel', fog: false });
+  const lampMat = pal.toon('lamp', { paint: 'steel', fog: false });
+  const inkMat = pal.toon('ink', { fog: false });
   const fx = [];
 
   ship.add(mesh(extrudeHull(hullShape(SHIP.bowZ, SHIP.sternZ), -8, SHIP.hullTop), hullMat, 0, 0, 0, 'hull'));
@@ -731,7 +739,7 @@ function buildShip(scene, rng, pal) {
   const dl = [];
   for (let z = -60; z < 74; z += 4.5) for (const side of [1, -1]) dl.push(new THREE.Vector3(side * 11.3, 28.9, z));
   fx.push(lampSquares(dl, pal, { world: 0.35, minPx: 6, maxPx: 12, name: 'deck_lights' }));
-  fx.push(lampHalos([...port, ...win, ...bridgeWin, ...dl], pal, { world: 2.0, minPx: 7, maxPx: 60, name: 'ship_halos', gain: 0.8 }));
+  fx.push(lampHalos([...port, ...win, ...bridgeWin, ...dl], pal, { world: 3.0, minPx: 9, maxPx: 70, name: 'ship_halos', gain: 1.0 }));
 
   // Lifeboats.
   const boats = [];
@@ -1280,6 +1288,6 @@ function swing(a, b, angle) {
 }
 
 export const ANCHORS = [
-  'aerial', 'berg_crest', 'cam_lookout', 'mast_top', 'lee_spot', 'fleet_spot', 'guide_spot', 'sea',
+  'aerial', 'berg_crest', 'iceberg_glow', 'cam_lookout', 'mast_top', 'lee_spot', 'fleet_spot', 'guide_spot', 'sea',
   'bell', 'phone', 'locker', 'padlock', 'deck', 'iceberg_dark', 'iceberg_rim',
 ];

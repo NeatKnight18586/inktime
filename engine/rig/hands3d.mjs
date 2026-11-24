@@ -19,7 +19,7 @@ export const BLEND_FRAMES = 3;
 // Camera-space placement (metres, right/up/forward from the eye) at the reference FOV; bottom-right of the frame.
 export const HAND_FRAME = { x: 0.12, y: -0.2, z: 0.42, scale: 1, refFov: 72 };
 // Lighting (kept from 1b.2): warm amber key from below, ice rim on the upper edges. keyDir is view space (towards the light).
-export const HAND_LOOK = { lineScale: 1.3, shadowBias: 0, t2: 0.3, keyDir: [0.2, -0.62, 0.76], warm: 0.3, rimFrom: 0.62, rimUp: 0.1, rimMix: 0.9, ink: 0.022 };
+export const HAND_LOOK = { lineScale: 1.3, shadowBias: 0, t2: 0.3, keyDir: [0.2, -0.62, 0.76], warm: 0.3, rimFrom: 0.8, rimUp: 0.15, rimMix: 0.9, ink: 0.022 };
 
 export const curlAngles = (c) => ({ proximal: CURL_DEG.proximal * c, intermediate: CURL_DEG.intermediate * c, distal: CURL_DEG.distal * c });
 
@@ -50,6 +50,7 @@ export function poseAtFrame(n, poseAt, poses) {
 const SKIN_VERT = /* glsl */ `
 varying vec3 vN;
 varying vec2 vUv;
+varying vec3 vVP;
 #include <common>
 #include <skinning_pars_vertex>
 void main() {
@@ -60,14 +61,16 @@ void main() {
   #include <skinning_vertex>
   vN = normalize( normalMatrix * objectNormal );
   vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4( transformed, 1.0 );
+  vec4 mv = modelViewMatrix * vec4( transformed, 1.0 );
+  vVP = mv.xyz;
+  gl_Position = projectionMatrix * mv;
 }`;
 
 const SKIN_FRAG = /* glsl */ `
 uniform vec3 uLit; uniform vec3 uShadow; uniform vec3 uKey; uniform vec3 uRim; uniform vec3 uTint;
 uniform vec3 uKeyDir; uniform vec4 uP; // t2, warm, rimFrom, rimUp
 uniform float uRimMix; uniform sampler2D uMap; uniform float uUseMap;
-varying vec3 vN; varying vec2 vUv;
+varying vec3 vN; varying vec2 vUv; varying vec3 vVP;
 void main() {
   vec3 n = normalize( vN );
   float e = max( dot( n, normalize( uKeyDir ) ), 0.0 );
@@ -75,7 +78,7 @@ void main() {
   vec3 shadow = uShadow;
   if ( uUseMap > 0.5 ) { base = texture2D( uMap, vUv ).rgb; shadow = base * 0.6; }
   vec3 c = e < uP.x ? shadow : mix( base, base * uKey * 1.5, uP.y );
-  float edge = 1.0 - max( n.z, 0.0 );
+  float edge = 1.0 - max( dot( n, normalize( -vVP ) ), 0.0 );
   if ( edge > uP.z && n.y > uP.w ) c = mix( c, uRim, uRimMix );
   gl_FragColor = vec4( c * uTint, 1.0 );
 }`;
@@ -274,6 +277,7 @@ export function buildHand(gltf, colors, hex = {}) {
   const cuffGeo = new THREE.CylinderGeometry(0.036, 0.04, 0.09, 24, 1, true);
   const cuff = new THREE.Mesh(cuffGeo, skinMaterial({ ...colors, lit: colors.navy, shadow: colors.navy }, { map: knit }));
   if (!knit) cuff.material.uniforms.uLit.value = colors.navy;
+  cuff.material.uniforms.uRimMix.value = 0;
   const arm = f.clone().negate();
   const wq = rest.wrist.quat.clone();
   const align = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), arm);

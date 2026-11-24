@@ -27,7 +27,7 @@
       "title": "Money shot: subjective snap zoom to vFOV 20, iceberg at 457 m centred at 40% height, the bow out of frame (insert: p5 and dark40 do not apply)",
       "at": 803,
       "camera": { "anchor": "cam_lookout", "preset": "lookout", "pitch": 10.8, "fov": 20, "held": false },
-      "show": ["iceberg_rim"],
+      "show": ["iceberg_rim", "iceberg_glow"],
       "cards": [],
       "skip": ["p5", "dark40"],
       "focus": [[0.53, 0.35]]

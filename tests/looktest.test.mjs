@@ -536,7 +536,7 @@ test('styleframes.json: F1 aerial, F2 lookout, F3 money shot', () => {
   assert.equal(f2.hands, 'rail_grip');
   assert.equal(f2.cards[0].pose, 'edge');
   assert.equal(f2.cards[0].light, 'nest');
-  assert.deepEqual(f3.show, ['iceberg_rim']);
+  assert.deepEqual(f3.show, ['iceberg_rim', 'iceberg_glow']);
   for (const f of sf.frames) assert.ok(f.focus.length && f.id && f.camera.preset);
 });
 
