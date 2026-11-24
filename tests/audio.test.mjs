@@ -119,7 +119,7 @@ test('music trims to end on a bar line (4/4) and lands its hit on the money shot
 });
 
 // Every recipe keyword, as a name that exercises it, with the requested length.
-const NAMES = { wind: 'wind_rigging', engine: 'engine_room', hum: 'low_hum', sea: 'sea_calm', whoosh: 'rise_whoosh', thump: 'thump', cloth: 'cloth_rustle', slap: 'slap', bell: 'bell', phone: 'phone_crank', crank: 'crank', lock: 'lock_rattle', rattle: 'rattle', ice: 'ice_scrape', scrape: 'scrape' };
+const NAMES = { wind: 'wind_rigging', creak: 'creak', engine: 'engine_room', hum: 'low_hum', sea: 'sea_calm', whoosh: 'rise_whoosh', thump: 'thump', cloth: 'cloth_rustle', slap: 'slap', bell: 'bell', phone: 'phone_crank', crank: 'crank', lock: 'lock_rattle', rattle: 'rattle', ice: 'ice_scrape', scrape: 'scrape' };
 test('every sfx recipe keyword is covered and has a recipe', () => {
   assert.deepEqual(RECIPES.map(([k]) => k).sort(), Object.keys(NAMES).sort());
 });
@@ -145,6 +145,17 @@ test('beds loop: requested length, and the last 0.25 s equals the first 0.25 s',
   void ends;
 });
 
+test('a name with no recipe falls back to a soft thud with a WARN', () => {
+  const f = join(tmp, 'mystery.wav');
+  const warns = [];
+  const w = console.warn;
+  console.warn = (m) => warns.push(m);
+  try { synth({ name: 'zzz_unknown', seconds: 1 }, f, 'test'); } finally { console.warn = w; }
+  assert.match(warns.join(), /WARN: no recipe for "zzz_unknown"/);
+  assert.ok(Math.abs(probeDuration(f) - 1) < 0.02);
+  assert.ok(volume(f).max > -30);
+});
+
 test('sfx entries: beds not in sfxLibrary become loops', () => {
   const e = entries({ sfxLibrary: [{ name: 'thump', seconds: 1 }], beds: ['sea_calm'] });
   assert.deepEqual(e.map((x) => [x.name, !!x.loop]), [['thump', false], ['sea_calm', true]]);
@@ -166,8 +177,9 @@ test('end to end: mix produces -14 LUFS / -1 dBTP, with music ducked and cut on 
   const { mix } = await import('../tools/mix.mjs');
   const file = mix(dir, { duration: 12 });
   assert.ok(Math.abs(probeDuration(file) - 12) < 0.05);
-  const log = ffmpeg(['-i', file, '-af', 'loudnorm=I=-14:TP=-1:LRA=11:print_format=json', '-f', 'null', '-']);
-  const m = JSON.parse(log.slice(log.lastIndexOf('{'), log.lastIndexOf('}') + 1));
-  assert.ok(Math.abs(parseFloat(m.input_i) + 14) < 1, `integrated ${m.input_i}`);
-  assert.ok(parseFloat(m.input_tp) <= -0.9, `true peak ${m.input_tp}`);
+  const log = ffmpeg(['-i', file, '-af', 'ebur128=peak=true:framelog=quiet', '-f', 'null', '-']);
+  const i = parseFloat([...log.matchAll(/I:\s+(-?[\d.]+) LUFS/g)].pop()[1]);
+  const tp = parseFloat([...log.matchAll(/Peak:\s+(-?[\d.]+) dBFS/g)].pop()[1]);
+  assert.ok(Math.abs(i + 14) <= 0.5, `integrated ${i} LUFS`);
+  assert.ok(tp <= -1, `true peak ${tp} dBTP`);
 });

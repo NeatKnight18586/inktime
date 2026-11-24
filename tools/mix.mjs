@@ -108,13 +108,19 @@ export function mix(dir, { duration } = {}) {
   }
 
   const graph = buildGraph({ lead: meta.lead, T, beds, sfxCues, music });
-  // loudnorm runs with headroom (TP -0.1) so it can stay linear; the limiter then holds -1 dBTP (0.85 leaves room for inter-sample peaks).
-  const norm = (extra = '') => `[pre]loudnorm=I=-14:TP=-0.1:LRA=50${extra}`;
-  const pass1 = ffmpeg([...inputs, '-filter_complex', [...graph, `${norm(':print_format=json')}[n]`].join(';'), '-map', '[n]', '-f', 'null', '-']);
-  const m = parseLoudnorm(pass1);
-  const extra = `:measured_I=${m.input_i}:measured_TP=${m.input_tp}:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}:linear=true`;
+  // Gain stage before the limiter: measure integrated loudness (EBU R128, ebur128), apply the gain to reach -14 LUFS,
+  // limit at 0.85 (about -1.4 dBFS, headroom for inter-sample peaks), then re-measure the file and correct the residual.
+  const lufs = (log) => parseFloat([...log.matchAll(/I:\s+(-?[\d.]+) LUFS/g)].pop()[1]);
   const file = join(out, 'mix.wav');
-  ffmpeg([...inputs, '-filter_complex', [...graph, `${norm(extra)},aresample=${SR},alimiter=limit=0.85:level=0:attack=1:release=50,atrim=0:${q(T)}[n]`].join(';'), '-map', '[n]', '-ar', String(SR), '-ac', '2', '-c:a', 'pcm_s16le', file]);
+  const limit = 'alimiter=limit=0.85:level=0:attack=1:release=50';
+  let gain = -14 - lufs(ffmpeg([...inputs, '-filter_complex', [...graph, '[pre]ebur128=framelog=quiet[n]'].join(';'), '-map', '[n]', '-f', 'null', '-']));
+  for (let i = 0; i < 4; i++) {
+    const chain = `[pre]volume=${gain.toFixed(3)}dB,${limit},atrim=0:${q(T)}[n]`;
+    ffmpeg([...inputs, '-filter_complex', [...graph, chain].join(';'), '-map', '[n]', '-ar', String(SR), '-ac', '2', '-c:a', 'pcm_s16le', file]);
+    const err = -14 - lufs(ffmpeg(['-i', file, '-af', 'ebur128=framelog=quiet', '-f', 'null', '-']));
+    if (Math.abs(err) <= 0.15) break;
+    gain += err; // the limiter took some level: add the residual and render again
+  }
   console.log(`mix: ${file} ${T.toFixed(2)} s${music ? `, music ends on bar at ${music.end.toFixed(2)} s` : ''}`);
   return file;
 }

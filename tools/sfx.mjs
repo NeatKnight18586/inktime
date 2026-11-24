@@ -96,9 +96,41 @@ export const RECIPES = [
   ['crank', (c) => crank(c)],
   ['lock', (c) => rattle(c)],
   ['rattle', (c) => rattle(c)],
+  ['creak', (c) => creak(c)],
   ['ice', (c) => scrape(c)],
   ['scrape', (c) => scrape(c)],
 ];
+
+// Wood creak: bandpassed friction noise (200-800 Hz) plus a tone with a slow 0.5-1.5 Hz pitch wobble,
+// gated into 2-3 stick-slip bursts over 0.8 s (sudden slip, then decay).
+function creak({ D, seed, r }) {
+  const wob = n(0.5 + r()); // wobble rate, Hz
+  const count = r() < 0.5 ? 2 : 3;
+  const span = Math.min(0.8, D);
+  const burst = Array.from({ length: count }, (_, i) => {
+    const t = n((i * span) / count + 0.04 * r());
+    return `if(gte(t,${t}),exp(-(t-${t})*${n(7 + 5 * r())})*${n(0.6 + 0.4 * r())},0)`;
+  }).join('+');
+  return [
+    `${noise('white', D, seed, 0.9)},bandpass=f=400:t=o:w=2[kn]`,
+    `${aeval(`(${burst})`, D)},asplit=2[ke1][ke2]`,
+    '[kn][ke1]amultiply,volume=3[kf]',
+    // pitch wobble: instantaneous frequency 320 Hz +/- 60 Hz at the wobble rate
+    `${aeval(`0.35*sin(2*PI*320*t+60/${wob}*sin(2*PI*${wob}*t))`, D)}[kt]`,
+    '[kt][ke2]amultiply[kg]',
+    '[kf][kg]amix=inputs=2:normalize=0[o]',
+  ];
+}
+// Fallback for a name with no recipe: a soft generic thud.
+function thud({ D, seed }) {
+  return [
+    `${aeval('0.5*sin(2*PI*90*t)*exp(-t*18)', D)}[da]`,
+    `${noise('brown', D, seed, 0.5)},lowpass=f=300[dn]`,
+    `${aeval('0.3*exp(-t*60)', D)}[de]`,
+    '[dn][de]amultiply[db]',
+    '[da][db]amix=inputs=2:normalize=0[o]',
+  ];
+}
 
 function hum({ D, P, seed }) {
   const f = snap(50, P);
@@ -131,8 +163,11 @@ export const recipeFor = (name) => RECIPES.find(([k]) => name.toLowerCase().incl
 
 // Synthesize one entry to <outFile>. Returns nothing; throws when the name has no recipe.
 export function synth({ name, seconds = 1.5, loop = false }, outFile, epId = 'ep') {
-  const make = recipeFor(name);
-  if (!make) throw new Error(`no synthetic recipe for "${name}" and no audio/sfx/${name}.mp3|wav`);
+  let make = recipeFor(name);
+  if (!make) {
+    console.warn(`WARN: no recipe for "${name}" and no audio/sfx/${name}.mp3|wav; using a soft generic thud`);
+    make = thud;
+  }
   const D = loop ? Math.max(seconds, 2 * X + 0.5) : seconds;
   const seed = hashSeed(`${epId}:${name}`) & 0x7fffffff;
   const g = make({ D, P: loop ? D - X : 0, seed, r: rng(seed), name });
