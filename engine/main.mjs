@@ -11,7 +11,7 @@ import { grainPass } from './post/grain.mjs';
 import { paniniPass } from './post/panini.mjs';
 import { poseCamera, shotAt, totalFrames, cameraPose } from './rig/camera.mjs';
 import { makeCard } from './rig/card.mjs';
-import { makeHands } from './rig/hands.mjs';
+import { makeHands } from './rig/hands3d.mjs';
 import { installHaze, hazeColorHex } from './look/haze.mjs';
 import { bakeCorners } from './look/paint.mjs';
 import { rng, hashSeed } from '../tools/rng.mjs';
@@ -73,7 +73,8 @@ async function load(scenePath) {
 
   const camera = new THREE.PerspectiveCamera(72, W / H, NEAR, FAR);
   scene.add(camera);
-  const hands = await makeHands(camera, tint, undefined, { key: palette.color(look.light.key), rim: palette.color(look.light.fill) });
+  const poses = await (await fetch('/cast/hands/poses.json')).json();
+  const hands = await makeHands(camera, tint, palette, poses);
 
   state.normalRT?.dispose();
   const normalRT = new THREE.WebGLRenderTarget(W, H, { type: THREE.UnsignedByteType });
@@ -106,12 +107,13 @@ async function renderFrame(n) {
   // Set state (ship travel, sway) first so anchors are current, then pose the camera, then camera-dependent state.
   kit.update?.(n, { fps, shot });
   scene.updateMatrixWorld(true);
-  const view = poseCamera(camera, shot.camera, anchors, n - shot.start, fps, shot.frames);
+  const view = poseCamera(camera, shot.camera, anchors, n - shot.start, fps, shot.frames, { hook: kit.hook, shipPose: kit.shipPose, n0: shot.start });
+  passes.misreg.uniforms.uStreak.value.set(...(view.streak ?? [0, 0]));
   passes.panini.setCamera(camera, view.panini);
   for (const name of showable) if (anchors[name]) anchors[name].visible = shot.show.includes(name);
   for (const c of cards) c.update(n, camera);
   kit.update?.(n, { camera, fps, shot });
-  hands.update(n, shot.hands ?? null);
+  hands.update(n, n - shot.start, (f) => shotAt(spec, f).hands ?? null, fps);
   hullUniforms.uBoil.value = (Math.floor(n / 2) * 0.6180339) % 1 * 100;
   hullUniforms.uRes.value.copy(res);
   hullUniforms.uFocal.value = H / (2 * Math.tan((camera.fov * Math.PI) / 360));

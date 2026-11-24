@@ -8,10 +8,10 @@ import { DEFAULT_RAMP } from '../engine/look/toon.mjs';
 import { inkScale } from '../engine/look/hull.mjs';
 import { hazeAmount } from '../engine/look/haze.mjs';
 import { LAYERS } from '../engine/look/layers.mjs';
-import { build, update, ANCHORS, SHIP, LOOKOUT, FLEET } from '../kits/sets/titanic_crowsnest.mjs';
+import { build, update, ANCHORS, SHIP, LOOKOUT, FLEET, PATH, PSI0, AERIAL, BERG_H, RANGE, SHIP_SPEED, shipPose, MONEY_FRAME } from '../kits/sets/titanic_crowsnest.mjs';
 import { CARD_HEIGHT, blinkFrames } from '../engine/rig/card.mjs';
 import { BASE_MOTION } from '../engine/rig/camera.mjs';
-import { poseCamera, shotAt } from '../engine/rig/camera.mjs';
+import { poseCamera, shotAt, hookFrames } from '../engine/rig/camera.mjs';
 import { paniniNdc } from '../engine/post/panini.mjs';
 import { rng, hashSeed } from '../tools/rng.mjs';
 import { shardRanges, resolveTarget, frameCount } from '../tools/plan.mjs';
@@ -87,18 +87,23 @@ test('set geometry: nest, mast, iceberg, ship', () => {
   const eye = v(anchors.cam_lookout);
   const deck = v(anchors.deck);
   assert.ok(Math.abs(eye.y - deck.y - (15 + 1.62)) < 0.01, 'mast descends 15 m to the deck');
+  const crest = v(anchors.berg_crest);
+  assert.ok(Math.abs(crest.y - BERG_H) < 1e-6, 'iceberg stands 18 m tall');
+  const bow = (t) => { const p = shipPose(t); return [p.x - SHIP.length / 2 * Math.sin(p.yaw), p.z - SHIP.length / 2 * Math.cos(p.yaw)]; };
   const berg = v(anchors.iceberg_dark);
-  assert.ok(Math.abs(Math.hypot(berg.x - eye.x, berg.z - eye.z) - 1500) < 5, 'iceberg 1.5 km ahead');
-  assert.ok(berg.z < eye.z && Math.abs(berg.x) < 1, 'iceberg dead ahead');
+  const range = (t) => { const b = bow(t); return Math.hypot(berg.x - b[0], berg.z - b[1]); };
+  assert.ok(Math.abs(range(0) - RANGE.start) < 0.5, `bow 850 m from the iceberg at frame 0 (${range(0)})`);
+  assert.ok(Math.abs(range(PATH.T) - RANGE.money) < 0.5, 'bow 457 m from the iceberg at the money shot');
+  assert.ok(Math.abs(shipPose(PATH.T).x - berg.x) < 1e-6 && shipPose(PATH.T).yaw === 0, 'dead ahead of the iceberg at the money shot');
   assert.equal(anchors.iceberg_rim.visible, false);
   const hull = scene.getObjectByName('hull');
   hull.geometry.computeBoundingBox();
   const size = hull.geometry.boundingBox.getSize(new THREE.Vector3());
   assert.ok(Math.abs(size.z - 269) < 0.5, `hull length ${size.z}`);
   const aerial = v(anchors.aerial);
-  assert.deepEqual([aerial.x, aerial.y, aerial.z], [60, 180, 250], 'aerial: line berg->midship +250 m astern, 60 m starboard, 180 m up');
-  assert.equal(anchors.aerial.userData.pitch, -27);
-  assert.equal(anchors.aerial.userData.fov, 84);
+  assert.ok(Math.abs(Math.hypot(aerial.x - crest.x, aerial.z - crest.z) - AERIAL.back) < 1e-6, 'aerial: 55 m behind the crest');
+  assert.ok(Math.abs(aerial.y - crest.y - AERIAL.up) < 1e-6, 'aerial: 6 m above the crest');
+  assert.equal(anchors.aerial.userData.fov, 30);
   assert.equal(SHIP.rimH, 1.0);
   const stars = scene.getObjectByName('stars');
   assert.equal(stars.geometry.getAttribute('position').count, 4000);
@@ -128,14 +133,15 @@ test('every solid mesh has an inverted hull', () => {
 
 test('looktest scene spec', () => {
   assert.equal(spec.fps, 24);
-  assert.equal(spec.shots[0].frames, 48);
+  assert.equal(spec.shots[0].frames, 72);
+  assert.equal(spec.shots[0].camera.preset, 'dive');
   assert.equal(spec.shots[0].camera.anchor, 'aerial');
   assert.equal(spec.shots[1].frames, 240);
   assert.equal(spec.shots[1].camera.anchor, 'cam_lookout');
   assert.equal(spec.shots[1].camera.yawDrift, 3);
-  assert.equal(frameCount(spec), 288);
-  assert.equal(shotAt(spec, 47).camera.anchor, 'aerial');
-  assert.equal(shotAt(spec, 48).camera.anchor, 'cam_lookout');
+  assert.equal(frameCount(spec), 312);
+  assert.equal(shotAt(spec, 71).camera.anchor, 'aerial');
+  assert.equal(shotAt(spec, 72).camera.anchor, 'cam_lookout');
   assert.equal(resolveTarget('tests/looktest.json').name, 'looktest');
 });
 
@@ -209,17 +215,44 @@ test('framing: cam_lookout rim, horizon and props', () => {
   assert.ok(seen.length >= 12, `only ${seen.length} props visible`);
 });
 
-test('framing: aerial iceberg top band, ship middle band', () => {
-  const { anchors, fromTop, view } = frame('aerial');
-  assert.equal(view.panini, true);
-  const berg = fromTop(anchors.iceberg_dark.getWorldPosition(new THREE.Vector3()));
-  const mid = fromTop(new THREE.Vector3(0, 0, 0));
-  console.log(`framing aerial: iceberg ${(berg.y * 100).toFixed(1)}% (x ${(berg.x * 100).toFixed(1)}%), midship ${(mid.y * 100).toFixed(1)}% (x ${(mid.x * 100).toFixed(1)}%)`);
-  assert.ok(berg.x >= 0 && berg.x <= 1, 'iceberg in frame');
-  assert.ok(mid.x >= 0.4 && mid.x <= 0.6, `midship across at ${(mid.x * 100).toFixed(1)}%`);
-  assert.ok(berg.y >= 0 && berg.y <= 0.3, `iceberg at ${(berg.y * 100).toFixed(1)}%`);
-  assert.ok(mid.y >= 0.3 && mid.y <= 0.7, `midship at ${(mid.y * 100).toFixed(1)}%`);
-  assert.ok(mid.x >= 0 && mid.x <= 1, 'midship inside frame');
+test('framing: aerial frame 0 is a telephoto: ship three-quarter in the middle band, iceberg bottom-left', () => {
+  const { scene, anchors, hook } = buildScene();
+  update(0, {});
+  scene.updateMatrixWorld(true);
+  const cam = new THREE.PerspectiveCamera(72, 1080 / 1920, 0.05, 9000);
+  const view = poseCamera(cam, { anchor: 'aerial', preset: 'dive' }, anchors, 0, 24, 1, { hook, shipPose, n0: 0 });
+  assert.equal(cam.fov, 30);
+  assert.equal(view.panini, false);
+  const P = (p) => {
+    const q = p.clone().project(cam);
+    return { x: (q.x + 1) / 2, y: (1 - q.y) / 2 };
+  };
+  const ship = scene.getObjectByName('ship_root');
+  let x0 = 9;
+  let x1 = -9;
+  for (const z of [-134.5, 134.5]) for (const x of [-14, 14]) for (const y of [0, 20]) {
+    const q = P(new THREE.Vector3(x, y, z).applyMatrix4(ship.matrixWorld));
+    x0 = Math.min(x0, q.x);
+    x1 = Math.max(x1, q.x);
+  }
+  const mid = P(new THREE.Vector3(0, 20, 0).applyMatrix4(ship.matrixWorld));
+  const berg = anchors.iceberg_dark;
+  const g = berg.geometry.getAttribute('position');
+  let bx1 = -9;
+  let by0 = 9;
+  const a = new THREE.Vector3();
+  for (let i = 0; i < g.count; i++) {
+    const q = P(a.fromBufferAttribute(g, i).applyMatrix4(berg.matrixWorld));
+    if (q.x < 0 || q.x > 1 || q.y < 0 || q.y > 1) continue;
+    bx1 = Math.max(bx1, q.x);
+    by0 = Math.min(by0, q.y);
+  }
+  console.log(`framing aerial: ship ${((x1 - x0) * 100).toFixed(0)}% wide (${x0.toFixed(2)}-${x1.toFixed(2)}), midship y ${mid.y.toFixed(2)}; berg top y ${by0.toFixed(2)}, right edge x ${bx1.toFixed(2)}`);
+  assert.ok(x1 - x0 >= 0.5 && x1 - x0 <= 0.7, `ship spans ${((x1 - x0) * 100).toFixed(0)}% of the width`);
+  assert.ok(mid.y >= 0.3 && mid.y <= 0.7, 'ship in the middle band');
+  assert.ok(by0 >= 0.6 && by0 <= 0.8, `iceberg top at ${by0.toFixed(2)}: the bottom 30-40%`);
+  assert.ok(bx1 <= 0.7, 'iceberg in the left part of the frame');
+  assert.ok(PSI0 > 0 && PATH.T > 25 && PATH.T < 40, 'the ship turns dead ahead of the iceberg over ~34 s');
 });
 
 test('framing: Fleet is a foreground edge silhouette in the left 12-20% (brim, shoulder, scarf)', () => {
@@ -266,23 +299,102 @@ test('camera: lookout dolly is 0; a walk preset dollies at most 0.25 m and keeps
   assert.equal(start.dolly, 0);
 });
 
-test('aerial: ship steams at 22 kn, camera tracks, push 3%/s', () => {
-  const { scene, anchors } = buildScene();
-  const cam = new THREE.PerspectiveCamera(84, 1080 / 1920, 0.05, 9000);
+test('ship steams at 22 kn along the turning path; the money shot is frame MONEY_FRAME', () => {
+  const { scene } = buildScene();
   update(0, {});
-  poseCamera(cam, { anchor: 'aerial', pushPct: 3 }, anchors, 0, 24, 48);
-  const p0 = cam.position.clone();
-  const hull0 = scene.getObjectByName('hull').getWorldPosition(new THREE.Vector3());
-  update(47, {});
   scene.updateMatrixWorld(true);
-  poseCamera(cam, { anchor: 'aerial', pushPct: 3 }, anchors, 47, 24, 48);
-  const hull1 = scene.getObjectByName('hull').getWorldPosition(new THREE.Vector3());
-  const t = 47 / 24;
-  assert.ok(Math.abs(hull0.z - hull1.z - 11.3 * t) < 1e-6, 'ship moves forward at 11.3 m/s');
-  const track = p0.z - cam.position.z;
-  assert.ok(track > 11.3 * t, 'camera tracks the ship and pushes in');
+  const ship = scene.getObjectByName('ship_root');
+  const p0 = ship.position.clone();
+  for (const t of [0, 5, 20, PATH.T - 1]) {
+    const a = shipPose(t);
+    const b = shipPose(t + 0.01);
+    assert.ok(Math.abs(Math.hypot(b.x - a.x, b.z - a.z) / 0.01 - SHIP_SPEED) < 0.05, `speed at ${t}`);
+  }
+  update(48, {});
+  assert.ok(ship.rotation.y < PSI0 && ship.rotation.y > 0, 'heading turns toward dead ahead');
+  assert.ok(Math.abs(ship.position.distanceTo(p0) - 11.3 * 2) < 0.2, 'ship covers 11.3 m/s');
+  assert.equal(MONEY_FRAME(24), Math.round(PATH.T * 24));
   assert.ok(scene.getObjectByName('wake'), 'wake');
   update(0, {});
+});
+
+test('hook: dive in at most 3 s, lands on the lookout pose; the rise is the exact reverse and ends on frame 0', () => {
+  const { scene, anchors, hook } = buildScene();
+  const cam = new THREE.PerspectiveCamera(30, 1080 / 1920, 0.05, 9000);
+  const opts = (n0) => ({ hook, shipPose, n0 });
+  const dive = { anchor: 'aerial', preset: 'dive' };
+  const frames = 72;
+  assert.ok(frames / 24 <= hook.maxSeconds, 'at most 3 s');
+  const fovs = [];
+  const streaks = [];
+  for (let m = 0; m < frames; m++) {
+    update(m, {});
+    scene.updateMatrixWorld(true);
+    const v = poseCamera(cam, dive, anchors, m, 24, frames, opts(0));
+    fovs.push(cam.fov);
+    streaks.push(Math.hypot(...v.streak));
+    if (m === 0) {
+      const aerial = anchors.aerial.getWorldPosition(new THREE.Vector3());
+      assert.ok(cam.position.distanceTo(aerial) < 1e-9 && cam.fov === 30, 'frame 0 is the aerial pose');
+    }
+  }
+  assert.ok(Math.max(...fovs) >= 83.5 && Math.max(...fovs) <= 84.0001, 'dolly zoom 30 to 84');
+  assert.ok(Math.abs(fovs[69] - 72) < 1e-6 && Math.abs(fovs[71] - 72) < 1e-6, 'settles to 72');
+  assert.ok(fovs.slice(0, 20).every((f, i, a) => i === 0 || f >= a[i - 1] - 1e-4), `FOV widens during the rush: ${fovs.slice(0, 20).map((x) => x.toFixed(2))}`);
+  assert.ok(Math.max(...streaks) > 15 && streaks[0] < 1 && streaks[69] < 1, 'speed streaks only in the rush');
+  // Landing (frame 69) equals the lookout pose at that moment; the last 2 frames shake.
+  update(69, {});
+  scene.updateMatrixWorld(true);
+  poseCamera(cam, dive, anchors, 69, 24, frames, opts(0));
+  const lk = new THREE.PerspectiveCamera(72, 1080 / 1920, 0.05, 9000);
+  poseCamera(lk, { anchor: 'cam_lookout', preset: 'lookout' }, anchors, 0, 24, 240);
+  assert.ok(cam.position.distanceTo(lk.position) < 0.02, 'lands in the nest');
+  assert.ok(cam.quaternion.angleTo(lk.quaternion) < 0.001, 'facing forward');
+  assert.equal(hookFrames(hook, frames).land, 69);
+  update(70, {});
+  poseCamera(cam, dive, anchors, 70, 24, frames, opts(0));
+  assert.ok(cam.quaternion.angleTo(lk.quaternion) > 0.0005 || cam.position.distanceTo(lk.position) > 0.0005, '2-frame landing shake');
+  // Rise: ends on frame 0's exact pose and FOV.
+  const rise = { anchor: 'aerial', preset: 'rise' };
+  update(1000, {});
+  scene.updateMatrixWorld(true);
+  poseCamera(cam, rise, anchors, 71, 24, frames, opts(1000));
+  const ap = anchors.aerial.getWorldPosition(new THREE.Vector3());
+  assert.ok(cam.position.distanceTo(ap) < 1e-6 && cam.fov === 30, 'rise ends on frame 0 pose and FOV');
+  assert.ok(cam.quaternion.angleTo(anchors.aerial.getWorldQuaternion(new THREE.Quaternion())) < 1e-6);
+  poseCamera(cam, rise, anchors, 0, 24, frames, opts(1000));
+  assert.ok(Math.abs(cam.fov - 72) < 0.5, 'rise starts in the nest');
+});
+
+test('F3 money shot: iceberg 457 m away, snap zoom to vFOV 20, centred at 40% height, bow out of frame', () => {
+  const sf = JSON.parse(readFileSync(new URL('./styleframes.json', import.meta.url)));
+  const f3 = sf.frames[2];
+  assert.equal(f3.at, MONEY_FRAME(24));
+  const { scene, anchors } = buildScene();
+  update(f3.at, {});
+  scene.updateMatrixWorld(true);
+  const cam = new THREE.PerspectiveCamera(72, 1080 / 1920, 0.05, 9000);
+  poseCamera(cam, f3.camera, anchors, f3.at, 24, f3.at + 1);
+  assert.equal(cam.fov, 20);
+  const berg = anchors.iceberg_dark;
+  const g = berg.geometry.getAttribute('position');
+  const v = new THREE.Vector3();
+  let y0 = 9;
+  let y1 = -9;
+  for (let i = 0; i < g.count; i++) {
+    v.fromBufferAttribute(g, i).applyMatrix4(berg.matrixWorld);
+    if (v.y < 0) continue;
+    const q = v.project(cam);
+    y0 = Math.min(y0, (1 - q.y) / 2);
+    y1 = Math.max(y1, (1 - q.y) / 2);
+  }
+  const bow = new THREE.Vector3(0, 19, -134.5).applyMatrix4(scene.getObjectByName('ship_root').matrixWorld).project(cam);
+  console.log(`F3: iceberg ${((y1 - y0) * 1920).toFixed(0)} px tall, centre y ${((y0 + y1) / 2).toFixed(3)}`);
+  assert.ok((y1 - y0) * 1920 >= 90, 'iceberg at least 90 px tall');
+  assert.ok(Math.abs((y0 + y1) / 2 - 0.4) < 0.03, 'centred at 40% height');
+  assert.ok(Math.abs(bow.y) > 1 || bow.z > 1, 'the bow is out of frame');
+  assert.deepEqual(f3.skip, ['p5', 'dark40']);
+  assert.equal(f3.camera.held, false);
 });
 
 test('set update is deterministic and moves the rigging', () => {
@@ -413,13 +525,148 @@ test('notan: 3 values on an 18x32 grid, dark share and focus warning', () => {
   assert.ok(far.lines.some((l) => l.includes('WARN')));
 });
 
-test('styleframes.json: F2 and F3 as specified', () => {
+test('styleframes.json: F1 aerial, F2 lookout, F3 money shot', () => {
   const sf = JSON.parse(readFileSync(new URL('./styleframes.json', import.meta.url)));
-  const [f2, f3] = sf.frames;
+  const [f1, f2, f3] = sf.frames;
+  assert.deepEqual(sf.frames.map((f) => f.id), ['F1_aerial', 'F2_lookout', 'F3_money']);
+  assert.equal(f1.at, 0);
+  assert.equal(f1.camera.anchor, 'aerial');
   assert.equal(f2.at, 48);
   assert.equal(f2.camera.anchor, 'cam_lookout');
+  assert.equal(f2.hands, 'rail_grip');
   assert.equal(f2.cards[0].pose, 'edge');
-  assert.equal(f3.camera.fov, 52);
+  assert.equal(f2.cards[0].light, 'nest');
   assert.deepEqual(f3.show, ['iceberg_rim']);
-  for (const f of sf.frames) assert.ok(f.focus.length && f.id && f.camera.preset === 'lookout');
+  for (const f of sf.frames) assert.ok(f.focus.length && f.id && f.camera.preset);
+});
+
+// ---- Fix 1b.3: hands viewmodel, cap rail, glows, Fleet in the nest
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { existsSync } from 'node:fs';
+import { buildHand, curlAngles, blendPose, poseAtFrame, placeHand, HAND_FRAME, BLEND_FRAMES, breathLag } from '../engine/rig/hands3d.mjs';
+
+const poses = JSON.parse(readFileSync(new URL('../cast/hands/poses.json', import.meta.url)));
+async function loadGlb(hand) {
+  const b = readFileSync(new URL(`../assets/hands/${hand}.glb`, import.meta.url));
+  const ab = b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength);
+  return new Promise((ok, no) => new GLTFLoader().parse(ab, '', ok, no));
+}
+const handColors = () => ({ lit: new THREE.Color('#EFCEA0'), shadow: new THREE.Color('#8B7C67'), key: new THREE.Color('#E8A64B'), rim: new THREE.Color('#9FD3E0'), tint: new THREE.Color(1, 1, 1), navy: new THREE.Color('#1B2A41') });
+
+test('hands: SVG hands and the quad are gone; poses are tiny JSON; assets are credited', () => {
+  assert.ok(!existsSync(new URL('../engine/rig/hands.mjs', import.meta.url)));
+  assert.ok(!existsSync(new URL('../cast/hands/rail_grip.svg', import.meta.url)));
+  assert.deepEqual(Object.keys(poses), ['rail_grip', 'padlock_hold']);
+  for (const p of Object.values(poses)) {
+    assert.deepEqual(Object.keys(p.curl).sort(), ['index', 'middle', 'pinky', 'ring', 'thumb']);
+    assert.ok(p.spread >= 0 && p.spread <= 1 && p.thumbOppose >= 0 && p.thumbOppose <= 1 && p.wrist.length === 3);
+    for (const c of Object.values(p.curl)) assert.ok(c >= 0 && c <= 1);
+  }
+  const grip = Object.entries(poses.rail_grip.curl).filter(([k]) => k !== 'thumb').map(([, c]) => c);
+  assert.ok(Math.min(...grip) >= 0.75 && Math.max(...grip) <= 0.9, 'rail grip curls 0.75-0.9');
+  assert.equal(poses.rail_grip.thumbOppose, 0.7);
+  assert.ok(existsSync(new URL('../assets/hands/left.glb', import.meta.url)) && existsSync(new URL('../assets/hands/right.glb', import.meta.url)));
+  assert.match(readFileSync(new URL('../assets/hands/LICENSE.md', import.meta.url), 'utf8'), /MIT License/);
+  assert.match(readFileSync(new URL('../README.md', import.meta.url), 'utf8'), /webxr-input-profiles/);
+});
+
+test('hands: curl maps to proximal 70c, intermediate 95c, distal 65c; poses blend over 3 frames on twos', () => {
+  assert.deepEqual(curlAngles(1), { proximal: 70, intermediate: 95, distal: 65 });
+  assert.deepEqual(curlAngles(0.5), { proximal: 35, intermediate: 47.5, distal: 32.5 });
+  const mid = blendPose(poses.rail_grip, poses.padlock_hold, 0.5);
+  assert.ok(Math.abs(mid.curl.index - (poses.rail_grip.curl.index + poses.padlock_hold.curl.index) / 2) < 1e-12);
+  assert.equal(BLEND_FRAMES, 3);
+  // The pose changes at frame 10: the 3-frame blend shows 1/3 on the first even frame, then the new pose.
+  const at = (f) => (f < 10 ? 'rail_grip' : 'padlock_hold');
+  const w = (n) => poseAtFrame(n, at, poses).curl.index;
+  const a = poses.rail_grip.curl.index;
+  const b = poses.padlock_hold.curl.index;
+  assert.equal(w(9), a);
+  assert.ok(Math.abs(w(10) - (a + (b - a) / 3)) < 1e-12 && w(11) === w(10), 'frame 10 and 11 share a pose state (twos)');
+  assert.equal(w(12), b, 'the 3-frame window is over by the next even frame');
+  assert.equal(w(14), b);
+  assert.equal(poseAtFrame(0, () => null, poses), null);
+});
+
+test('hands: rigged hand curls round a rail, sits bottom-right (25-35% of width) and keeps its place when the FOV zooms', async () => {
+  const rig = buildHand(await loadGlb('right'), handColors(), {});
+  const cam = new THREE.PerspectiveCamera(72, 1080 / 1920, 0.05, 100);
+  const scene = new THREE.Scene();
+  scene.add(cam);
+  cam.add(rig.group);
+  const wp = (n) => rig.bones[n].getWorldPosition(new THREE.Vector3());
+  const open = { curl: { thumb: 0, index: 0, middle: 0, ring: 0, pinky: 0 }, spread: 0.35, thumbOppose: 0, wrist: [0, 0, 0] };
+  rig.setPose(open);
+  scene.updateMatrixWorld(true);
+  const openLen = wp('index-finger-tip').distanceTo(wp('index-finger-phalanx-proximal'));
+  rig.setPose(poses.rail_grip);
+  placeHand(rig.group, rig.baseQuat, poses.rail_grip.wrist, 72);
+  scene.updateMatrixWorld(true);
+  const gripLen = wp('index-finger-tip').distanceTo(wp('index-finger-phalanx-proximal'));
+  assert.ok(gripLen < openLen * 0.75, 'fingers curl');
+  const camY = (n) => wp(n).applyMatrix4(cam.matrixWorldInverse).y;
+  assert.ok(camY('index-finger-tip') < camY('index-finger-phalanx-proximal'), 'fingers curl down, round the rail');
+  const extents = (fov) => {
+    cam.fov = fov;
+    cam.updateProjectionMatrix();
+    placeHand(rig.group, rig.baseQuat, poses.rail_grip.wrist, fov);
+    scene.updateMatrixWorld(true);
+    let x0 = 9;
+    let x1 = -9;
+    let y0 = 9;
+    const p = new THREE.Vector3();
+    const pos = rig.skinned.geometry.getAttribute('position');
+    for (let i = 0; i < pos.count; i++) {
+      rig.skinned.getVertexPosition(i, p).applyMatrix4(rig.skinned.matrixWorld).project(cam);
+      x0 = Math.min(x0, (p.x + 1) / 2);
+      x1 = Math.max(x1, (p.x + 1) / 2);
+      y0 = Math.min(y0, (1 - p.y) / 2);
+    }
+    return { x0, x1, y0, width: x1 - x0 };
+  };
+  const e72 = extents(72);
+  const e84 = extents(84);
+  const e20 = extents(20);
+  console.log(`hands: x ${e72.x0.toFixed(2)}-${e72.x1.toFixed(2)}, top y ${e72.y0.toFixed(2)}, width ${(e72.width * 100).toFixed(0)}%`);
+  assert.ok(e72.width >= 0.25 && e72.width <= 0.35, `hand width ${(e72.width * 100).toFixed(0)}%`);
+  assert.ok(e72.x0 >= 0.55 && e72.y0 >= 0.65, 'bottom-right');
+  for (const e of [e84, e20]) assert.ok(Math.abs(e.x0 - e72.x0) < 0.05 && Math.abs(e.width - e72.width) < 0.05, 'same place at any FOV');
+  assert.ok(Math.abs(breathLag(10, 24).pitchDeg) < 0.05, 'lags the breathing by 2 frames (tiny)');
+  assert.equal(HAND_FRAME.refFov, 72);
+  // Material, ink hull sharing the skeleton, cuff on the wrist bone.
+  assert.ok(rig.hull.isSkinnedMesh && rig.hull.skeleton === rig.skinned.skeleton);
+  assert.equal(rig.hull.material.side, THREE.BackSide);
+  assert.equal(rig.hull.material.uniforms.uLine.value, 1.3);
+  assert.equal(rig.cuff.parent, rig.bones.wrist);
+  assert.ok(rig.skinned.material.uniforms.uLit.value.equals(new THREE.Color('#EFCEA0')));
+});
+
+test('hands: the left hand loads and rigs the same way', async () => {
+  const rig = buildHand(await loadGlb('left'), handColors(), {});
+  rig.setPose(poses.rail_grip);
+  assert.ok(rig.axes.f.y < -0.9, 'fingers run along -Y at rest');
+});
+
+test('cap rail is 3 cm high; lamp halos are real glows (additive, no fog, no tone mapping, 60% and 25% lamp)', () => {
+  const { scene } = buildScene();
+  const cap = scene.getObjectByName('cap_rail');
+  cap.geometry.computeBoundingBox();
+  const h = cap.geometry.boundingBox.max.y - cap.geometry.boundingBox.min.y;
+  assert.ok(Math.abs(h - 0.03) < 1e-6, `cap height ${h}`);
+  const halos = scene.getObjectByName('ship_halos');
+  assert.equal(halos.material.blending, THREE.AdditiveBlending);
+  assert.equal(halos.material.fog, false);
+  assert.equal(halos.material.toneMapped, false);
+  assert.match(halos.material.fragmentShader, /r < 0\.45 \? 0\.6 : 0\.25/);
+  assert.match(halos.material.fragmentShader, /vec4\(uLamp, a/);
+});
+
+test('Fleet in the dark nest: sidecar lists cap brim, shoulder and scarf; shadowBias -0.4 leaves only them lit', () => {
+  const nest = JSON.parse(readFileSync(new URL('../cast/fleet/edge.nest.json', import.meta.url)));
+  assert.equal(nest.shadowBias, -0.4);
+  assert.deepEqual(nest.lit, [FLEET.card.brim, FLEET.card.shoulder, FLEET.card.scarf]);
+  assert.ok(nest.dark.every((c) => c < 0.5), 'dark nest tint');
+  assert.ok(nest.litGain < 0.9, 'lit features stay below the lamps and hands');
+  const term = nest.terminator + 0.3 * (nest.shadowBias + 0.4);
+  assert.ok(term * nest.size[0] > 140, 'only the right edge catches light');
 });

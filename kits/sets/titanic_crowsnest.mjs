@@ -20,8 +20,6 @@ export const SHIP = {
   eye: 1.62,
 };
 SHIP.basketZ = SHIP.mastZ - 0.75;
-const ICEBERG_DIST = 1500;
-export const ICEBERG_Z = SHIP.mastZ - ICEBERG_DIST;
 // FIX 1.1 framing. back: eye distance behind the inner face of the front rim (allowed 0.60-0.90 m).
 // Masthead lamp: above and behind the nest, a narrow cone aimed forward-down at the forecastle deck. The cone is
 // narrower than the angle to the basket (>= 27 deg off axis), so the basket interior never receives it.
@@ -29,12 +27,66 @@ export const MASTHEAD = { aft: 0.25, aimZ: -120, aimY: 18, angle: 20 * (Math.PI 
 export const LOOKOUT = { back: 0.65, pitch: -16, fov: 72, minRim: 0.45 };
 // The ship steams ahead (-Z) at 22 knots; everything aboard (and the camera anchors) rides ship_root.
 export const SHIP_SPEED = 11.3; // spec 0.75 / -14 showed 11 props; adjusted within the allowed range
-// Phase 1b aerial: on the line iceberg -> ship midpoint, extended 250 m astern, 60 m to starboard; aimed at midship.
-export const AERIAL = { astern: 250, starboard: 60, up: 180, pitch: -27, fov: 84, panini: true };
+// Fix 1b.3 scale facts: the iceberg is 18 m tall; 850 m from the bow at frame 0, 457 m at the money shot; the ship makes 11.3 m/s.
+export const BERG_H = 18;
+export const RANGE = { start: 850, money: 457 };
+// The ship turns from PSI0 off the line to the iceberg to dead ahead of it, so the aerial sees her three-quarter on.
+export const PSI0 = 42 * DEG;
+// Aerial frame 0: camera BACK m behind the crest (horizontal), UP m above it, vFOV 30, rotated SIDE deg off the crest -> ship line
+// so the berg sits bottom-left; aimY is the aim point's height (below the sea tilts the frame so the berg rises into the bottom 30%).
+export const AERIAL = { back: 55, up: 6, fov: 30, side: 20, aimY: -14 };
+// The dive (hook): telephoto, then a dolly-zoom FPV dive into the nest. At most 3 s; the rise is its exact reverse.
+export const HOOK = { fov: [30, 84, 72], landHold: 2 };
 // Fleet card position relative to the cam_lookout eye (metres): left and forward.
 export const FLEET = { x: -0.49, forward: 0.4, pose: 'edge',
   // Edge pose features in card units (viewBox 170 x 350): what the left 12-20% of frame must show.
   card: { width: 170, height: 350, brim: [146, 169, 46, 56], shoulder: [144, 156, 120, 150], scarf: [146, 168, 124, 168] } };
+
+// ---------------------------------------------------------------- ship path
+// Heading psi(t) = PSI0 (1 - t/T)^2 (rotation about +Y; forward = (-sin psi, -cos psi)), straight and dead ahead from T.
+// T is solved so the bow is RANGE.start from the iceberg at t=0 and RANGE.money from it at t=T (the money shot).
+const PATH_N = 4000;
+function pathTable(T) {
+  const xs = new Float64Array(PATH_N + 1);
+  const zs = new Float64Array(PATH_N + 1);
+  const dt = T / PATH_N;
+  for (let i = 0; i < PATH_N; i++) {
+    const psi = PSI0 * (1 - ((i + 0.5) * dt) / T) ** 2;
+    xs[i + 1] = xs[i] - SHIP_SPEED * Math.sin(psi) * dt;
+    zs[i + 1] = zs[i] - SHIP_SPEED * Math.cos(psi) * dt;
+  }
+  return { xs, zs };
+}
+function solvePath() {
+  const bow0 = [-SHIP.length / 2 * Math.sin(PSI0), -SHIP.length / 2 * Math.cos(PSI0)];
+  let lo = 10;
+  let hi = 90;
+  let T = 0;
+  let table;
+  let berg;
+  for (let it = 0; it < 80; it++) {
+    T = (lo + hi) / 2;
+    table = pathTable(T);
+    berg = [table.xs[PATH_N], table.zs[PATH_N] - (RANGE.money + SHIP.length / 2)];
+    const d = Math.hypot(berg[0] - bow0[0], berg[1] - bow0[1]);
+    if (d < RANGE.start) lo = T;
+    else hi = T;
+  }
+  return { T, table, berg: { x: berg[0], z: berg[1] } };
+}
+export const PATH = solvePath();
+// Ship root pose at time t (s): position x, z and yaw (rad). All state derives from t.
+export function shipPose(t) {
+  const { T, table } = PATH;
+  if (t <= 0) return { x: 0, z: 0, yaw: PSI0 };
+  if (t >= T) return { x: table.xs[PATH_N], z: table.zs[PATH_N] - SHIP_SPEED * (t - T), yaw: 0 };
+  const f = (t / T) * PATH_N;
+  const i = Math.floor(f);
+  const w = f - i;
+  return { x: table.xs[i] + (table.xs[i + 1] - table.xs[i]) * w, z: table.zs[i] + (table.zs[i + 1] - table.zs[i]) * w, yaw: PSI0 * (1 - t / T) ** 2 };
+}
+// The frame at which the bow is RANGE.money from the iceberg.
+export const MONEY_FRAME = (fps = 24) => Math.round(PATH.T * fps);
 
 // Hull half-width at z: pointed bow, parallel middle body, rounded stern.
 export function halfWidth(z) {
@@ -192,7 +244,7 @@ function hexMix(a, b, t) {
 const anim = { stays: null, ropes: [], lamps: [], shipRoot: null };
 // Shared per-frame uniforms for the set's animated shaders.
 const fxUniforms = {
-  uShipZ: { value: 0 },
+  uShip: { value: new THREE.Vector3(0, 0, PSI0) }, // ship root x, z, yaw
   uFocal: { value: 1321 },
   uT: { value: 0 },
   uT2: { value: 0 },
@@ -300,7 +352,7 @@ function buildSea(pal) {
     uSwell: { value: new THREE.Vector3(SWELL.amp, (2 * Math.PI) / SWELL.length, (2 * Math.PI) / SWELL.period) },
     uHalfBeam: { value: SHIP.halfBeam },
     uPortZ: { value: new THREE.Vector2(-84, 108) },
-    uShipZ: fxUniforms.uShipZ,
+    uShip: fxUniforms.uShip,
   });
   const mat = new THREE.ShaderMaterial({
     transparent: true,
@@ -322,7 +374,7 @@ function buildSea(pal) {
       }`,
     fragmentShader: `
       uniform float uT; uniform float uFlicker; uniform vec2 uDir; uniform vec3 uSwell;
-      uniform vec3 uNavy, uSteel, uFrost, uLamp; uniform float uHalfBeam; uniform vec2 uPortZ; uniform float uShipZ;
+      uniform vec3 uNavy, uSteel, uFrost, uLamp; uniform float uHalfBeam; uniform vec2 uPortZ; uniform vec3 uShip;
       varying vec3 vW; varying float vPhase;
       #include <fog_pars_fragment>
       float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -340,8 +392,12 @@ function buildSea(pal) {
         float dash = step(0.8, h2(cell)) * step(abs(f.x - 0.5), 0.07) * step(abs(f.y - 0.5), 0.2) * step(0.55, s) * step(dist, 900.0);
         c = mix(c, uFrost, dash);
         // Porthole pools: 3 hard rings per porthole, just off the hull side.
-        float dx = abs(vW.x) - uHalfBeam;
-        float zs = vW.z - uShipZ;
+        // Ship frame: world = R_y(yaw) local + position.
+        vec2 rel = vW.xz - uShip.xy;
+        float cy = cos(uShip.z), sy = sin(uShip.z);
+        vec2 loc = vec2(rel.x * cy - rel.y * sy, rel.x * sy + rel.y * cy);
+        float dx = abs(loc.x) - uHalfBeam;
+        float zs = loc.y;
         if (dx > 0.0 && dx < 4.0 && zs > uPortZ.x && zs < uPortZ.y) {
           float zc = floor((zs - uPortZ.x) / 2.7 + 0.5) * 2.7 + uPortZ.x;
           float r = length(vec2(dx - 1.3, (zs - zc) * 0.85));
@@ -381,7 +437,7 @@ function lampSquares(positions, pal, { world = 0.45, minPx = 5, maxPx = 18, name
   return pts;
 }
 
-// 2-step additive halo sprite around every lamp.
+// 2-step additive glow around every lamp: lamp #E8A64B at 60% and 25% alpha, no fog, no tone mapping.
 function lampHalos(positions, pal, { world = 2.2, minPx = 6, maxPx = 160, name = 'halos', gain = 1 } = {}) {
   const geo = new THREE.BufferGeometry().setFromPoints(positions);
   const pts = new THREE.Points(
@@ -390,13 +446,16 @@ function lampHalos(positions, pal, { world = 2.2, minPx = 6, maxPx = 160, name =
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
+      fog: false,
+      toneMapped: false,
       uniforms: { uFocal: fxUniforms.uFocal, uFlicker: fxUniforms.uFlicker, uLamp: { value: pal.color('lamp') }, uWorld: { value: world }, uPx: { value: new THREE.Vector2(minPx, maxPx) }, uGain: { value: gain } },
       vertexShader: `uniform float uFocal; uniform float uWorld; uniform vec2 uPx;
         void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0);
           gl_PointSize = clamp(uWorld * uFocal / max(-mv.z, 0.1), uPx.x, uPx.y); gl_Position = projectionMatrix * mv; }`,
       fragmentShader: `uniform vec3 uLamp; uniform float uFlicker; uniform float uGain;
         void main(){ float r = length(gl_PointCoord - 0.5) * 2.0; if (r > 1.0) discard;
-          float a = r < 0.45 ? 0.32 : 0.12; gl_FragColor = vec4(uLamp * a * uFlicker * uGain, 1.0); }`,
+          // Two hard steps of the lamp colour, additive: 60% inside, 25% outside. Never grey.
+          float a = r < 0.45 ? 0.6 : 0.25; gl_FragColor = vec4(uLamp, a * uFlicker * uGain); }`,
     })
   );
   pts.name = name;
@@ -531,13 +590,24 @@ function buildIceberg(scene, rng, pal, anchors) {
     v.multiplyScalar(r);
     p.setXYZ(i, v.x * 46, Math.max(v.y * 34, -4), v.z * 36);
   }
+  // Scale: the berg stands BERG_H (18 m) above the water at its crest.
+  geo.computeBoundingBox();
+  const k = BERG_H / geo.boundingBox.max.y;
+  geo.scale(k, k, k);
   geo.computeVertexNormals();
-  const z = ICEBERG_Z;
+  let crest = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) if (p.getY(i) > crest.y) crest.set(p.getX(i), p.getY(i), p.getZ(i));
+  const z = PATH.berg.z;
+  const bx = PATH.berg.x;
   // Round 2: the dark berg is a spot-black silhouette (no haze lift) so its frost rim is the brightest edge at the horizon.
   const bergMat = pal.toon(pal.mix('navy', 'ink', 0.42), { paint: 'ice', spotBlack: true, shadowBias: 0.8, fog: false });
-  const berg = mesh(geo, bergMat, 0, 0, z, 'iceberg_dark');
+  const berg = mesh(geo, bergMat, bx, 0, z, 'iceberg_dark');
   scene.add(berg);
   anchors.iceberg_dark = berg;
+  anchors.berg_crest = new THREE.Object3D();
+  anchors.berg_crest.position.set(bx + crest.x, crest.y, z + crest.z);
+  anchors.berg_crest.name = 'anchor:berg_crest';
+  scene.add(anchors.berg_crest);
   // Rim light: back-face shell pushed out in screen space, so the frost edge is at most uPx wide at any range.
   const rimMat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
@@ -546,11 +616,14 @@ function buildIceberg(scene, rng, pal, anchors) {
       uBody: { value: pal.mix('navy', 'ink', 0.42) },
       uStrength: { value: bergMat.userData.ink.noRim ? 0 : 1.0 },
       uPx: { value: 2.0 },
+      uTop: { value: 0.35 }, // frost on the top edge only: shell faces whose normal points up at least this much
       uRes: { value: new THREE.Vector2(1080, 1920) },
     },
     vertexShader: `
       uniform float uPx; uniform vec2 uRes;
+      varying float vUp;
       void main() {
+        vUp = ( modelMatrix * vec4( normal, 0.0 ) ).y;
         vec4 clip = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         vec2 dir = (projectionMatrix * vec4(normalMatrix * normal, 0.0)).xy;
         float l = length(dir);
@@ -559,15 +632,16 @@ function buildIceberg(scene, rng, pal, anchors) {
         gl_Position = clip;
       }`,
     fragmentShader: `
-      uniform vec3 uColor; uniform vec3 uBody; uniform float uStrength;
-      void main() { gl_FragColor = vec4(mix(uBody, uColor, clamp(uStrength, 0.0, 1.0)), 1.0); }`,
+      uniform vec3 uColor; uniform vec3 uBody; uniform float uStrength; uniform float uTop;
+      varying float vUp;
+      void main() { if ( vUp < uTop ) discard; gl_FragColor = vec4(mix(uBody, uColor, clamp(uStrength, 0.0, 1.0)), 1.0); }`,
   });
   const rimGeo = geo.clone();
   rimGeo.deleteAttribute('normal');
   rimGeo.deleteAttribute('uv');
   const rimMerged = mergeVertices(rimGeo, 1e-4);
   rimMerged.computeVertexNormals();
-  const rim = mesh(rimMerged, rimMat, 0, 0, z, 'iceberg_rim');
+  const rim = mesh(rimMerged, rimMat, bx, 0, z, 'iceberg_rim');
   rim.renderOrder = 1;
   rim.visible = false; // shown per shot (scene "show" list); Phase 6 reveals it
   rim.userData.noHull = true;
@@ -924,7 +998,7 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   const nest = new THREE.Group();
   nest.name = 'basket';
   nest.position.set(0, F, bz);
-  const capH = 0.05;
+  const capH = 0.03; // a thin cap: reads as a cool line, not a band
   const wallH = SHIP.rimH - capH;
   const wall = new THREE.LatheGeometry(
     [new THREE.Vector2(R - 0.04, 0), new THREE.Vector2(R, 0), new THREE.Vector2(R, wallH), new THREE.Vector2(R - 0.04, wallH), new THREE.Vector2(R - 0.04, 0)],
@@ -933,7 +1007,7 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   nest.add(mesh(wall, steel, 0, 0, 0, 'basket_wall'));
   // Painted wooden cap rail on the rim (top at rimH).
   const cap = new THREE.LatheGeometry(
-    [new THREE.Vector2(R - 0.06, wallH), new THREE.Vector2(R + 0.02, wallH), new THREE.Vector2(R + 0.02, SHIP.rimH), new THREE.Vector2(R - 0.06, SHIP.rimH), new THREE.Vector2(R - 0.06, wallH)],
+    [new THREE.Vector2(R - 0.05, wallH), new THREE.Vector2(R + 0.01, wallH), new THREE.Vector2(R + 0.01, SHIP.rimH), new THREE.Vector2(R - 0.05, SHIP.rimH), new THREE.Vector2(R - 0.05, wallH)],
     72
   );
   nest.add(mesh(cap, railMat, 0, 0, 0, 'cap_rail'));
@@ -944,7 +1018,7 @@ function buildMastAndNest(scene, rng, pal, anchors) {
     return m;
   };
   nest.add(liner(R - 0.045, wallH, 0, 'basket_interior'));
-  nest.add(liner(R - 0.062, capH, wallH, 'rim_inner_face'));
+  nest.add(liner(R - 0.052, capH, wallH, 'rim_inner_face'));
   // Frost: small drifts in the corners where the floor meets the wall (hatch strokes live in the rail paint).
   const drift = new THREE.SphereGeometry(1, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2);
   for (let k = 0; k < 7; k++) {
@@ -1114,13 +1188,48 @@ export function build(scene, rng) {
   buildMastAndNest(shipRoot, rng, pal, anchors);
   scene.add(shipRoot);
 
-  // Aerial: the iceberg -> midship line (+z) extended 250 m astern, offset 60 m to starboard, 180 m up; aimed at midship.
-  const aerialPos = new THREE.Vector3(AERIAL.starboard, AERIAL.up, AERIAL.astern);
-  const aerialYaw = Math.atan2(-(0 - aerialPos.x), -(0 - aerialPos.z)) / DEG;
-  cameraAnchor(anchorGroup, anchors, 'aerial', aerialPos, { yaw: aerialYaw, pitch: AERIAL.pitch, fov: AERIAL.fov, panini: AERIAL.panini });
-  anchors.aerial.userData.aimDist = aerialPos.length();
+  // Aerial frame 0 (world-fixed): AERIAL.back behind the iceberg's crest, AERIAL.up above it, aimed at the ship.
+  const aerial = aerialPose(anchors.berg_crest.position);
+  cameraAnchor(scene, anchors, 'aerial', aerial.pos, { yaw: aerial.yaw, pitch: aerial.pitch, fov: AERIAL.fov, panini: false });
   anchorAt(anchorGroup, anchors, 'sea', new THREE.Vector3(0, 0, SHIP.mastZ - 220));
-  return { anchors, update };
+  return { anchors, update, shipPose, hook: buildHook(aerial, anchors.berg_crest.position) };
+}
+
+// Frame-0 camera: horizontal distance AERIAL.back from the crest, rotated AERIAL.side deg off the crest -> ship line so
+// the berg sits bottom-left; aimed at the ship's middle.
+export function aerialPose(crest) {
+  const ship0 = shipPose(0);
+  const u = new THREE.Vector3(ship0.x - crest.x, 0, ship0.z - crest.z).normalize();
+  const r = new THREE.Vector3().crossVectors(u, UP);
+  const a = AERIAL.side * DEG;
+  const pos = crest.clone().addScaledVector(u, -AERIAL.back * Math.cos(a)).addScaledVector(r, AERIAL.back * Math.sin(a));
+  pos.y = crest.y + AERIAL.up;
+  const d = new THREE.Vector3(ship0.x - pos.x, AERIAL.aimY - pos.y, ship0.z - pos.z);
+  return { pos, yaw: Math.atan2(-d.x, -d.z) / DEG, pitch: Math.atan2(d.y, Math.hypot(d.x, d.z)) / DEG, dir: u };
+}
+
+// The hook path (dive; the rise plays it backwards): knots at fractions u of the landing time. ref 'world' knots are fixed in
+// the world; 'ship' knots are in the ship frame (yaw adds the ship's heading) at the moment the camera reaches them.
+// Telephoto at the crest, over the berg, down to 4 m above the water, the rush at the bow (dolly zoom 30 -> 84), up the
+// foremast, a flip (pitch 196 + roll 180 = yaw 0, pitch -16) into the nest facing forward at FOV 72.
+export function buildHook(aerial, crest) {
+  const eye = new THREE.Vector3(0, SHIP.nestFloorY + SHIP.eye, SHIP.basketZ - (SHIP.basketR - 0.04) + LOOKOUT.back);
+  const over = crest.clone().addScaledVector(aerial.dir, 4);
+  over.y = crest.y + 3.5;
+  const low = crest.clone().addScaledVector(aerial.dir, 420);
+  low.y = 4;
+  const [f0, fRush, fEnd] = HOOK.fov;
+  const knots = [
+    { u: 0, ref: 'world', pos: aerial.pos.toArray(), yaw: aerial.yaw, pitch: aerial.pitch, roll: 0, fov: f0 },
+    { u: 0.17, ref: 'world', pos: over.toArray(), yaw: aerial.yaw, pitch: aerial.pitch - 4, roll: 0, fov: f0 + 3 },
+    { u: 0.39, ref: 'world', pos: low.toArray(), yaw: aerial.yaw, pitch: 1, roll: 0, fov: 52 },
+    { u: 0.6, ref: 'ship', pos: [0, 4, SHIP.bowZ - 42], yaw: 180, pitch: 4, roll: 0, fov: fRush },
+    { u: 0.76, ref: 'ship', pos: [0, SHIP.forecastleY + 3.5, SHIP.bowZ + 6], yaw: 180, pitch: 14, roll: 0, fov: fRush - 2 },
+    { u: 0.88, ref: 'ship', pos: [0, SHIP.nestFloorY + 4, SHIP.mastZ - 8], yaw: 180, pitch: 70, roll: 0, fov: fRush - 6 },
+    { u: 0.95, ref: 'ship', pos: [0, SHIP.nestFloorY + 6.5, SHIP.mastZ - 2.4], yaw: 180, pitch: 135, roll: 90, fov: fRush - 10 },
+    { u: 1, ref: 'ship', pos: eye.toArray(), yaw: 180, pitch: 180 - LOOKOUT.pitch, roll: 180, fov: fEnd },
+  ];
+  return { knots, landHold: HOOK.landHold, maxSeconds: 3 };
 }
 
 const SWAY = { hz: 0.25, deg: 1.5 };
@@ -1134,9 +1243,11 @@ export function update(n, { camera, fps = 24 } = {}) {
   const t = n / fps;
   const k = Math.floor(n / 2);
   fxUniforms.uT.value = t;
-  fxUniforms.uShipZ.value = -SHIP_SPEED * t;
+  const sp = shipPose(t);
+  fxUniforms.uShip.value.set(sp.x, sp.z, sp.yaw);
   if (anim.shipRoot) {
-    anim.shipRoot.position.z = -SHIP_SPEED * t;
+    anim.shipRoot.position.set(sp.x, 0, sp.z);
+    anim.shipRoot.rotation.y = sp.yaw;
     anim.shipRoot.updateMatrixWorld(true);
   }
   fxUniforms.uT2.value = (k * 2) / fps;
@@ -1169,6 +1280,6 @@ function swing(a, b, angle) {
 }
 
 export const ANCHORS = [
-  'aerial', 'cam_lookout', 'mast_top', 'lee_spot', 'fleet_spot', 'guide_spot', 'sea',
+  'aerial', 'berg_crest', 'cam_lookout', 'mast_top', 'lee_spot', 'fleet_spot', 'guide_spot', 'sea',
   'bell', 'phone', 'locker', 'padlock', 'deck', 'iceberg_dark', 'iceberg_rim',
 ];

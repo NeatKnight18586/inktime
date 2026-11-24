@@ -41,7 +41,7 @@ for (const f of cfg.frames) {
   if (!existsSync(raw)) throw new Error(`${f.id}: no frame written`);
   copyFileSync(raw, join(out, `${f.id}.png`));
   const focus = (f.focus ?? []).map((p) => p.join(',')).join(';');
-  const text = run('node', ['tools/measure.mjs', join(out, `${f.id}.png`), '--focus', focus, '--notan-out', join(out, `${f.id}.notan.png`)]);
+  const text = run('node', ['tools/measure.mjs', join(out, `${f.id}.png`), '--focus', focus, '--notan-out', join(out, `${f.id}.notan.png`), ...(f.skip?.length ? ['--skip', f.skip.join(',')] : [])]);
   writeFileSync(join(out, `${f.id}.measure.txt`), `${f.id}: ${f.title}\n${text}`);
   console.log(text.trim());
   ids.push(f.id);

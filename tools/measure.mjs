@@ -1,5 +1,5 @@
 // Measure a render against the night look targets.
-// Usage: node tools/measure.mjs <mp4|png> [--cams out/cams.json] [--strict] [--focus "x,y;x,y"] [--notan-out file.png]
+// Usage: node tools/measure.mjs <mp4|png> [--cams out/cams.json] [--strict] [--focus "x,y;x,y"] [--notan-out file.png] [--skip p5,dark40]
 // Downscales to 270 px wide, then prints per shot and overall: luma mean, p5, p95, share of pixels < 40,
 // saturation mean, in-frame motion (median share of pixels changing > 25 levels frame to frame),
 // still frames (pose delta < 0.02 deg and < 1 mm, from cams.json) and the longest still run.
@@ -198,25 +198,27 @@ export function check(summary) {
   return misses;
 }
 
-export function report(label, s) {
-  const misses = check(s);
+// skip: targets that do not apply (an insert frame: p5, dark40) are listed as n/a and never missed.
+export function report(label, s, skip = []) {
+  const misses = check(s).filter((k) => !skip.includes(k));
   const lines = [`${label} (${s.frames} frames)`];
   for (const k of Object.keys(TARGETS)) {
     const v = s[k];
     const val = v === null || v === undefined ? 'n/a' : FMT[k](v);
-    lines.push(`  ${k.padEnd(9)} ${val.padStart(8)}   target ${TFMT[k].padEnd(9)} ${v === null || v === undefined ? '' : misses.includes(k) ? 'MISS' : 'ok'}`);
+    lines.push(`  ${k.padEnd(9)} ${val.padStart(8)}   target ${TFMT[k].padEnd(9)} ${skip.includes(k) ? 'n/a (insert)' : v === null || v === undefined ? '' : misses.includes(k) ? 'MISS' : 'ok'}`);
   }
   return { text: lines.join('\n'), misses };
 }
 
 async function main() {
   const args = process.argv.slice(2);
-  const valueFlags = ['--cams', '--focus', '--notan-out'];
+  const valueFlags = ['--cams', '--focus', '--notan-out', '--skip'];
   const mp4 = args.find((x, i) => !x.startsWith('--') && !valueFlags.includes(args[i - 1]));
   const flag = (k) => (args.includes(k) ? args[args.indexOf(k) + 1] : null);
   const camsPath = flag('--cams');
   const focus = (flag('--focus') ?? '').split(';').filter(Boolean).map((p) => p.split(',').map(Number));
   const notanOut = flag('--notan-out');
+  const skip = (flag('--skip') ?? '').split(',').filter(Boolean);
   const isStillImage = /\.(png|jpe?g)$/i.test(mp4 ?? '');
   const strict = args.includes('--strict');
   if (!mp4) {
@@ -264,12 +266,12 @@ async function main() {
   const misses = [];
   if (shots.length > 1) {
     for (const s of shots) {
-      const r = report(`shot ${s}`, summarize(frames.filter((f) => f.shot === s)));
+      const r = report(`shot ${s}`, summarize(frames.filter((f) => f.shot === s)), skip);
       out.push(r.text);
       misses.push(...r.misses.map((m) => `shot ${s} ${m}`));
     }
   }
-  const all = report('overall', summarize(frames));
+  const all = report('overall', summarize(frames), skip);
   out.push(all.text);
   misses.push(...all.misses.map((m) => `overall ${m}`));
   out.push(misses.length ? `MISSES: ${misses.join(', ')}` : 'all targets met');

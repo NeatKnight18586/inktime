@@ -1,0 +1,16 @@
+{
+  "rail_grip": {
+    "hand": "right",
+    "curl": { "thumb": 0.8, "index": 0.85, "middle": 0.9, "ring": 0.85, "pinky": 0.75 },
+    "spread": 0.35,
+    "thumbOppose": 0.7,
+    "wrist": [-18, 8, 6]
+  },
+  "padlock_hold": {
+    "hand": "right",
+    "curl": { "thumb": 0.45, "index": 0.5, "middle": 0.55, "ring": 0.6, "pinky": 0.65 },
+    "spread": 0.5,
+    "thumbOppose": 0.5,
+    "wrist": [-10, -6, 10]
+  }
+}

@@ -48,6 +48,39 @@ export async function makeCard(scene, spec, anchors, palette, { tint, seed = 'ca
   const geo = new THREE.PlaneGeometry(h * aspect, h);
   geo.translate(0, h / 2, 0);
   const mat = new THREE.MeshBasicMaterial({ map: open.tex, color: tint ?? 0xffffff, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, fog: true });
+  // Dark nest (spec.light "nest"): the card takes the nest's dark tint and only its lit features (cap brim, shoulder, scarf)
+  // catch light. The sidecar <pose>.nest.json lists them in card units; shadowBias shifts the lit/shadow terminator
+  // (+ = more of the card in shadow, as for materials), so -0.4 leaves only the features on the lit edge.
+  if (spec.light === 'nest') {
+    const nest = await (await fetch(`/cast/${spec.cast}/${spec.pose ?? 'idle'}.nest.json`)).json();
+    const rects = nest.lit.map((r) => new THREE.Vector4(...r));
+    while (rects.length < 3) rects.push(new THREE.Vector4(0, 0, 0, 0));
+    const u = nest.terminator + 0.3 * (nest.shadowBias + 0.4);
+    mat.onBeforeCompile = (shader) => {
+      shader.uniforms.uNestDark = { value: new THREE.Vector3(...nest.dark) };
+      shader.uniforms.uNestLit = { value: nest.litGain };
+      shader.uniforms.uNestTerm = { value: u };
+      shader.uniforms.uNestSize = { value: new THREE.Vector2(...nest.size) };
+      shader.uniforms.uNestRect = { value: rects };
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform vec3 uNestDark; uniform float uNestLit; uniform float uNestTerm; uniform vec2 uNestSize; uniform vec4 uNestRect[3];')
+        .replace(
+          '#include <map_fragment>',
+          `#include <map_fragment>
+{
+  vec2 cu = vec2( vMapUv.x * uNestSize.x, ( 1.0 - vMapUv.y ) * uNestSize.y );
+  float lit = 0.0;
+  for ( int i = 0; i < 3; i++ ) {
+    vec4 r = uNestRect[i];
+    float x0 = max( r.x, uNestTerm * uNestSize.x );
+    if ( cu.x >= x0 && cu.x <= r.y && cu.y >= r.z && cu.y <= r.w ) lit = 1.0;
+  }
+  diffuseColor.rgb *= lit > 0.5 ? vec3( uNestLit ) : uNestDark;
+}`
+        );
+    };
+    mat.customProgramCacheKey = () => 'inktime-card-nest';
+  }
   const card = new THREE.Mesh(geo, mat);
   const shadow = new THREE.Mesh(
     new THREE.CircleGeometry(0.5, 40),
