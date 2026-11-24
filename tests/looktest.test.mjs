@@ -183,13 +183,13 @@ function centre(o) {
 }
 
 // Fix 2.2: the eye sits at the rear of the basket, so the deck props are counted on the lean pose of the look-down shot (the eye eased
-// 0.6 m toward the front rim and 0.1 m down, pitch -38): the last frame of shot 1 of the walkthrough.
+// 0.6 m toward the front rim and 0.1 m down, pitch -38): frame 58 of shot 1 of the walkthrough, just before the ease-back.
 test('framing: cam_lookout rim, horizon and props (lean pose of the look-down shot)', () => {
   const { scene, anchors, ...kit } = buildScene();
   const cam = new THREE.PerspectiveCamera(90, 1080 / 1920, 0.05, 9000);
   scene.add(cam);
   const sc = makeShotCam({ spec, anchors, kit, camera: cam, fps: 24 });
-  const n = spec.shots[0].frames + spec.shots[1].frames - 1;
+  const n = spec.shots[0].frames + 58; // the last frame before the 12-frame ease-back
   update(n, { fps: 24, shot: shotAt(spec, n) });
   scene.updateMatrixWorld(true);
   const view = sc.pose(n);
@@ -477,7 +477,20 @@ test('masthead: a forward cone that never reaches the basket interior; basket va
   }
   assert.ok(spot.target.position.z < spot.position.z && spot.position.z > bp.z - 1.5, 'above and behind (aft of) the nest front, aimed forward');
   const ctl = (n) => scene.getObjectByName(n).material.userData.ink;
-  for (const n of ['basket_interior', 'rim_inner_face', 'basket_floor']) assert.equal(ctl(n).spotBlack, true, n);
+  // Fix 2.2: the interior is a hatched shadow (navy shadow tone, 45 deg ink lines, 3 px spacing) with 30-50% ink coverage; solid ink only in
+  // the floor corners and where the wall meets the floor.
+  for (const n of ['basket_interior', 'rim_inner_face', 'basket_floor']) {
+    assert.equal(ctl(n).spotBlack, 'hatch', n);
+    const [spacing, width, floorY, radius] = scene.getObjectByName(n).material.userData.inkUniforms.uHatch.value.toArray();
+    assert.equal(spacing, 3, `${n} hatch spacing`);
+    let ink = 0;
+    let total = 0;
+    for (let y = 0; y < 300; y++) for (let x = 0; x < 300; x++, total++) if ((((x + y) * Math.SQRT1_2) % spacing) < width) ink++;
+    const cover = ink / total;
+    assert.ok(cover >= 0.3 && cover <= 0.5, `${n} hatch coverage ${(cover * 100).toFixed(1)}%`);
+    if (n === 'basket_floor') assert.ok(Math.abs(radius - (SHIP.basketR - 0.2)) < 1e-9 && floorY < -1e8, 'floor: solid ink only in the corners');
+    else assert.ok(Math.abs(floorY - (SHIP.nestFloorY + 0.07)) < 1e-9 && radius > 1e8, `${n}: solid ink only at the wall-floor seam`);
+  }
   assert.ok(ctl('cap_rail').shadowBias < 0, 'cap rail top reaches the lit (cool fill) step');
 });
 

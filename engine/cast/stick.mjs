@@ -156,7 +156,8 @@ export function drawStick(ctx, W, H, params, st) {
     const len = Math.hypot(dx, dy);
     const ux = dx / len;
     const uy = dy / len;
-    const rpx = (D.bodyW / 2) * P;
+    // The capsule narrows with the body turn (floor 0.8), like the shoulders and hips (figure() turn factor): 0.88 D wide facing the camera.
+    const rpx = (D.bodyW / 2) * Math.max(0.8, turn) * P;
     const c0 = [A[0] + ux * rpx, A[1] + uy * rpx];
     const c1 = [B[0] - ux * rpx, B[1] - uy * rpx];
     const ang = Math.atan2(uy, ux);

@@ -54,11 +54,14 @@ export function povState(cam, m, ctx) {
     p.at = Math.max(0, (s.start - ctx.n0) / fps);
   }
   const r = fn(p, t);
-  if (!r.hook && ctx.rimDist !== undefined) {
+  // cam.lean: 0 turns the lean off for the shot (the eye stays at rest); cam.leanRelease: from that frame of the shot the lean target is 0
+  // whatever the pitch (the 12-frame ease-back at the end of the look-down).
+  if (!r.hook && ctx.rimDist !== undefined && cam.lean !== 0) {
     // Lean: a state that moves 1/12 per frame toward its target (1 when the raw pitch is below -20 deg or the preset is look-down),
     // starting from the target at frame 0 for shots that begin below -20 so cuts stay continuous. Replayed from frame 0: pure.
-    const target = (f) => (preset === 'lookdown' || rawPitch(fn, p, f / fps) < LEAN.pitch ? 1 : 0);
-    let L = rawPitch(fn, p, 0) < LEAN.pitch ? 1 : 0;
+    const release = cam.leanRelease ?? Infinity;
+    const target = (f) => (f >= release ? 0 : preset === 'lookdown' || rawPitch(fn, p, f / fps) < LEAN.pitch ? 1 : 0);
+    let L = release <= 0 ? 0 : rawPitch(fn, p, 0) < LEAN.pitch ? 1 : 0;
     for (let f = 1; f <= m; f++) L += Math.max(-1 / LEAN.frames, Math.min(1 / LEAN.frames, target(f) - L));
     const Ls = smooth(L);
     const amount = Math.min(LEAN.forward, Math.max(0, ctx.rimDist - LEAN.minRim)) * Ls;

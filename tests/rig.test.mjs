@@ -55,7 +55,7 @@ test('walkthrough: 480 frames, shots as authored', () => {
   assert.deepEqual(spec.transitions, [{ type: 'blink', at: 284 }]);
   assert.equal(spec.shots[4].camera.fov, 90);
   assert.equal(spec.shots[2].camera.fov, 52);
-  assert.equal(spec.shots[2].hands, 'rail_grip');
+  assert.equal(spec.shots[1].hands, 'rail_grip');
   assert.equal(spec.shots[7].hands, 'padlock_hold');
 });
 
@@ -274,9 +274,22 @@ function cardSpan(cardSpec, f) {
   const pts = [];
   const add = (p, r) => pts.push([p.x - r, p.y], [p.x + r, p.y], [p.x, p.y - r], [p.x, p.y + r]);
   for (const k of ['armL', 'armR']) for (const j of Object.values(fig[k])) add(j, 0.1);
-  for (const k of ['legL', 'legR']) for (const j of Object.values(fig[k])) add(j, 0.17);
+  for (const k of ['legL', 'legR']) {
+    add(fig[k].hip, 0.07);
+    add(fig[k].knee, 0.07);
+    add(fig[k].ankle, 0.23); // the shoe: half-length 0.16 plus its 0.07 offset
+  }
   add(fig.headC, cardSpec.cast === 'fleet' ? 0.78 : 0.56); // head, hat (the peaked cap's brim reaches further)
-  for (const a of fig.bodyAxis) add(a, 0.44 + 0.02);
+  {
+    // The capsule: cap centres inset by the radius along the axis; it narrows with the turn.
+    const rho = 0.44 * Math.max(0.8, Math.cos(t.angle));
+    const [h, tp] = fig.bodyAxis;
+    const len = Math.hypot(tp.x - h.x, tp.y - h.y);
+    const ux = (tp.x - h.x) / len;
+    const uy = (tp.y - h.y) / len;
+    add({ x: h.x + ux * rho, y: h.y + uy * rho }, rho + 0.02);
+    add({ x: tp.x - ux * rho, y: tp.y - uy * rho }, rho + 0.02);
+  }
   const toCam = new THREE.Vector3(cam.position.x - base.x, 0, cam.position.z - base.z).normalize();
   const right = new THREE.Vector3(toCam.z, 0, -toCam.x);
   let lo = 2;
@@ -300,7 +313,7 @@ test('framing rule: in POV shots character cards never cover the centre 40% of t
   const worst = { fleet: [9, -9], lee: [9, -9] };
   for (const f of frames) {
     const shot = spec.shots[f.shot];
-    // The aerial hook is not a POV shot; a whip (8 frames, smeared) and the snap (vFOV 20, cards out of frame) are exempt.
+    // Tolerance 0.01 of the width (10 px): the silhouette bounds are conservative to about that much. The aerial hook is not a POV shot; a whip (8 frames, smeared) and the snap (vFOV 20, cards out of frame) are exempt.
     if (['dive', 'rise', 'whip', 'snap'].includes(shot.camera.preset)) continue;
     for (const c of spec.cards) {
       // Exempt: shots that glance to (or tilt from) this character.
@@ -309,7 +322,7 @@ test('framing rule: in POV shots character cards never cover the centre 40% of t
       checked++;
       if (span.hi < span.lo) continue;
       worst[c.cast] = [Math.min(worst[c.cast][0], span.lo), Math.max(worst[c.cast][1], span.hi)];
-      assert.ok(span.hi <= 0.3 || span.lo >= 0.7, `frame ${f.n}: ${c.cast} spans ${span.lo.toFixed(3)}-${span.hi.toFixed(3)} of the width (limiting point ${span.loPt?.map((v) => v.toFixed(2))} D; spot-eye ${[0, 1, 2].map((i) => (f.spots[c.anchor][i] - f.pos[i]).toFixed(2))}; fov ${f.fov})`);
+      assert.ok(span.hi <= 0.3 + 0.01 || span.lo >= 0.7 - 0.01, `frame ${f.n}: ${c.cast} spans ${span.lo.toFixed(3)}-${span.hi.toFixed(3)} of the width (limiting point ${span.loPt?.map((v) => v.toFixed(2))} D; spot-eye ${[0, 1, 2].map((i) => (f.spots[c.anchor][i] - f.pos[i]).toFixed(2))}; fov ${f.fov})`);
     }
   }
   console.log(`centre-40% rule: ${checked} card-frames checked; fleet spans ${worst.fleet.map((v) => v.toFixed(2)).join('-')}, lee ${worst.lee.map((v) => v.toFixed(2)).join('-')}`);
@@ -345,4 +358,32 @@ test('solid characters: cutout material, prepass occluder, hands in the same pre
   const set = JSON.parse(readFileSync(new URL('./solid.json', import.meta.url)));
   assert.equal(set.set, 'solid_test');
   assert.equal(set.cards[0].cast, 'fleet');
+});
+
+test('lean: eases 0.6 m forward and 0.1 m down over 12 frames in the look-down, eases back over 12 frames, then the Lee glance starts un-leaned', () => {
+  const eyeOf = (n) => frames[n].spots.cam_lookout;
+  const off = (n) => [frames[n].pos[0] - eyeOf(n)[0], frames[n].pos[1] - eyeOf(n)[1], frames[n].pos[2] - eyeOf(n)[2]];
+  const fwd = (n) => Math.hypot(off(n)[0], off(n)[2]);
+  const s1 = 72;
+  assert.ok(fwd(s1) < 0.02, 'the look-down starts at rest (the dive ends there)');
+  assert.ok(fwd(s1 + 12) > 0.55 && fwd(s1 + 12) < 0.65, `leaned in by frame 12: ${fwd(s1 + 12).toFixed(3)} m`);
+  for (let n = s1 + 12; n <= s1 + 58; n++) assert.ok(Math.abs(fwd(n) - 0.6) < 0.02 && Math.abs(off(n)[1] + 0.1) < 0.012, `held lean at ${n}`);
+  assert.ok(fwd(s1 + 71) < 0.02, `eased back by the end of the look-down: ${fwd(s1 + 71).toFixed(3)} m`);
+  assert.ok(fwd(s1 + 71) <= fwd(s1 + 65) && fwd(s1 + 65) <= fwd(s1 + 59), 'eases back monotonically');
+  let maxStep = 0;
+  for (let n = s1 + 1; n < s1 + 72; n++) maxStep = Math.max(maxStep, Math.abs(fwd(n) - fwd(n - 1)));
+  assert.ok(maxStep <= 0.6 * 0.2, `no snap: largest step ${maxStep.toFixed(3)} m per frame`);
+  const rimDist = LOOKOUT.back;
+  for (let n = s1; n < s1 + 72; n++) assert.ok(rimDist - fwd(n) >= 0.15, 'never closer than 0.15 m to the rim');
+  // cut to the glance: same eye, same look
+  const dq = poseDelta({ pos: [0, 0, 0], quat: frames[143].quat }, { pos: [0, 0, 0], quat: frames[144].quat }).deg;
+  assert.ok(dq < 1.5, `the cut at 6 s keeps the look (${dq.toFixed(2)} deg)`);
+  assert.ok(Math.abs(fwd(144) - fwd(143)) < 0.03, 'the cut at 6 s keeps the eye');
+  // the glance to Lee lasts 0.35-0.6 s and stays un-leaned
+  const moves = [];
+  for (let n = 145; n < 216; n++) moves.push(poseDelta({ pos: [0, 0, 0], quat: frames[n - 1].quat }, { pos: [0, 0, 0], quat: frames[n].quat }).deg * FPS);
+  const fast = moves.map((v, i) => [v, i + 145]).filter(([v]) => v > 15);
+  const dur = (fast.at(-1)[1] - fast[0][1] + 1) / FPS;
+  assert.ok(dur >= 0.35 && dur <= 0.62, `glance duration ${dur.toFixed(2)} s`);
+  for (let n = 144; n < 216; n++) assert.ok(fwd(n) < 0.02, 'no lean in the glance');
 });

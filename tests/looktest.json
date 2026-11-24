@@ -22,9 +22,11 @@
         "preset": "lookdown",
         "from": "base",
         "to": {
-          "yaw": 0,
+          "yaw": -10,
           "pitch": -38
         },
+        "dur": 2.5,
+        "leanRelease": 59,
         "held": false
       },
       "hands": "rail_grip"
@@ -35,19 +37,19 @@
         "anchor": "cam_lookout",
         "preset": "glance",
         "from": {
-          "yaw": 0,
+          "yaw": -10,
           "pitch": -38
         },
         "to": {
           "anchor": "lee_spot",
-          "lift": 1.3
+          "lift": 1.1
         },
         "fov": 52,
         "soundFrame": 144,
         "delayFrames": 8,
+        "lean": 0,
         "held": false
-      },
-      "hands": "rail_grip"
+      }
     },
     {
       "frames": 72,
@@ -56,11 +58,12 @@
         "preset": "lookup",
         "from": {
           "anchor": "lee_spot",
-          "lift": 1.3
+          "lift": 1.1
         },
         "to": "forestay_top",
         "fov0": 52,
         "fov": 52,
+        "lean": 0,
         "held": false
       }
     },
