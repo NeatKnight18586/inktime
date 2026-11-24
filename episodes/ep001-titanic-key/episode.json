@@ -112,7 +112,7 @@
    20
   ],
   [
-   "L10:0",
+   "L9:7+22f",
    0
   ],
   [
@@ -503,7 +503,7 @@
   },
   {
    "id": "S9",
-   "start": "L10:0",
+   "start": "L9:7+22f",
    "preset": "lookup",
    "fov": 84,
    "params": {
@@ -521,13 +521,13 @@
    ],
    "hands": [
     [
-     "L10:0",
+     "L9:7+22f",
      "rail_grip"
     ]
    ],
    "guide": [
     [
-     "L10:0",
+     "L9:7+22f",
      "cam_right",
      "panic"
     ]
@@ -535,18 +535,18 @@
    "poses": {
     "fleet": [
      [
-      "L10:0",
+      "L9:7+22f",
       "bell_ring"
      ],
      [
-      "L10:1",
+      "L9:7+38f",
       "phone_shout"
      ]
     ]
    },
    "sfxWords": [
     [
-     "L10:0",
+     "L9:7+22f",
      "DING-DING-DING",
      "bell",
      {
@@ -557,11 +557,11 @@
    ],
    "sfx": [
     [
-     "L10:0",
+     "L9:7+22f",
      "bell3"
     ],
     [
-     "L10:1",
+     "L9:7+38f",
      "phone_crank"
     ]
    ],
@@ -569,7 +569,7 @@
   },
   {
    "id": "S9b",
-   "start": "L10:0+16f",
+   "start": "L9:7+38f",
    "preset": "snap",
    "params": {
     "to": "iceberg_dark",
@@ -581,14 +581,14 @@
    ],
    "hands": [
     [
-     "L10:0+16f",
+     "L9:7+38f",
      "rail_grip"
     ]
    ],
    "poses": {
     "fleet": [
      [
-      "L10:0+16f",
+      "L9:7+38f",
       "idle"
      ]
     ]
@@ -597,7 +597,7 @@
   },
   {
    "id": "S10",
-   "start": "L11:0",
+   "start": "L11:2-7f",
    "preset": "held",
    "fov": 90,
    "params": {
@@ -605,13 +605,13 @@
    },
    "hands": [
     [
-     "L11:0",
+     "L11:2-7f",
      "padlock_hold"
     ]
    ],
    "guide": [
     [
-     "L11:0",
+     "L11:2-7f",
      "cam_left",
      "facepalm"
     ],
