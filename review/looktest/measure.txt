@@ -32,7 +32,7 @@ shot 3 (72 frames)
   p5              18   target <=25      ok
   p95            203   target >=170     ok
   sat          0.435   target 0.22-0.50 ok
-  motion      13.19%   target 1.5-6%    WARN
+  motion      13.21%   target 1.5-6%    WARN
   still         0.0%   target <=10%     ok
   stillRun         0   target <=19      ok
 shot 4 (72 frames)
@@ -50,7 +50,7 @@ shot 5 (8 frames)
   p5              24   target <=25      ok
   p95            173   target >=170     ok
   sat          0.475   target 0.22-0.50 ok
-  motion      10.71%   target 1.5-6%    WARN
+  motion      10.73%   target 1.5-6%    WARN
   still         0.0%   target <=10%     ok
   stillRun         0   target <=19      ok
 shot 6 (snap insert) (16 frames)
@@ -77,7 +77,7 @@ shot 8 (dive/rise: reported, not judged) (24 frames)
   p5              24   target <=25      ok
   p95            138   target >=170     n/a (hook)
   sat          0.423   target 0.22-0.50 ok
-  motion      28.79%   target 1.5-6%    n/a (hook)
+  motion      28.81%   target 1.5-6%    n/a (hook)
   still         0.0%   target <=10%     ok
   stillRun         0   target <=19      ok
 overall (dive/rise shots excluded from luma, dark40, p95, motion; snap inserts from p5, dark40) (384 frames)

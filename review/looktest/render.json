@@ -1,11 +1,11 @@
 {
   "status": "done",
-  "commit": "2a83bd4ec0829bbb67bac70236fb5ab1062005fd",
-  "run_url": "https://github.com/NeatKnight18586/inktime/actions/runs/45394641787",
+  "commit": "0365669b7c3b73ad1d1ec94d8de8bef3b111fdf1",
+  "run_url": "https://github.com/NeatKnight18586/inktime/actions/runs/45396010648",
   "mp4_url": "https://github.com/NeatKnight18586/inktime/raw/renders/renders/looktest/looktest.mp4",
   "contact_url": "https://github.com/NeatKnight18586/inktime/raw/renders/renders/looktest/contact.jpg",
   "measure_url": "https://github.com/NeatKnight18586/inktime/raw/renders/renders/looktest/measure.txt",
-  "seconds_per_frame": 1.72,
-  "machine_minutes": 15.8,
-  "slowest_shard_minutes": 2.8
+  "seconds_per_frame": 1.86,
+  "machine_minutes": 16.7,
+  "slowest_shard_minutes": 2.9
 }
