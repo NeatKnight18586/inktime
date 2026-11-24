@@ -1,0 +1,206 @@
+name: render
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Scene or episode path
+        default: tests/looktest.json
+        required: true
+      shards:
+        description: Number of render shards
+        default: '8'
+      full:
+        description: Full render (false = preview)
+        type: boolean
+        default: true
+  push:
+    branches: ['**']
+    paths:
+      - 'engine/**'
+      - 'kits/**'
+      - 'cast/**'
+      - 'episodes/**'
+      - 'tests/looktest.json'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: render-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TARGET: ${{ inputs.target || 'tests/looktest.json' }}
+  SHARDS: ${{ inputs.shards || '8' }}
+
+jobs:
+  plan:
+    if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    outputs:
+      name: ${{ steps.plan.outputs.name }}
+      scene: ${{ steps.plan.outputs.scene }}
+      frames: ${{ steps.plan.outputs.frames }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: plan
+        run: node tools/plan.mjs "$TARGET" "$SHARDS"
+
+  render:
+    needs: plan
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - run: echo "JOB_T0=$(date +%s)" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npx playwright install --with-deps chromium
+      - name: ffmpeg
+        run: command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+      - name: Render frames ${{ matrix.start }}-${{ matrix.end }}
+        run: |
+          T0=$(date +%s)
+          node tools/render-frames.mjs --scene "${{ needs.plan.outputs.scene }}" --start ${{ matrix.start }} --end ${{ matrix.end }} --out frames
+          echo "RENDER_S=$(( $(date +%s) - T0 ))" >> "$GITHUB_ENV"
+      - name: Encode segment
+        run: |
+          mkdir -p seg
+          ffmpeg -hide_banner -loglevel error -y -framerate 24 -start_number ${{ matrix.start }} -i frames/%05d.png \
+            -c:v libx264 -preset veryfast -crf 14 -pix_fmt yuv420p seg/seg-${{ matrix.index }}.mp4
+          cat > seg/seg-${{ matrix.index }}.json <<JSON
+          {"index":${{ matrix.index }},"start":${{ matrix.start }},"end":${{ matrix.end }},"render_seconds":$RENDER_S,"job_seconds":$(( $(date +%s) - JOB_T0 ))}
+          JSON
+      - uses: actions/upload-artifact@v4
+        with:
+          name: seg-${{ matrix.index }}
+          path: seg/
+          retention-days: 7
+
+  assemble:
+    needs: [plan, render]
+    runs-on: ubuntu-latest
+    env:
+      NAME: ${{ needs.plan.outputs.name }}
+      FRAMES: ${{ needs.plan.outputs.frames }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - run: echo "JOB_T0=$(date +%s)" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - name: ffmpeg
+        run: command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: seg-*
+          path: segs
+          merge-multiple: true
+      - name: Concat and encode
+        run: |
+          mkdir -p out
+          : > list.txt
+          for f in $(ls segs/seg-*.mp4 | sed -E 's/.*seg-([0-9]+)\.mp4/\1/' | sort -n); do echo "file '$PWD/segs/seg-$f.mp4'" >> list.txt; done
+          ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i list.txt \
+            -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -movflags +faststart "out/$NAME.mp4"
+      - name: Contact sheet
+        run: |
+          mkdir -p "review/$NAME"
+          SEL=$(node -e 'const n=+process.argv[1];console.log(Array.from({length:8},(_,i)=>`eq(n,${Math.round(i*(n-1)/7)})`).join("+"))' "$FRAMES")
+          ffmpeg -hide_banner -loglevel error -y -i "out/$NAME.mp4" -vf "select='$SEL',scale=270:480,tile=4x2" -frames:v 1 -fps_mode vfr -q:v 3 "review/$NAME/contact.jpg"
+      - name: Publish pre-release
+        run: |
+          TAG="preview-$NAME-${{ github.run_number }}"
+          gh release create "$TAG" "out/$NAME.mp4" --prerelease --target "$GITHUB_SHA" \
+            --title "$NAME preview #${{ github.run_number }}" --notes "Render of ${GITHUB_SHA::7} ($NAME, $FRAMES frames)."
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "RELEASE_URL=$(gh release view "$TAG" --json url --jq .url)" >> "$GITHUB_ENV"
+      - name: Status and summary
+        run: |
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          STARTED=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at)
+          WALL=$(( $(date +%s) - $(date -d "$STARTED" +%s) ))
+          node -e '
+            const fs = require("fs");
+            const segs = fs.readdirSync("segs").filter((f) => f.endsWith(".json")).map((f) => JSON.parse(fs.readFileSync("segs/" + f)));
+            const frames = +process.env.FRAMES;
+            const renderS = segs.reduce((s, x) => s + x.render_seconds, 0);
+            const jobS = segs.reduce((s, x) => s + x.job_seconds, 0) + (Date.now() / 1000 - +process.env.JOB_T0);
+            const r = {
+              status: "done",
+              commit: process.env.GITHUB_SHA,
+              run_url: process.argv[1],
+              release_url: process.env.RELEASE_URL,
+              mp4_url: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/releases/download/${process.env.TAG}/${process.env.NAME}.mp4`,
+              seconds_per_frame: +(renderS / frames).toFixed(2),
+              machine_minutes: +(jobS / 60).toFixed(1),
+            };
+            fs.writeFileSync(`review/${process.env.NAME}/render.json`, JSON.stringify(r, null, 2) + "\n");
+            const wall = +process.argv[2];
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+              `### ${process.env.NAME}\n\n| wall time | machine-minutes | avg s/frame |\n|---|---|---|\n| ${(wall / 60).toFixed(1)} min | ${r.machine_minutes} | ${r.seconds_per_frame} |\n\n[MP4](${r.mp4_url}) · [release](${r.release_url})\n`);
+          ' "$RUN_URL" "$WALL"
+      - name: Commit review
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "review/$NAME/contact.jpg"
+          git commit -m "review: $NAME [skip ci]"
+          git add "review/$NAME/render.json"
+          git commit -m "review: $NAME render.json [skip ci]"
+          for i in 1 2 3 4; do
+            git pull --rebase -q origin "${{ github.ref_name }}" && git push -q origin "HEAD:${{ github.ref_name }}" && exit 0
+            sleep $(( i * 5 ))
+          done
+          exit 1
+
+  status-failed:
+    needs: [plan, render, assemble]
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      NAME: ${{ needs.plan.outputs.name || 'looktest' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - name: Write failed status
+        run: |
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" > jobs.json
+          mkdir -p "review/$NAME"
+          node -e '
+            const fs = require("fs");
+            const jobs = JSON.parse(fs.readFileSync("jobs.json")).jobs;
+            const j = jobs.find((x) => x.conclusion === "failure") ?? {};
+            const s = (j.steps ?? []).find((x) => x.conclusion === "failure") ?? {};
+            const r = { status: "failed", commit: process.env.GITHUB_SHA, job: j.name ?? "unknown", step: s.name ?? "unknown", run_url: process.argv[1] };
+            fs.writeFileSync(`review/${process.env.NAME}/render.json`, JSON.stringify(r, null, 2) + "\n");
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### ${process.env.NAME} failed\n\njob **${r.job}**, step **${r.step}**\n`);
+          ' "$RUN_URL"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "review/$NAME/render.json"
+          git commit -m "review: $NAME failed [skip ci]"
+          for i in 1 2 3 4; do
+            git pull --rebase -q origin "${{ github.ref_name }}" && git push -q origin "HEAD:${{ github.ref_name }}" && exit 0
+            sleep $(( i * 5 ))
+          done
+          exit 1

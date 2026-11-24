@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="1000" viewBox="0 0 400 1000">
+  <!-- Fleet, idle. STYLE: round white head, dot eyes, one-line mouth, bean torso, 7 px stick limbs, 5 px ink outline. Identity: peaked cap + amber scarf. -->
+  <g fill="none" stroke="#141414" stroke-linecap="round" stroke-linejoin="round">
+    <!-- legs -->
+    <path d="M176 680 L166 840 L160 985" stroke-width="7"/>
+    <path d="M224 680 L236 840 L244 985" stroke-width="7"/>
+    <path d="M140 985 L172 985" stroke-width="7"/>
+    <path d="M232 985 L266 985" stroke-width="7"/>
+    <!-- arms -->
+    <path d="M140 390 L104 520 L118 640" stroke-width="7"/>
+    <path d="M260 390 L298 515 L286 636" stroke-width="7"/>
+  </g>
+  <!-- bean torso (steel coat) -->
+  <path d="M200 330 C268 330 286 392 280 486 C274 590 262 700 200 702 C136 702 124 600 120 492 C116 396 134 330 200 330 Z"
+        fill="#4A5A6A" stroke="#141414" stroke-width="5" stroke-linejoin="round"/>
+  <!-- coat buttons -->
+  <circle cx="200" cy="470" r="6" fill="#141414"/>
+  <circle cx="200" cy="540" r="6" fill="#141414"/>
+  <circle cx="200" cy="610" r="6" fill="#141414"/>
+  <!-- amber scarf -->
+  <path d="M138 318 C170 344 232 344 262 318 L270 352 C236 378 166 378 130 352 Z"
+        fill="#E8A64B" stroke="#141414" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M226 360 L246 470 L214 476 L204 368 Z" fill="#E8A64B" stroke="#141414" stroke-width="5" stroke-linejoin="round"/>
+  <!-- head -->
+  <circle cx="200" cy="215" r="108" fill="#FFFFFF" stroke="#141414" stroke-width="5"/>
+  <!-- peaked cap -->
+  <path d="M104 178 C108 98 292 98 296 178 Z" fill="#1B2A41" stroke="#141414" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M96 180 L304 180" stroke="#141414" stroke-width="5" stroke-linecap="round"/>
+  <path d="M232 182 C262 188 292 196 320 214 C288 220 254 206 226 192 Z" fill="#1B2A41" stroke="#141414" stroke-width="5" stroke-linejoin="round"/>
+  <!-- face -->
+  <circle cx="168" cy="232" r="9" fill="#141414"/>
+  <circle cx="232" cy="232" r="9" fill="#141414"/>
+  <path d="M178 278 L222 278" stroke="#141414" stroke-width="5" stroke-linecap="round"/>
+</svg>

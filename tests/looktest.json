@@ -1,0 +1,10 @@
+{
+  "name": "looktest",
+  "fps": 24,
+  "frames": 240,
+  "seed": "looktest",
+  "look": "titanic_night",
+  "set": "titanic_crowsnest",
+  "camera": { "anchor": "cam_lookout", "fov": 72, "pitch": -8, "yawDrift": 3, "yawDriftSeconds": 10, "breathing": true },
+  "cards": [{ "cast": "fleet", "pose": "idle", "anchor": "fleet_spot" }]
+}
