@@ -1,9 +1,7 @@
 {
-  "status": "done",
-  "commit": "16cd7ae1e87795413062c91b3d5f19bb63fd52ed",
-  "run_url": "https://github.com/NeatKnight18586/inktime/actions/runs/45344829626",
-  "release_url": "https://github.com/NeatKnight18586/inktime/releases/tag/preview-looktest-2",
-  "mp4_url": "https://github.com/NeatKnight18586/inktime/releases/download/preview-looktest-2/looktest.mp4",
-  "seconds_per_frame": 0.73,
-  "machine_minutes": 93.5
+  "status": "failed",
+  "commit": "f912b4592506cff258cbf5c11d330bcdf8446331",
+  "job": "assemble",
+  "step": "Publish pre-release",
+  "run_url": "https://github.com/NeatKnight18586/inktime/actions/runs/45352624056"
 }
