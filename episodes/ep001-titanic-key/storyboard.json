@@ -314,9 +314,9 @@
     },
     {
      "name": "moth",
-     "x": 0.5,
-     "y": 0.5,
-     "size": 0.08,
+     "x": 0.4,
+     "y": 0.36,
+     "size": 0.1,
      "rot": -15
     }
    ],
@@ -506,7 +506,7 @@
    },
    "hands": "rail_grip",
    "jump": {
-    "at": -8,
+    "at": -6,
     "stamp": "SOUTHAMPTON · APRIL 1912",
     "dest": "dock"
    },
@@ -676,7 +676,7 @@
      "word": "DING-DING-DING",
      "at": -6,
      "anchor": "cam_top",
-     "size": 0.1
+     "size": 0.07
     }
    ]
   },
@@ -737,8 +737,8 @@
      "word": "SOLD",
      "at": -4,
      "anchor": "gavel",
-     "size": 0.3,
-     "lift": 0.35
+     "size": 0.4,
+     "lift": 0.45
     }
    ]
   },

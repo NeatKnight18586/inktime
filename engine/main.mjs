@@ -230,19 +230,16 @@ async function handTest() {
   const poses = await (await fetch('/cast/hands/poses.json')).json();
   const hands = await makeHands(camera, new THREE.Color(1, 1, 1), palette, poses);
   const ids = { skin: new THREE.MeshBasicMaterial({ color: 0xff0000 }), cuff: new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide }), phone: new THREE.MeshBasicMaterial({ color: 0x0000ff }) };
+  // The ID materials go on only for the test render (apply() sets the toon uniforms on the real materials).
+  const swaps = [];
   hands.holder.traverse((o) => {
-    if (o.userData.isHull) o.visible = false;
-    else if (o.isSkinnedMesh) o.material = ids.skin;
-    else if (o.isMesh) {
-      let p = o;
-      let kind = 'phone';
-      while (p) {
-        if (p.name === 'cuff') kind = 'cuff';
-        p = p.parent;
-      }
-      o.material = ids[kind];
-    }
+    if (!o.isMesh || o.userData.isHull) return;
+    let kind = o.isSkinnedMesh ? 'skin' : 'phone';
+    for (let p = o; p; p = p.parent) if (p.name === 'cuff') kind = 'cuff';
+    swaps.push([o, o.material, ids[kind]]);
   });
+  const hulls = [];
+  hands.holder.traverse((o) => o.userData.isHull && hulls.push(o));
   const w = W / 4;
   const h = H / 4;
   const rt = new THREE.WebGLRenderTarget(w, h);
@@ -251,11 +248,15 @@ async function handTest() {
   for (const name of Object.keys(poses)) {
     hands.apply({ name }, 0, 24, 1, name);
     camera.updateMatrixWorld(true);
+    for (const [o, , id] of swaps) o.material = id;
+    for (const o of hulls) o.visible = false;
     renderer.setRenderTarget(rt);
     renderer.setClearColor(0x000000, 1);
     renderer.clear();
     renderer.render(scene, camera);
     renderer.readRenderTargetPixels(rt, 0, 0, w, h, px);
+    for (const [o, real] of swaps) o.material = real;
+    for (const o of hulls) o.visible = true;
     let skin = 0;
     let cuff = 0;
     for (let i = 0; i < px.length; i += 4) {

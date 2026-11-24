@@ -1159,7 +1159,7 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   anchors.padlock = cr.padlock;
   // Inserts on the crate: the padlock close-up (the 6 cm lock fills about 30% of the width at vFOV 52) and the lid from above.
   cameraAnchor(cr.group, anchors, 'cam_padlock', new THREE.Vector3(0, 0.3, 0.535), { yaw: 0, pitch: -6, fov: 52 });
-  cameraAnchor(cr.group, anchors, 'cam_crate', new THREE.Vector3(0, 1.2, 0.78), { yaw: 0, pitch: -48, fov: 52 });
+  cameraAnchor(cr.group, anchors, 'cam_crate', new THREE.Vector3(0, 1.35, 1.0), { yaw: 0, pitch: -42, fov: 52 });
 
   // Story props: tin mug on the rim, scarf on a hook, folded oilskin on the floor.
   const ma = -14 * DEG;

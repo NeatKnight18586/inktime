@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { buildDiorama, anchor } from '../../engine/kits/diorama.mjs';
 
 export const ANCHORS = ['cam_dock', 'cam_officer_close', 'officer_spot', 'officer_pocket', 'guide_spot', 'gangway', 'hull'];
-export const DOCK = { eye: [-0.1, 1.5, -3.5], officer: [-0.6, 0, -9.6], fov: 52 };
+export const DOCK = { eye: [-0.1, 1.5, -5.2], officer: [-0.6, 0, -9.6], fov: 52 };
 
 export function build(scene, rng) {
   const pal = scene.userData.palette;

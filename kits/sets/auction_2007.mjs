@@ -6,7 +6,7 @@ import { buildDiorama, anchor } from '../../engine/kits/diorama.mjs';
 import { brassKey, gavel, letteredCard } from '../props/props.mjs';
 
 export const ANCHORS = ['cam_auction', 'cam_key', 'auctioneer_spot', 'key', 'gavel', 'price_card', 'guide_spot', 'podium'];
-export const ROOM = { eye: [0, 1.25, 2.4], fov: 52, auctioneer: [-0.9, 0, -6.0], stand: [1.0, 0, -4.0] };
+export const ROOM = { eye: [0.1, 1.25, 0.4], fov: 52, auctioneer: [-0.9, 0, -6.0], stand: [1.0, 0, -4.0] };
 
 export function build(scene, rng) {
   const pal = scene.userData.palette;
@@ -99,22 +99,22 @@ export function build(scene, rng) {
   gv.group.rotation.z = -1.25;
   gv.block.position.set(ROOM.auctioneer[0] + 0.35, 1.13, -5.45);
   const price = letteredCard(pal, '£90,000', { w: 0.62, h: 0.36 });
-  price.group.position.set(1.95, 0.75, -4.9);
+  price.group.position.set(1.45, 0.75, -4.9);
   price.group.rotation.y = -0.25;
   const easel = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.8, 0.04), pal.toon('wood', { paint: 'wood' }));
-  easel.position.set(1.95, 0.4, -4.95);
+  easel.position.set(1.45, 0.4, -4.95);
   group.add(key.group, gv.group, gv.block, price.group, easel);
   const L = pal.json.light;
   const lamp = new THREE.DirectionalLight(pal.color(L.key), 2.0);
   lamp.position.set(...pal.json.cast.keyDir.map((v) => v * 20));
   scene.add(lamp, lamp.target);
   scene.add(new THREE.HemisphereLight(pal.color('lamp'), pal.color(L.fill), L.fillIntensity));
-  anchor(group, anchors, 'cam_auction', ROOM.eye, { yaw: 0, pitch: -1, fov: ROOM.fov });
+  anchor(group, anchors, 'cam_auction', ROOM.eye, { yaw: 5, pitch: -1, fov: ROOM.fov });
   anchor(group, anchors, 'cam_key', [ROOM.stand[0] + 0.03, 1.27, ROOM.stand[2] + 0.38], { yaw: 0, pitch: -30, fov: 52 });
   anchor(group, anchors, 'auctioneer_spot', ROOM.auctioneer);
   anchor(group, anchors, 'key', [ROOM.stand[0] + 0.03, 1.03, ROOM.stand[2] + 0.02]);
   anchor(group, anchors, 'gavel', [ROOM.auctioneer[0] + 0.35, 1.25, -5.45]);
-  anchor(group, anchors, 'price_card', [1.95, 0.93, -4.9]);
+  anchor(group, anchors, 'price_card', [1.45, 0.93, -4.9]);
   anchor(group, anchors, 'podium', [ROOM.auctioneer[0], 1.1, -5.6]);
   anchor(group, anchors, 'guide_spot', [-2.2, 1.6, -3]);
   return { anchors, keyLight: lamp, update() {}, prepass: d.prepass, ready: Promise.all([d.ready, key.ready, price.ready]) };
