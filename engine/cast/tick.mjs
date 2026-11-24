@@ -543,12 +543,23 @@ export async function makeTick(scene, spec, anchors, palette, { tint, seed = 'ti
     },
     // e = the baked plan entry { anchor, pose, name, start, ring, blink } (tools/bake.mjs).
     update(n, camera, e) {
-      const at = anchors[e.anchor] ?? anchor;
-      at.updateWorldMatrix(true, false);
-      at.getWorldPosition(base).add(offset);
       const { pose: p0, name, start } = e;
-      const drift = poses[name]?.drift;
-      if (drift) base.addScaledVector(new THREE.Vector3(...drift), Math.max(0, n - start) / 24);
+      // A camera slot (engine/rig/slots.mjs) arrives baked as e.pos (drift included) and draws over the set like a viewmodel.
+      const slot = !!e.pos;
+      if (slot) base.fromArray(e.pos);
+      else {
+        const at = anchors[e.anchor] ?? anchor;
+        at.updateWorldMatrix(true, false);
+        at.getWorldPosition(base).add(offset);
+        const drift = poses[name]?.drift;
+        if (drift) base.addScaledVector(new THREE.Vector3(...drift), Math.max(0, n - start) / 24);
+      }
+      if (mat.depthTest === slot) {
+        mat.depthTest = prepassMat.depthTest = !slot;
+        mat.needsUpdate = prepassMat.needsUpdate = true;
+      }
+      card.renderOrder = slot ? 10 : 0;
+      if (decal) decal.visible = !slot;
       base.y += bobAt(n);
       group.position.copy(base);
       const bb = billboardAngles(base, camera.position, 0);

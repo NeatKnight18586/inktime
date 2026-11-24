@@ -22,6 +22,8 @@ import { splitCards } from './captions.mjs';
 import { cardSpan, tickView, faceDisc, sfxBox, makeCam, W, H } from './framing.mjs';
 import { loadEpisode, compile, readJson } from './timeline.mjs';
 import { rng, hashSeed } from './rng.mjs';
+import { isSlot, slotPoint, slotOutward, tickSlotDistance, sfxSlotDistance } from '../engine/rig/slots.mjs';
+import { lightFx, LIGHT_STATES } from '../engine/look/lightstate.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const rootPath = (...p) => join(ROOT, ...p);
@@ -82,6 +84,23 @@ export async function bakeSpec(spec, { words = [], range = null } = {}) {
   });
   const capCards = words.length ? splitCards(words) : [];
   const plan = new Array(frames).fill(null);
+  // Light-state runs: consecutive shots sharing a light state (engine/look/lightstate.mjs) form one run [start, start + len).
+  const runs = [];
+  {
+    const sh = spec.shots ?? [];
+    const lightOf = (i) => sh[i].light ?? spec.light ?? 'night';
+    let at = 0;
+    sh.forEach((x, i) => {
+      const light = lightOf(i);
+      if (i && lightOf(i - 1) === light) runs.push(runs[i - 1]);
+      else runs.push({ light, start: at, len: 0 });
+      runs[i].len += x.frames;
+      at += x.frames;
+    });
+  }
+  const berg = ['iceberg_dark', 'iceberg_rim'].map((k) => anchors[k]).filter(Boolean);
+  const frustum = new THREE.Frustum();
+  const box = new THREE.Box3();
   const heldPos = (cam) => {
     const p = heldObjectCamera(-HELD.tilt);
     return new THREE.Vector3(0.05, p[1], p[2]).applyMatrix4(cam.matrixWorld);
@@ -95,6 +114,14 @@ export async function bakeSpec(spec, { words = [], range = null } = {}) {
     kit.update?.(n, { fps, shot });
     scene.updateMatrixWorld(true);
     const view = shotCam.pose(n);
+    // Light state: crest light, berg scale and the world yaw (applied to the camera, so the berg slides right).
+    const run = spec.shots ? runs[shot.index] : null;
+    const fx = run && LIGHT_STATES[run.light] ? lightFx(run.light, n - run.start, run.len) : null;
+    for (const o of berg) o.scale.setScalar(fx?.bergScale ?? 1);
+    if (fx?.yaw) {
+      camera.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), fx.yaw / DEG));
+      camera.updateMatrixWorld(true);
+    }
     const tr = transitionAt(spec.transitions, n);
     if (tr?.type === 'match' && anchors[tr.anchor]) {
       const q = world(tr.anchor).project(camera);
@@ -131,6 +158,7 @@ export async function bakeSpec(spec, { words = [], range = null } = {}) {
       show: shot.show ?? [],
       hands: null,
       held: shot.camera?.object ?? null,
+      fx: fx ? { glow: fx.glow, bergScale: fx.bergScale, yaw: fx.yaw } : null,
     };
     // Hands (blend names, so the engine only mixes two poses).
     const hp = handsPlan(n, (f) => handsAt(spec, f));
@@ -139,17 +167,27 @@ export async function bakeSpec(spec, { words = [], range = null } = {}) {
     const isPov = !NOT_POV.has(preset) && preset !== 'whip' && preset !== 'snap';
     const g = { pov: !NOT_POV.has(preset), spans: [], exempt: [], faces: [], sfx: [] };
     entry.cards = cards.map(({ c, isGuide, track, poses, blinks }, i) => {
-      const spot = world(isGuide ? tickAnchorAt(c, n) : c.anchor).toArray();
+      const an = isGuide ? tickAnchorAt(c, n) : c.anchor;
+      const slot = isGuide && isSlot(an);
+      const spot = slot ? null : world(an).toArray();
       const aimed = [shot.camera?.to, shot.camera?.from].some((x) => (typeof x === 'string' ? x : x?.anchor) === c.anchor);
       g.exempt.push(!isPov || aimed);
       if (isGuide) {
         const t = tickPoseAt(poses, track, ne);
-        const base = new THREE.Vector3(...spot).add(new THREE.Vector3(...(c.offset ?? [0, 0, 0])));
+        let pos = null;
+        if (slot) {
+          // Camera slot: the point in front of the camera; a drift pose walks outward, away from the centre.
+          const p = slotPoint(an, camera, tickSlotDistance(camera.fov));
+          const drift = poses[t.name]?.drift;
+          if (drift) p.addScaledVector(slotOutward(an, camera), Math.hypot(...drift) * (Math.max(0, n - t.start) / fps));
+          pos = p.toArray();
+        }
+        const base = slot ? new THREE.Vector3(...pos) : new THREE.Vector3(...spot).add(new THREE.Vector3(...(c.offset ?? [0, 0, 0])));
         base.y += bobAt(n);
         const v = tickView(t.pose, base, cam);
         g.spans.push(v.hi >= v.lo ? [v.lo, v.hi] : null);
         g.tick = { visible: v.visible };
-        return { anchor: tickAnchorAt(c, n), pose: t.pose, name: t.name, start: t.start, ring: countdownAt(spec.countdown ?? null, ne), blink: blinks.has(ne) };
+        return { anchor: an, ...(pos ? { pos } : {}), pose: t.pose, name: t.name, start: t.start, ring: countdownAt(spec.countdown ?? null, ne), blink: blinks.has(ne) };
       }
       const { pose: p0 } = poseAt(poses, track, ne);
       const sp = cardSpan(c, p0, spot, cam);
@@ -164,7 +202,7 @@ export async function bakeSpec(spec, { words = [], range = null } = {}) {
       const s = sfxState(ev, n);
       if (!s) return;
       const held = shot.camera?.object === ev.anchor && HELD_ANCHORS.has(ev.anchor);
-      const pos = (held ? heldPos(camera) : world(ev.anchor)).toArray();
+      const pos = (held ? heldPos(camera) : isSlot(ev.anchor) ? slotPoint(ev.anchor, camera, sfxSlotDistance(camera.fov)) : world(ev.anchor)).toArray();
       pos[1] += ev.lift ?? 0;
       const size = ev.size ?? SFX_SIZE;
       entry.sfx.push({ i, word: ev.word, variant, anchor: ev.anchor, scale: s.scale, opacity: s.fade, size, lift: ev.lift ?? 0, tilt, held, pos });
@@ -172,8 +210,14 @@ export async function bakeSpec(spec, { words = [], range = null } = {}) {
     });
     // Plant anchor in the frustum (frames named by the episode).
     if (spec.plant && n >= spec.plant.frames[0] && n <= spec.plant.frames[1]) {
-      const q = world(spec.plant.anchor).project(camera);
-      g.plant = q.z > -1 && q.z < 1 && Math.abs(q.x) <= 1 && Math.abs(q.y) <= 1;
+      // Any part of the anchor object's world bounding box inside the frustum (an empty object: its point).
+      const an = anchors[spec.plant.anchor];
+      if (!an) throw new Error(`anchor "${spec.plant.anchor}" missing`);
+      an.updateWorldMatrix(true, true);
+      box.setFromObject(an);
+      if (box.isEmpty()) box.setFromCenterAndSize(world(spec.plant.anchor), new THREE.Vector3());
+      frustum.setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+      g.plant = frustum.intersectsBox(box);
     }
     // Caption active at this frame.
     const cap = capCards.find((c) => n >= Math.round(c.start * fps) && n < Math.round(c.end * fps));

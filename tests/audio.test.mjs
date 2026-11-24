@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { splitCards, assFile, W, H, CX, CY, SAFE } from '../tools/captions.mjs';
 import { musicTrim, duckThreshold } from '../tools/mix.mjs';
 import { synth, RECIPES, recipeFor, entries } from '../tools/sfx.mjs';
-import { probeDuration, volume, resolveTime, ffmpeg } from '../tools/audiolib.mjs';
+import { probeDuration, volume, resolveTime, ffmpeg, voiceCutFilter, voiceFile, CUT_XFADE } from '../tools/audiolib.mjs';
 import { voiceEditFilter } from '../tools/align.mjs';
 
 const tmp = mkdtempSync(join(tmpdir(), 'audio-test-'));
@@ -182,4 +182,33 @@ test('end to end: mix produces -14 LUFS / -1 dBTP, with music ducked and cut on 
   const tp = parseFloat([...log.matchAll(/Peak:\s+(-?[\d.]+) dBFS/g)].pop()[1]);
   assert.ok(Math.abs(i + 14) <= 0.5, `integrated ${i} LUFS`);
   assert.ok(tp <= -1, `true peak ${tp} dBTP`);
+});
+
+test('digits count as matched: 40 = forty, 1912 = nineteen twelve, 90,000 = ninety thousand, 2007 = 2007', () => {
+  const script = { lines: [{ id: 'L1', speaker: 'narrator', text: 'Forty seconds. Nineteen twelve. It sold in 2007 for ninety thousand pounds.' }] };
+  const { status, doc } = align(script, rec(['40', 'seconds.', '1912.', 'It', 'sold', 'in', 'two', 'thousand', 'seven', 'for', '90', ',000', 'pounds.']));
+  assert.equal(status, 0);
+  assert.ok(doc.words.every((w) => w.matched), doc.words.filter((w) => !w.matched).map((w) => w.word).join(' '));
+  assert.equal(doc.meta.matchRate, 1);
+  const n = doc.words.find((w) => w.word === 'Nineteen');
+  const t = doc.words.find((w) => w.word === 'twelve.');
+  assert.ok(n.start < t.start && n.end <= t.start + 1e-6, 'a split recognised word shares its time');
+});
+
+test('voiceCuts: each span is removed with a 10 ms crossfade', () => {
+  const src = join(tmp, 'cut-src.wav');
+  ffmpeg(['-f', 'lavfi', '-i', 'sine=f=220:d=3:r=48000', src]);
+  const outF = join(tmp, 'cut-out.wav');
+  ffmpeg(['-i', src, '-filter_complex', voiceCutFilter([[1, 1.5], [2, 2.2]], 3), '-map', '[out]', outF]);
+  assert.ok(Math.abs(probeDuration(outF) - (3 - 0.5 - 0.2 - 2 * CUT_XFADE)) < 0.01);
+  assert.match(voiceCutFilter([[1, 1.5]], 3), /acrossfade=d=0\.01/);
+  assert.throws(() => voiceCutFilter([[2, 1]], 3));
+  assert.equal(voiceFile('ep', { voiceCuts: [[1, 2]] }), join('ep', 'audio', 'voice_cut.wav'));
+  assert.equal(voiceFile('ep', { voiceTempo: 1.0 }), join('ep', 'audio', 'voice.mp3'));
+});
+
+test('captions: the first card starts at frame 0; the others keep their word times', () => {
+  const cards = splitCards([W_('Go', 0.1, 0.3), W_('now.', 0.4, 0.6), W_('Run', 1.2, 1.4)]);
+  assert.equal(cards[0].start, 0);
+  assert.equal(cards[1].start, 1.2);
 });

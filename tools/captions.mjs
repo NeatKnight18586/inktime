@@ -30,6 +30,8 @@ export function splitCards(words) {
     cards.push({ text, start: group[0].start, end: group[group.length - 1].end, words: group.length });
     i += group.length;
   }
+  // Frame 1 has the first caption: the first card is extended backward to the timeline's start (all others keep their word times).
+  if (cards.length) cards[0].start = 0;
   cards.forEach((c, k) => {
     const nx = cards[k + 1];
     c.end = nx ? Math.max(c.end, Math.min(nx.start, c.end + 0.3)) : c.end + 0.3; // hold a little past the word, never over the next card

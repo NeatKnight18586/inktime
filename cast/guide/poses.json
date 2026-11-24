@@ -12,6 +12,19 @@
     "eye": "dot",
     "tilt": 0
   },
+  "worried": {
+    "armL": [
+      28,
+      40
+    ],
+    "armR": [
+      28,
+      40
+    ],
+    "face": "worried",
+    "eye": "dot",
+    "tilt": 0
+  },
   "stare": {
     "armL": [
       8,

@@ -150,6 +150,13 @@ async function renderFrame(n) {
   passes.misreg.uniforms.uStreak.value.set(...(c.streak ?? [0, 0]));
   passes.panini.setCamera(camera, c.panini > 0, c.panini);
   for (const name of showable) if (anchors[name]) anchors[name].visible = e.show.includes(name);
+  // Light state (engine/look/lightstate.mjs, baked as e.fx): berg scale and the crest light's fade-in. The world yaw is in e.cam.
+  for (const k of ['iceberg_dark', 'iceberg_rim']) anchors[k]?.scale.setScalar(e.fx?.bergScale ?? 1);
+  const glow = anchors.iceberg_glow;
+  if (glow?.isLight) {
+    glow.userData.base ??= glow.intensity;
+    glow.intensity = glow.userData.base * (e.fx ? e.fx.glow : 1);
+  }
   cards.forEach((card, i) => card.update(n, camera, e.cards[i]));
   breath.update(n, c.rest, fps);
   // Transitions (blink, sting, match) and the whip smear frame are drawn last, in ink.

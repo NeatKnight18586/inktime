@@ -42,3 +42,11 @@ Times: "L<n>:<w>" is the start of word w (0-based) of line Ln from words.json; a
 - tools/bake.mjs <dir> -> out/plan.json (one entry per frame; the engine applies plan[n] only). tools/check.mjs <dir> -> review/<id>/gates.txt (exit 1 on FAIL). tools/preview.mjs renders the 14 preview frames.
 - Extra episode.json fields the bake reads: "duration" (seconds; default = last word end + "tail" 0.4), "cards":[{cast, anchor, facing, light, blink, track:[[time,pose]], speak:[[t0,t1]]}], "transitions":[{type, at}], sfxWords entries may carry a 4th element {size, lift, hold}, shot "show":[anchors], shot "params" is passed to the camera preset (plus "soundAt": time of the sound the head turns to). Times may be "15+8f" or "12-4f".
 - Ids starting with "_" are scratch episodes (no voice): length, frame-1 sound/caption and loop-word gates are WARN, variety is skipped, and CI skips the audio jobs.
+
+# Phase 6 additions (ep001)
+- "voiceCuts": [[start, end]] (seconds in voice.mp3): before alignment each span is removed with 10 ms crossfades -> audio/voice_cut.wav, which is aligned and mixed (voice_edit.wav, when asked for, is made from it).
+- Alignment reads digits as number words (40 = forty, 1912 = nineteen twelve, 90,000 = ninety thousand).
+- Camera slots (engine/rig/slots.mjs) usable as anchors by the guide and by sound words: "cam_left" (x 20%, y 50%), "cam_right" (80%, 50%), "cam_hands" (68%, 66%). Tick at a slot keeps one screen size and draws over the set.
+- Shot "light": "iceberg_reveal" (engine/look/lightstate.mjs): over the run of consecutive shots with it, the crest light fades in over 12 frames, the iceberg scales 1.0 -> 1.35 and the world yaws +4 deg.
+- The plant gate passes a frame when any part of the anchor object's bounding box is inside the frustum, over plant.frames.
+- The first caption card starts at frame 0.

@@ -27,10 +27,10 @@ function makeDoc() {
       cards: [],
       sfx: n === 0 ? [{ i: 0 }] : [],
       caption: n === 0 ? { text: 'Go', x: 540, y: 634, width: 300, height: 125 } : null,
-      g: { pov: shot !== 0 && shot !== 19, spans: [], exempt: [], faces: [], sfx: n === 0 ? [{ word: 'X', start: true, box: null }] : [], tick: { visible: true }, ...(n <= 48 ? { plant: true } : {}) },
+      g: { pov: shot !== 0 && shot !== 19, spans: [], exempt: [], faces: [], sfx: n === 0 ? [{ word: 'X', start: true, box: null }] : [], tick: { visible: true }, ...(n <= 10 ? { plant: true } : {}) },
     });
   }
-  return { id: 'ep-test', fps: FPS, frames: N, hookType: 'instruction', presets: SHOTS.map((s) => s.preset), shots: SHOTS, cards: [], sfx: [{ word: 'X', at: 0 }, { word: 'Y', at: 200 }], moneyShot: { shot: 'S16', hold: 0.8 }, plant: { anchor: 'p', frames: [0, 48] }, plan };
+  return { id: 'ep-test', fps: FPS, frames: N, hookType: 'instruction', presets: SHOTS.map((s) => s.preset), shots: SHOTS, cards: [], sfx: [{ word: 'X', at: 0 }, { word: 'Y', at: 200 }], moneyShot: { shot: 'S16', hold: 0.8 }, plant: { anchor: 'p', frames: [0, 10] }, plan };
 }
 const run = (doc, extra = {}) => runGates({ doc, words, script, index: [], id: doc.id, stills: Array(8).fill(stillOk), ...extra });
 const status = (gates, name) => gates.find((x) => x.name === name).status;
@@ -95,4 +95,12 @@ test('variety: same hook type twice running, or a near-identical preset sequence
   const prev = [{ id: 'a', hookType: 'instruction', presets: d.presets }, { id: 'b', hookType: 'instruction', presets: ['x'] }];
   assert.equal(status(run(d, { index: prev }), 'variety'), 'FAIL');
   assert.ok(editRatio(['a', 'b', 'c'], ['a', 'b', 'c']) === 0 && editRatio(['a'], ['b']) === 1);
+});
+
+test('plant: the gate checks the frames episode.json names', () => {
+  const d = makeDoc();
+  d.plan[8].g.plant = false;
+  assert.equal(status(run(d), 'plant'), 'FAIL');
+  d.plant = { anchor: 'p', frames: [0, 5] };
+  assert.equal(status(run(d), 'plant'), 'PASS');
 });
