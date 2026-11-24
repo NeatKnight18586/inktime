@@ -20,7 +20,7 @@
       "camera": { "anchor": "cam_lookout", "preset": "lookout", "yawDrift": 3, "yawDriftSeconds": 10 },
       "hands": "rail_grip",
       "cards": [{ "cast": "fleet", "pose": "edge", "anchor": "fleet_spot", "blink": true, "light": "nest" }],
-      "focus": [[0.31, 0.666], [0.703, 0.666], [0.8, 0.88]]
+      "focus": [[0.31, 0.666], [0.703, 0.666], [0.88, 0.8]]
     },
     {
       "id": "F3_money",

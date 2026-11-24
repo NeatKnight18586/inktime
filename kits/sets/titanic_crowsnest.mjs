@@ -606,7 +606,7 @@ function buildIceberg(scene, rng, pal, anchors) {
   const berg = mesh(geo, bergMat, bx, 0, z, 'iceberg_dark');
   scene.add(berg);
   anchors.iceberg_dark = berg;
-  const glow = new THREE.PointLight(pal.color('ice'), 2.4, 48, 2);
+  const glow = new THREE.PointLight(pal.color('ice'), 2.4, 40, 2);
   glow.position.set(bx + crest.x, crest.y + 12, z + crest.z + 10);
   glow.visible = false; // shown per shot (scene "show" list), with the frost rim
   scene.add(glow);
@@ -739,7 +739,7 @@ function buildShip(scene, rng, pal) {
   const dl = [];
   for (let z = -60; z < 74; z += 4.5) for (const side of [1, -1]) dl.push(new THREE.Vector3(side * 11.3, 28.9, z));
   fx.push(lampSquares(dl, pal, { world: 0.35, minPx: 6, maxPx: 12, name: 'deck_lights' }));
-  fx.push(lampHalos([...port, ...win, ...bridgeWin, ...dl], pal, { world: 3.0, minPx: 9, maxPx: 70, name: 'ship_halos', gain: 1.0 }));
+  fx.push(lampHalos([...port, ...win, ...bridgeWin, ...dl], pal, { world: 4.2, minPx: 11, maxPx: 80, name: 'ship_halos', gain: 1.0 }));
 
   // Lifeboats.
   const boats = [];
