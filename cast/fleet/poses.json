@@ -141,8 +141,8 @@
       28
     ],
     "armR": [
-      10,
-      55
+      4,
+      12
     ],
     "legL": [
       5,
@@ -152,8 +152,8 @@
       -3,
       0
     ],
-    "tilt": -24,
-    "lean": 24,
+    "tilt": -16,
+    "lean": 6,
     "view": "back34",
     "eyes": "half",
     "brows": "neutral",

@@ -14,7 +14,8 @@ import { makeShotCam } from './rig/shotcam.mjs';
 import { transitionPass, transitionAt } from './post/transitions.mjs';
 import { makeBreath } from './rig/breath.mjs';
 import { makeCard } from './rig/card.mjs';
-import { makeHands } from './rig/hands3d.mjs';
+import { makeHands, breathLag } from './rig/hands3d.mjs';
+import { heldObjectCamera, HELD } from './rig/presets.mjs';
 import { installHaze, hazeColorHex } from './look/haze.mjs';
 import { bakeCorners } from './look/paint.mjs';
 import { rng, hashSeed } from '../tools/rng.mjs';
@@ -85,6 +86,18 @@ async function load(scenePath) {
   const poses = await (await fetch('/cast/hands/poses.json')).json();
   const hands = await makeHands(camera, tint, palette, poses);
   const breath = makeBreath(camera, palette, tint);
+  // Held object (a brass padlock): lifted to HELD.forward m in front of the eye and HELD.down m below it, in camera space,
+  // moving with the hands. Shown only in shots whose camera names an object.
+  const heldObj = new THREE.Group();
+  heldObj.name = 'held_padlock';
+  const brass = new THREE.MeshBasicMaterial({ color: palette.color('lamp').multiply(tint), fog: false });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.085, 0.035), brass);
+  const shackle = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.009, 8, 16, Math.PI), brass);
+  shackle.position.y = 0.0425;
+  heldObj.add(body, shackle);
+  heldObj.visible = false;
+  camera.add(heldObj);
+  addHulls(heldObj);
   const shotCam = makeShotCam({ spec, anchors, kit: built, camera, fps: spec.fps ?? 24 });
 
   state.normalRT?.dispose();
@@ -108,12 +121,12 @@ async function load(scenePath) {
   composer.addPass(trans);
   const showable = new Set((spec.shots ?? []).flatMap((s) => s.show ?? []));
 
-  Object.assign(state, { kit: built, hands, spec, scene, camera, anchors, cards, composer, normalRT, passes: { misreg, edges, panini, grain, trans }, breath, shotCam, palette, showable });
+  Object.assign(state, { heldObj, kit: built, hands, spec, scene, camera, anchors, cards, composer, normalRT, passes: { misreg, edges, panini, grain, trans }, breath, shotCam, palette, showable });
   return { frames: spec.frames, anchors: Object.keys(anchors) };
 }
 
 async function renderFrame(n) {
-  const { kit, hands, spec, scene, camera, anchors, cards, composer, normalRT, passes, palette, showable, breath, shotCam } = state;
+  const { kit, hands, spec, scene, camera, anchors, cards, composer, normalRT, passes, palette, showable, breath, shotCam, heldObj } = state;
   if (!spec) throw new Error('renderFrame before load');
   const fps = spec.fps ?? 24;
   const shot = shotAt(spec, n);
@@ -134,7 +147,15 @@ async function renderFrame(n) {
   }
   passes.trans.setState(tr, view.smear ? { streak: view.streak } : null);
   kit.update?.(n, { camera, fps, shot });
-  hands.update(n, n - shot.start, (f) => shotAt(spec, f).hands ?? null, fps);
+  hands.update(n, n - shot.start, (f) => shotAt(spec, f).hands ?? null, fps, view.lean ?? 1);
+  heldObj.visible = !!shot.camera?.object;
+  if (heldObj.visible) {
+    const m = n - shot.start;
+    const bob = 0.003 * Math.sin(Math.floor(m / 2) * 0.52) + 0.0015 * Math.sin(Math.floor(m / 2) * 1.31);
+    const p = heldObjectCamera(-HELD.tilt);
+    heldObj.position.set(0.05, p[1] + bob + breathLag(m - (m % 2), fps).lift, p[2]);
+    heldObj.rotation.set(0.25, -0.5, 0.15);
+  }
   hullUniforms.uBoil.value = (Math.floor(n / 2) * 0.6180339) % 1 * 100;
   hullUniforms.uRes.value.copy(res);
   hullUniforms.uFocal.value = H / (2 * Math.tan((camera.fov * Math.PI) / 360));
@@ -153,6 +174,11 @@ async function renderFrame(n) {
   renderer.autoClear = false;
   renderer.render(scene, camera);
   scene.overrideMaterial = null;
+  // Cards are solid occluders in the line layer: cutout depth + normals, so nothing behind a body shows through its ink.
+  for (const c of cards) c.prepass(true);
+  camera.layers.set(LAYERS.CARD_BODY);
+  renderer.render(scene, camera);
+  for (const c of cards) c.prepass(false);
   camera.layers.set(LAYERS.HULL);
   renderer.render(scene, camera);
   renderer.autoClear = true;

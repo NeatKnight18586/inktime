@@ -20,7 +20,7 @@
   "light": {
     "key": "lamp",
     "lamp": 3,
-    "lampRange": 12,
+    "lampRange": 14,
     "masthead": 2.2,
     "mastheadRange": 10,
     "fill": "ice",
@@ -42,7 +42,7 @@
     ]
   },
   "sky": {
-    "zenith": "navy",
+    "zenith": "#263A55",
     "horizon": "steel",
     "horizonLift": 0.25,
     "bands": [

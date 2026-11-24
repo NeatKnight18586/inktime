@@ -58,6 +58,15 @@ const sheet = (suffix, dest, extra = []) => {
 };
 sheet('.png', join(out, 'contact.jpg'), ['-q:v', '3']);
 sheet('.notan.png', join(out, 'notan.png'));
+// See-through test (a card in front of a striped wall): result in solid.txt, never stops the stills run.
+let solid = 'FAIL';
+try {
+  run('node', ['tools/solidtest.mjs', '--out', 'out/solid', '--result', join(out, 'solid.txt')]);
+  solid = 'PASS';
+} catch (e) {
+  if (!existsSync(join(out, 'solid.txt'))) writeFileSync(join(out, 'solid.txt'), `see-through test: ERROR ${e.message}\n`);
+}
+console.log(readFileSync(join(out, 'solid.txt'), 'utf8').trim());
 // Public URLs for every still (the renders branch, published by the workflow) and a regenerated critique.md.
 const repo = process.env.GITHUB_REPOSITORY ?? 'NeatKnight18586/inktime';
 const url = (file) => `https://github.com/${repo}/raw/renders/renders/styleframes/${file}`;
@@ -78,7 +87,8 @@ for (const id of ids) {
   const miss = pick(text, /MISSES: (.*)/);
   if (miss !== 'n/a') open.push(`${id}: ${miss}`);
 }
+lines.push(`## See-through test: ${solid}`, readFileSync(join(out, 'solid.txt'), 'utf8').trim().split('\n').slice(1).join(' '), '');
 lines.push('## Open', ...(open.length ? open.map((o) => `- ${o}`) : ['- none: all targets met']), '', `Contact sheet: ${urls.contact}`, `Notan sheet: ${urls.notan}`, '');
 writeFileSync(join(out, 'critique.md'), lines.join('\n'));
-writeFileSync(join(out, 'render.json'), JSON.stringify({ status: 'stills', commit: process.env.GITHUB_SHA ?? null, frames: ids, urls }, null, 2) + '\n');
+writeFileSync(join(out, 'render.json'), JSON.stringify({ status: 'stills', commit: process.env.GITHUB_SHA ?? null, frames: ids, solid, urls }, null, 2) + '\n');
 console.log(`stills done: ${ids.join(', ')}`);

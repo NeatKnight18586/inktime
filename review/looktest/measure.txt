@@ -1,101 +1,101 @@
 measure out/looktest.mp4: 480 frames at 270x480
 shot 0 (dive/rise: reported, not judged) (72 frames)
-  lumaMean      68.7   target 70-95     n/a (hook)
-  dark40       39.3%   target 6-30%     n/a (hook)
-  p5              19   target <=25      ok
+  lumaMean      74.6   target 70-95     n/a (hook)
+  dark40        8.5%   target 6-45%     n/a (hook)
+  p5              18   target <=25      ok
   p95            139   target >=170     n/a (hook)
-  sat          0.417   target 0.30-0.50 ok
-  motion      12.81%   target 1.5-6%    n/a (hook)
+  sat          0.411   target 0.22-0.50 ok
+  motion      14.54%   target 1.5-6%    n/a (hook)
   still         0.0%   target <=10%     ok
   stillRun         0   target <=19      ok
 shot 1 (72 frames)
-  lumaMean      87.9   target 70-95     ok
-  dark40       32.2%   target 6-30%     MISS
-  p5              18   target <=25      ok
-  p95            218   target >=170     ok
-  sat          0.229   target 0.30-0.50 MISS
-  motion      14.27%   target 1.5-6%    MISS
+  lumaMean      67.9   target 70-95     MISS
+  dark40       36.6%   target 6-45%     ok
+  p5              19   target <=25      ok
+  p95            172   target >=170     ok
+  sat          0.425   target 0.22-0.50 ok
+  motion       7.01%   target 1.5-6%    WARN
   still         0.0%   target <=10%     ok
   stillRun         0   target <=19      ok
 shot 2 (72 frames)
-  lumaMean     104.8   target 70-95     MISS
-  dark40       30.8%   target 6-30%     MISS
-  p5              17   target <=25      ok
-  p95            218   target >=170     ok
-  sat          0.180   target 0.30-0.50 MISS
-  motion       2.53%   target 1.5-6%    ok
+  lumaMean      78.4   target 70-95     ok
+  dark40       43.5%   target 6-45%     ok
+  p5              18   target <=25      ok
+  p95            217   target >=170     ok
+  sat          0.396   target 0.22-0.50 ok
+  motion       2.09%   target 1.5-6%    ok
   still         0.0%   target <=10%     ok
   stillRun         0   target <=19      ok
 shot 3 (72 frames)
-  lumaMean      76.0   target 70-95     ok
-  dark40       57.1%   target 6-30%     MISS
+  lumaMean      71.2   target 70-95     ok
+  dark40       15.6%   target 6-45%     ok
   p5              18   target <=25      ok
-  p95            218   target >=170     ok
-  sat          0.377   target 0.30-0.50 ok
-  motion      14.56%   target 1.5-6%    MISS
+  p95            203   target >=170     ok
+  sat          0.435   target 0.22-0.50 ok
+  motion      13.19%   target 1.5-6%    WARN
   still         0.0%   target <=10%     ok
   stillRun         0   target <=19      ok
 shot 4 (72 frames)
-  lumaMean      76.8   target 70-95     ok
-  dark40       36.7%   target 6-30%     MISS
-  p5              18   target <=25      ok
-  p95            193   target >=170     ok
-  sat          0.333   target 0.30-0.50 ok
-  motion       1.56%   target 1.5-6%    ok
+  lumaMean      62.3   target 70-95     MISS
+  dark40       32.5%   target 6-45%     ok
+  p5              21   target <=25      ok
+  p95            133   target >=170     MISS
+  sat          0.464   target 0.22-0.50 ok
+  motion       0.65%   target 1.5-6%    MISS
   still         0.0%   target <=10%     ok
   stillRun         0   target <=19      ok
 shot 5 (8 frames)
-  lumaMean      84.2   target 70-95     ok
-  dark40       33.9%   target 6-30%     MISS
-  p5              18   target <=25      ok
-  p95            208   target >=170     ok
-  sat          0.355   target 0.30-0.50 ok
-  motion      18.00%   target 1.5-6%    MISS
+  lumaMean      67.7   target 70-95     MISS
+  dark40       27.6%   target 6-45%     ok
+  p5              24   target <=25      ok
+  p95            173   target >=170     ok
+  sat          0.475   target 0.22-0.50 ok
+  motion      10.71%   target 1.5-6%    WARN
   still         0.0%   target <=10%     ok
   stillRun         0   target <=19      ok
-shot 6 (16 frames)
-  lumaMean     100.2   target 70-95     MISS
-  dark40       11.4%   target 6-30%     ok
-  p5              17   target <=25      ok
-  p95            197   target >=170     ok
-  sat          0.271   target 0.30-0.50 MISS
-  motion       3.12%   target 1.5-6%    ok
+shot 6 (snap insert) (16 frames)
+  lumaMean      93.0   target 70-95     ok
+  dark40        2.0%   target 6-45%     n/a (insert)
+  p5              53   target <=25      n/a (insert)
+  p95            117   target >=170     MISS
+  sat          0.349   target 0.22-0.50 ok
+  motion       0.26%   target 1.5-6%    MISS
   still         0.0%   target <=10%     ok
   stillRun         0   target <=19      ok
 shot 7 (72 frames)
-  lumaMean      46.6   target 70-95     MISS
-  dark40       58.8%   target 6-30%     MISS
+  lumaMean      65.6   target 70-95     MISS
+  dark40       31.1%   target 6-45%     ok
   p5              18   target <=25      ok
-  p95             83   target >=170     MISS
-  sat          0.140   target 0.30-0.50 MISS
-  motion       0.81%   target 1.5-6%    MISS
+  p95            159   target >=170     MISS
+  sat          0.455   target 0.22-0.50 ok
+  motion       0.87%   target 1.5-6%    MISS
   still         0.0%   target <=10%     ok
   stillRun         0   target <=19      ok
 shot 8 (dive/rise: reported, not judged) (24 frames)
-  lumaMean      69.7   target 70-95     n/a (hook)
-  dark40       38.0%   target 6-30%     n/a (hook)
-  p5              26   target <=25      MISS
-  p95            149   target >=170     n/a (hook)
-  sat          0.419   target 0.30-0.50 ok
-  motion      28.67%   target 1.5-6%    n/a (hook)
+  lumaMean      73.9   target 70-95     n/a (hook)
+  dark40       10.0%   target 6-45%     n/a (hook)
+  p5              24   target <=25      ok
+  p95            138   target >=170     n/a (hook)
+  sat          0.423   target 0.22-0.50 ok
+  motion      28.79%   target 1.5-6%    n/a (hook)
   still         0.0%   target <=10%     ok
   stillRun         0   target <=19      ok
-overall (dive/rise shots excluded from luma, dark40, p95, motion) (384 frames)
-  lumaMean      79.4   target 70-95     ok
-  dark40       41.6%   target 6-30%     MISS
+overall (dive/rise shots excluded from luma, dark40, p95, motion; snap inserts from p5, dark40) (384 frames)
+  lumaMean      70.1   target 70-95     ok
+  dark40       31.8%   target 6-45%     ok
   p5              18   target <=25      ok
-  p95            217   target >=170     ok
-  sat          0.255   target 0.30-0.50 MISS
-  motion       2.93%   target 1.5-6%    ok
+  p95            184   target >=170     ok
+  sat          0.432   target 0.22-0.50 ok
+  motion       2.15%   target 1.5-6%    ok
   still         0.0%   target <=10%     ok
   stillRun         0   target <=19      ok
 overall incl. dive/rise (reported, not judged) (480 frames)
-  lumaMean      77.3   target 70-95     n/a (hook)
-  dark40       41.1%   target 6-30%     n/a (hook)
-  p5              18   target <=25      ok
-  p95            216   target >=170     n/a (hook)
-  sat          0.287   target 0.30-0.50 MISS
-  motion       5.20%   target 1.5-6%    n/a (hook)
+  lumaMean      70.9   target 70-95     n/a (hook)
+  dark40       26.2%   target 6-45%     n/a (hook)
+  p5              19   target <=25      ok
+  p95            180   target >=170     n/a (hook)
+  sat          0.429   target 0.22-0.50 ok
+  motion       5.78%   target 1.5-6%    n/a (hook)
   still         0.0%   target <=10%     ok
   stillRun         0   target <=19      ok
-MISSES: shot 1 dark40, shot 1 sat, shot 1 motion, shot 2 lumaMean, shot 2 dark40, shot 2 sat, shot 3 dark40, shot 3 motion, shot 4 dark40, shot 5 dark40, shot 5 motion, shot 6 lumaMean, shot 6 sat, shot 7 lumaMean, shot 7 dark40, shot 7 p95, shot 7 sat, shot 7 motion, shot 8 p5, overall dark40, overall sat
+MISSES: shot 1 lumaMean, shot 4 lumaMean, shot 4 p95, shot 4 motion, shot 5 lumaMean, shot 6 p95, shot 6 motion, shot 7 lumaMean, shot 7 p95, shot 7 motion

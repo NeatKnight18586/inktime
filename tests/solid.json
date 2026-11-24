@@ -1,0 +1,9 @@
+{
+  "name": "solid",
+  "fps": 24,
+  "seed": "solid",
+  "look": "day",
+  "set": "solid_test",
+  "shots": [{ "frames": 1, "camera": { "anchor": "cam", "preset": "lookout", "held": false } }],
+  "cards": [{ "cast": "fleet", "pose": "idle", "anchor": "card_spot", "facing": 0, "blink": false }]
+}

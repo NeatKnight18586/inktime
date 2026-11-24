@@ -39,6 +39,7 @@ export function makeShotCam({ spec, anchors, kit, camera, fps = 24 }) {
         pitch0: hasAim ? ud.pitch ?? 0 : eul.x / DEG,
         fov0: cam.fov ?? ud.fov ?? 72,
         maxDolly: ud.maxDolly,
+        rimDist: ud.rimDist,
         point,
         hook: (mm, reverse) => {
           const v = poseCamera(scratch, { anchor: cam.anchor, preset: reverse ? 'rise' : 'dive' }, anchors, mm, fps, shot.frames, { hook: kit.hook, shipPose: kit.shipPose, n0: shot.start });

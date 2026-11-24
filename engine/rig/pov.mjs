@@ -2,7 +2,7 @@
 // The scene supplies world points through ctx (see engine/rig/shotcam.mjs). Eye height 1.62 m (the anchors carry it).
 // Layers, in order: preset (engine/rig/presets.mjs) -> base motion (breathing, FOV push, dolly) under every preset.
 import { BASE_MOTION, DOLLY_PRESETS } from './camera.mjs';
-import { PRESETS, DEG, EYE_HEIGHT, MAX_ROT, dirTo, wrap180, smooth } from './presets.mjs';
+import { PRESETS, DEG, EYE_HEIGHT, MAX_ROT, LEAN, dirTo, wrap180, smooth } from './presets.mjs';
 
 export { EYE_HEIGHT, MAX_ROT };
 export const NO_CLAMP = new Set(['whip', 'dive', 'rise']);
@@ -10,7 +10,8 @@ export const NO_CLAMP = new Set(['whip', 'dive', 'rise']);
 // Resolve a look spec: an anchor name (+ optional lift in metres), 'base' (the anchor's own look) or {yaw, pitch}.
 function look(spec, ctx, pos, base) {
   if (spec === undefined || spec === null || spec === 'base') return base;
-  if (typeof spec === 'object' && spec.yaw !== undefined) return { yaw: spec.yaw, pitch: spec.pitch };
+  // A literal look is relative to the anchor's own yaw (the ship's frame), so {yaw: 0} means straight ahead of the bow.
+  if (typeof spec === 'object' && spec.yaw !== undefined) return { yaw: base.yaw + spec.yaw, pitch: spec.pitch };
   const name = typeof spec === 'string' ? spec : spec.anchor;
   const p = ctx.point(name);
   const lift = typeof spec === 'object' ? spec.lift ?? 0 : 0;
@@ -53,9 +54,26 @@ export function povState(cam, m, ctx) {
     p.at = Math.max(0, (s.start - ctx.n0) / fps);
   }
   const r = fn(p, t);
+  // cam.lean: 0 turns the lean off for the shot (the eye stays at rest); cam.leanRelease: from that frame of the shot the lean target is 0
+  // whatever the pitch (the 12-frame ease-back at the end of the look-down).
+  if (!r.hook && ctx.rimDist !== undefined && cam.lean !== 0) {
+    // Lean: a state that moves 1/12 per frame toward its target (1 when the raw pitch is below -20 deg or the preset is look-down),
+    // starting from the target at frame 0 for shots that begin below -20 so cuts stay continuous. Replayed from frame 0: pure.
+    const release = cam.leanRelease ?? Infinity;
+    const target = (f) => (f >= release ? 0 : preset === 'lookdown' || rawPitch(fn, p, f / fps) < LEAN.pitch ? 1 : 0);
+    let L = release <= 0 ? 0 : rawPitch(fn, p, 0) < LEAN.pitch ? 1 : 0;
+    for (let f = 1; f <= m; f++) L += Math.max(-1 / LEAN.frames, Math.min(1 / LEAN.frames, target(f) - L));
+    const Ls = smooth(L);
+    const amount = Math.min(LEAN.forward, Math.max(0, ctx.rimDist - LEAN.minRim)) * Ls;
+    const y = ctx.yaw0 * DEG;
+    const d = [-Math.sin(y) * amount, -LEAN.down * Ls, -Math.cos(y) * amount];
+    r.pos = r.pos.map((v, i) => v + d[i]);
+    r.target = r.target.map((v, i) => v + d[i]);
+    r.lean = Ls;
+  }
   if (r.hook) {
     const h = r.exact;
-    return { pos: r.pos, yaw: h.yaw, pitch: h.pitch, roll: h.roll, fov: h.fov, panini: h.panini ?? h.fov >= 80, streak: h.streak ?? [0, 0], smear: false, rest: false, preset, hook: true };
+    return { pos: r.pos, yaw: h.yaw, pitch: h.pitch, roll: h.roll, fov: h.fov, panini: h.panini ?? h.fov >= 78, streak: h.streak ?? [0, 0], smear: false, rest: false, preset, hook: true };
   }
   const M = { ...BASE_MOTION, dolly: DOLLY_PRESETS[preset] ?? 0, ...(cam.motion ?? {}) };
   const pos = [...r.pos];
@@ -75,12 +93,18 @@ export function povState(cam, m, ctx) {
     pitch: d.pitch + M.breathPitch * breath,
     roll: r.roll,
     fov,
-    panini: cam.panini ?? fov >= 80,
+    panini: cam.panini ?? fov >= 78,
     streak: r.streak ?? [0, 0],
     smear: !!r.smear,
     rest: !!r.rest && preset !== 'walk',
+    lean: r.lean ?? 0,
     preset,
   };
+}
+
+function rawPitch(fn, p, t) {
+  const r = fn(p, t);
+  return dirTo(r.pos, r.target).pitch;
 }
 
 export { wrap180 };

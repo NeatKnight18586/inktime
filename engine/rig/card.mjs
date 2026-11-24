@@ -56,7 +56,15 @@ export async function makeCard(scene, spec, anchors, palette, { tint, seed = 'ca
   const h = CARD.h * D_METRES;
   const geo = new THREE.PlaneGeometry(w, h);
   geo.translate(0, h / 2 - CARD.bottom * D_METRES, 0);
-  const mat = new THREE.MeshBasicMaterial({ map: tex, color: tint ?? 0xffffff, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, fog: true });
+  // Solid cutout (Fix 2.1): alphaTest 0.5, not transparent, depth written, so nothing behind the body shows through.
+  const mat = new THREE.MeshBasicMaterial({ map: tex, color: tint ?? 0xffffff, transparent: false, alphaTest: 0.5, depthWrite: true, side: THREE.DoubleSide, fog: true });
+  // Depth/normal prepass material: the same cutout, writing view-space normals, so the edge pass treats the card as an occluder.
+  const prepassMat = new THREE.ShaderMaterial({
+    uniforms: { map: { value: tex } },
+    side: THREE.DoubleSide,
+    vertexShader: 'varying vec2 vUv; varying vec3 vN; void main(){ vUv = uv; vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'uniform sampler2D map; varying vec2 vUv; varying vec3 vN; void main(){ if (texture2D(map, vUv).a < 0.5) discard; vec3 n = normalize(vN); if (!gl_FrontFacing) n = -n; gl_FragColor = vec4(n * 0.5 + 0.5, 1.0); }',
+  });
   const card = new THREE.Mesh(geo, mat);
   card.rotation.order = 'YXZ';
   card.name = `card:${spec.cast}`;
@@ -95,6 +103,7 @@ export async function makeCard(scene, spec, anchors, palette, { tint, seed = 'ca
   anchor.updateWorldMatrix(true, false);
   anchor.getWorldPosition(group.position);
   setLayer(group, LAYERS.CARD);
+  card.layers.set(LAYERS.CARD_BODY);
   scene.add(group);
   const base = new THREE.Vector3();
   const blinks = spec.blink === false ? new Set() : blinkFrames(`${seed}:${spec.cast}`, frames);
@@ -103,7 +112,13 @@ export async function makeCard(scene, spec, anchors, palette, { tint, seed = 'ca
     card,
     proxy,
     blinks,
+    mat,
+    prepassMat,
     last: null,
+    // Swap the card's material for the depth/normal prepass material (and back) around the line-layer render.
+    prepass(on) {
+      card.material = on ? prepassMat : mat;
+    },
     // Pose state and drawing on twos; blinks by frame; billboard follows the camera on ones.
     update(n, camera) {
       anchor.updateWorldMatrix(true, false);

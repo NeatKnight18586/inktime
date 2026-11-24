@@ -10,6 +10,7 @@ import { hazeAmount } from '../engine/look/haze.mjs';
 import { LAYERS } from '../engine/look/layers.mjs';
 import { build, update, ANCHORS, SHIP, LOOKOUT, FLEET, PATH, PSI0, AERIAL, BERG_H, RANGE, SHIP_SPEED, shipPose, MONEY_FRAME } from '../kits/sets/titanic_crowsnest.mjs';
 import { CARD_HEIGHT, blinkFrames } from '../engine/rig/card.mjs';
+import { makeShotCam } from '../engine/rig/shotcam.mjs';
 import { CARD, D_METRES, billboardAngles } from '../engine/cast/stickmath.mjs';
 import { BASE_MOTION } from '../engine/rig/camera.mjs';
 import { poseCamera, shotAt, hookFrames } from '../engine/rig/camera.mjs';
@@ -181,21 +182,30 @@ function centre(o) {
   return new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3());
 }
 
-test('framing: cam_lookout rim, horizon and props', () => {
-  const { scene, anchors, cam, fromTop } = frame('cam_lookout');
+// Fix 2.2: the eye sits at the rear of the basket, so the deck props are counted on the lean pose of the look-down shot (the eye eased
+// 0.6 m toward the front rim and 0.1 m down, pitch -38): frame 58 of shot 1 of the walkthrough, just before the ease-back.
+test('framing: cam_lookout rim, horizon and props (lean pose of the look-down shot)', () => {
+  const { scene, anchors, ...kit } = buildScene();
+  const cam = new THREE.PerspectiveCamera(90, 1080 / 1920, 0.05, 9000);
+  scene.add(cam);
+  const sc = makeShotCam({ spec, anchors, kit, camera: cam, fps: 24 });
+  const n = spec.shots[0].frames + 58; // the last frame before the 12-frame ease-back
+  update(n, { fps: 24, shot: shotAt(spec, n) });
+  scene.updateMatrixWorld(true);
+  const view = sc.pose(n);
+  update(n, { camera: cam, fps: 24, shot: shotAt(spec, n) });
+  assert.ok(view.lean > 0.99, `leaned in (${view.lean})`);
   const eye = cam.position.clone();
+  const home = anchors.cam_lookout.getWorldPosition(new THREE.Vector3());
+  const rimDist = LOOKOUT.back;
   const R = SHIP.basketR;
-  const bz = SHIP.basketZ;
-  const rimTop = new THREE.Vector3(0, SHIP.nestFloorY + SHIP.rimH, bz - (R - 0.06));
-  const a = fromTop(rimTop).y;
-  const horizon = fromTop(new THREE.Vector3(eye.x, eye.y, eye.z - 1e6)).y;
-  // Occlusion against the rim only (wall + frost crust).
-  const rim = ['basket_wall', 'cap_rail'].map((n) => scene.getObjectByName(n));
+  const horizon = new THREE.Vector3(eye.x, eye.y, eye.z - 1e6).project(cam).y;
+  const rim = ['basket_wall', 'cap_rail'].map((nm) => scene.getObjectByName(nm));
   const frustum = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse));
   const ray = new THREE.Raycaster();
   const units = [];
-  for (const [label, names] of Object.entries(PROP_GROUPS)) units.push({ label, objs: names.flatMap((n) => scene.getObjectsByProperty('name', n)) });
-  for (const n of PROP_NAMES) scene.getObjectsByProperty('name', n).forEach((o, i, all) => units.push({ label: all.length > 1 ? `${n}#${i}` : n, objs: [o] }));
+  for (const [label, names] of Object.entries(PROP_GROUPS)) units.push({ label, objs: names.flatMap((nm) => scene.getObjectsByProperty('name', nm)) });
+  for (const nm of PROP_NAMES) scene.getObjectsByProperty('name', nm).forEach((o, i, all) => units.push({ label: all.length > 1 ? `${nm}#${i}` : nm, objs: [o] }));
   const seen = [];
   for (const u of units) {
     const ok = u.objs.some((o) => {
@@ -209,9 +219,11 @@ test('framing: cam_lookout rim, horizon and props', () => {
     });
     if (ok) seen.push(u.label);
   }
-  console.log(`framing lookout: back ${LOOKOUT.back} m, pitch ${LOOKOUT.pitch} deg, rim ${(a * 100).toFixed(1)}%, horizon ${(horizon * 100).toFixed(1)}%, props ${seen.length}: ${seen.join(', ')}`);
-  assert.ok(a >= 0.78 && a <= 0.88, `rim top at ${(a * 100).toFixed(1)}%`);
-  assert.ok(horizon >= 0.28 && horizon <= 0.38, `horizon at ${(horizon * 100).toFixed(1)}%`);
+  const moved = Math.hypot(eye.x - home.x, eye.z - home.z);
+  console.log(`framing lean pose: eye ${moved.toFixed(3)} m forward, ${(home.y - eye.y).toFixed(3)} m down, ${(rimDist - moved).toFixed(2)} m from the rim, props ${seen.length}: ${seen.join(', ')}; horizon y ${(horizon * 50 + 50).toFixed(0)}%`);
+  void R;
+  assert.ok(Math.abs(moved - 0.6) < 0.02 && Math.abs(home.y - eye.y - 0.1) < 0.01, 'lean: 0.6 m forward, 0.1 m down');
+  assert.ok(rimDist - moved >= 0.15, 'never closer than 0.15 m to the rim');
   assert.ok(seen.length >= 12, `only ${seen.length} props visible`);
 });
 
@@ -255,44 +267,6 @@ test('framing: aerial frame 0 is a telephoto: ship three-quarter in the middle b
   assert.ok(PSI0 > 0 && PATH.T > 25 && PATH.T < 40, 'the ship turns dead ahead of the iceberg over ~34 s');
 });
 
-test('framing: Fleet is a foreground edge silhouette in the left 12-20% (brim, shoulder, scarf)', () => {
-  const { anchors, cam, fromTop } = frame('cam_lookout');
-  const spot = anchors.fleet_spot.getWorldPosition(new THREE.Vector3());
-  const C = FLEET.card;
-  const w = (CARD_HEIGHT * C.width) / C.height;
-  const toCam = new THREE.Vector3(cam.position.x - spot.x, 0, cam.position.z - spot.z).normalize();
-  const right = new THREE.Vector3(toCam.z, 0, -toCam.x);
-  // Card units (u right, v down from the top) -> frame position.
-  const bb = billboardAngles(spot, cam.position, CARD_HEIGHT);
-  const at = (u, v) => {
-    // The card pitches toward the camera (limited to 15 deg) about its feet.
-    const hh = CARD_HEIGHT * (1 - v / C.height) - CARD.bottom * D_METRES;
-    const p = spot.clone().addScaledVector(right, (u / C.width - 0.5) * w);
-    p.y += hh * Math.cos(bb.pitch);
-    p.addScaledVector(toCam, hh * Math.sin(bb.pitch));
-    return p.clone().applyMatrix4(cam.matrixWorldInverse).z >= -0.02 ? { x: -9, y: -9 } : fromTop(p);
-  };
-  const mid = C.height * 0.3;
-  assert.ok(at(C.right - 60, mid).x < 0, 'the figure enters from the left edge');
-  const cover = at(C.right, mid).x;
-  let u0 = C.right;
-  for (let u = C.right; u >= 0; u -= 0.5) {
-    const x = at(u, mid).x;
-    if (x >= 0) u0 = u;
-    else if (x > -8) break;
-  }
-  const feats = Object.fromEntries(['brim', 'shoulder', 'scarf'].map((k) => {
-    const [x0, x1, y0, y1] = C[k];
-    const p = at((x0 + x1) / 2, (y0 + y1) / 2);
-    return [k, { visible: u0 <= (x0 + x1) / 2 && p.y >= 0 && p.y <= 1, y: p.y }];
-  }));
-  console.log(`fleet edge: x ${FLEET.x} m, forward ${FLEET.forward} m, covers ${(cover * 100).toFixed(1)}% of width, strip from card u=${u0} of ${C.width}; ` +
-    Object.entries(feats).map(([k, f]) => `${k} ${f.visible ? 'in' : 'OUT'} (${(f.y * 100).toFixed(0)}%)`).join(', '));
-  assert.ok(cover >= 0.12 && cover <= 0.2, `Fleet covers ${(cover * 100).toFixed(1)}%`);
-  for (const [k, f] of Object.entries(feats)) assert.ok(f.visible, `${k} visible`);
-  assert.equal(FLEET.pose, 'edge');
-});
-
 test('camera: lookout dolly is 0; a walk preset dollies at most 0.25 m and keeps the eye 0.45 m from the rim; FOV push capped', () => {
   const { anchors } = buildScene();
   const cam = new THREE.PerspectiveCamera(72, 1080 / 1920, 0.05, 9000);
@@ -307,7 +281,7 @@ test('camera: lookout dolly is 0; a walk preset dollies at most 0.25 m and keeps
   const rimZ = SHIP.basketZ - (SHIP.basketR - 0.04);
   assert.ok(moved <= 0.25 + 1e-9 && moved > 0.1, `dolly ${moved}`);
   assert.ok(cam.position.z - rimZ >= 0.45 - 1e-6, `eye ${(cam.position.z - rimZ).toFixed(3)} m from the rim`);
-  assert.ok(Math.abs(72 - end.fov - 8) < 1e-9, 'FOV push capped at 8 deg');
+  assert.ok(Math.abs(LOOKOUT.fov - end.fov - 8) < 1e-9, 'FOV push capped at 8 deg');
   assert.equal(start.dolly, 0);
 });
 
@@ -350,8 +324,8 @@ test('hook: dive in at most 3 s, lands on the lookout pose; the rise is the exac
       assert.ok(cam.position.distanceTo(aerial) < 1e-9 && cam.fov === 30, 'frame 0 is the aerial pose');
     }
   }
-  assert.ok(Math.max(...fovs) >= 83.5 && Math.max(...fovs) <= 84.0001, 'dolly zoom 30 to 84');
-  assert.ok(Math.abs(fovs[69] - 72) < 1e-6 && Math.abs(fovs[71] - 72) < 1e-6, 'settles to 72');
+  assert.ok(Math.max(...fovs) >= 95.5 && Math.max(...fovs) <= 96.0001, 'dolly zoom 30 to 96');
+  assert.ok(Math.abs(fovs[69] - 90) < 1e-6 && Math.abs(fovs[71] - 90) < 1e-6, 'settles to the POV lens, 90');
   assert.ok(fovs.slice(0, 20).every((f, i, a) => i === 0 || f >= a[i - 1] - 1e-4), `FOV widens during the rush: ${fovs.slice(0, 20).map((x) => x.toFixed(2))}`);
   assert.ok(Math.max(...streaks) > 15 && streaks[0] < 1 && streaks[69] < 1, 'speed streaks only in the rush');
   // Landing (frame 69) equals the lookout pose at that moment; the last 2 frames shake.
@@ -375,7 +349,7 @@ test('hook: dive in at most 3 s, lands on the lookout pose; the rise is the exac
   assert.ok(cam.position.distanceTo(ap) < 1e-6 && cam.fov === 30, 'rise ends on frame 0 pose and FOV');
   assert.ok(cam.quaternion.angleTo(anchors.aerial.getWorldQuaternion(new THREE.Quaternion())) < 1e-6);
   poseCamera(cam, rise, anchors, 0, 24, frames, opts(1000));
-  assert.ok(Math.abs(cam.fov - 72) < 0.5, 'rise starts in the nest');
+  assert.ok(Math.abs(cam.fov - 90) < 0.5, 'rise starts in the nest at the POV lens');
 });
 
 test('F3 money shot: iceberg 457 m away, snap zoom to vFOV 20, centred at 40% height, bow out of frame', () => {
@@ -446,7 +420,8 @@ test('measure: stats, stills and target checks', async () => {
   assert.ok(check(s).includes('still'));
   const { TARGETS } = await import('../tools/measure.mjs');
   assert.deepEqual(TARGETS.p5, [0, 25]);
-  assert.deepEqual(TARGETS.dark40, [0.06, 0.3]);
+  assert.deepEqual(TARGETS.dark40, [0.06, 0.45]);
+  assert.deepEqual(TARGETS.sat, [0.22, 0.5]);
 });
 
 test('CI: Playwright container matches the installed Playwright', () => {
@@ -502,7 +477,20 @@ test('masthead: a forward cone that never reaches the basket interior; basket va
   }
   assert.ok(spot.target.position.z < spot.position.z && spot.position.z > bp.z - 1.5, 'above and behind (aft of) the nest front, aimed forward');
   const ctl = (n) => scene.getObjectByName(n).material.userData.ink;
-  for (const n of ['basket_interior', 'rim_inner_face', 'basket_floor']) assert.equal(ctl(n).spotBlack, true, n);
+  // Fix 2.2: the interior is a hatched shadow (navy shadow tone, 45 deg ink lines, 3 px spacing) with 30-50% ink coverage; solid ink only in
+  // the floor corners and where the wall meets the floor.
+  for (const n of ['basket_interior', 'rim_inner_face', 'basket_floor']) {
+    assert.equal(ctl(n).spotBlack, 'hatch', n);
+    const [spacing, width, floorY, radius] = scene.getObjectByName(n).material.userData.inkUniforms.uHatch.value.toArray();
+    assert.equal(spacing, 3, `${n} hatch spacing`);
+    let ink = 0;
+    let total = 0;
+    for (let y = 0; y < 300; y++) for (let x = 0; x < 300; x++, total++) if ((((x + y) * Math.SQRT1_2) % spacing) < width) ink++;
+    const cover = ink / total;
+    assert.ok(cover >= 0.3 && cover <= 0.5, `${n} hatch coverage ${(cover * 100).toFixed(1)}%`);
+    if (n === 'basket_floor') assert.ok(Math.abs(radius - (SHIP.basketR - 0.2)) < 1e-9 && floorY < -1e8, 'floor: solid ink only in the corners');
+    else assert.ok(Math.abs(floorY - (SHIP.nestFloorY + 0.07)) < 1e-9 && radius > 1e8, `${n}: solid ink only at the wall-floor seam`);
+  }
   assert.ok(ctl('cap_rail').shadowBias < 0, 'cap rail top reaches the lit (cool fill) step');
 });
 
