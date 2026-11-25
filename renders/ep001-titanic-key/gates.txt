@@ -1,0 +1,18 @@
+PASS length: 47.0 s (30-55 hard, 35-50 target)
+PASS frame1: moving, sound word, caption
+PASS stillness: longest still run 0 frames (max 19), still frames 0.0% (max 10%)
+PASS rotation: peak 83.5 deg/s at frame 216 (max 90 outside whip, dive, rise)
+PASS witness: 0.0% of runtime, none before 3 s
+PASS hands: hands in 72.5% of POV frames (min 40%)
+PASS tick: longest out-of-frame run 0 frames (max 192)
+PASS centre40: 2684 card-frames clear of the centre 40%
+WARN change: median visual-change interval 1.00 s over 27 changes (1.5-2.5)
+PASS soundwords: 5 words, spaced 48+ frames, no face covered
+PASS jumps: 0 jumps
+PASS money: S9b starts at 82.9% (65-85) and holds 1.00 s (min 0.8)
+PASS plant: iceberg_dark in frame for frames 0-10
+PASS loop: pose within 0.00 deg / 0.0 cm, last word 0.38 s from the end
+PASS captions: inside the safe zone (not bottom 20%, not right 15%)
+WARN script: sentences outside 6-22 words: L2 1w, L3 5w, L3 4w, L3 4w, L4 2w, L4 4w
+PASS variety: 0 earlier episodes compared
+FAIL look: night p95 163.0 outside 170-255

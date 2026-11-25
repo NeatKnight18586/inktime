@@ -1,0 +1,3 @@
+see-through test: PASS
+card body: PASS, sampled 92195 pixels inside (mask eroded 10 px); 0 differ between striped and plain wall (max channel diff 0, tolerance 8)
+sound word: PASS, sampled 13572 pixels inside (mask eroded 10 px); 0 differ between striped and plain wall (max channel diff 0, tolerance 8)

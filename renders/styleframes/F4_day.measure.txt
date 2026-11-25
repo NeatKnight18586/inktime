@@ -1,0 +1,14 @@
+F4_day: Day proof: Fleet and Lee on a plain deck at a 3/4 camera angle, sun from the upper right, shadows on the planks (focus: both characters)
+measure out/styleframes/F4_day.png: 1 frames at 270x480 (no cams.json: still frames n/a)
+overall (1 frames)
+  lumaMean     191.3   target 70-95     n/a (insert)
+  dark40        3.7%   target 6-45%     n/a (insert)
+  p5              53   target <=25      n/a (insert)
+  p95            222   target >=170     n/a (insert)
+  sat          0.230   target 0.22-0.50 n/a (insert)
+  motion         n/a   target 1.5-6%    
+  still          n/a   target <=10%     
+  stillRun       n/a   target <=19      
+all targets met
+notan 18x32 (cuts 60/140): dark 1.0%  mid 10.2%  light 88.7%   dark-mass target 20-55% WARN
+notan brightest cluster: 4 cells, centre cell (1.5, 18.5), peak luma 245; nearest focus anchor 5 cells away, target <= 1 WARN

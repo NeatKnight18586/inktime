@@ -1,0 +1,7 @@
+F1_aerial https://github.com/NeatKnight18586/inktime/raw/renders/renders/styleframes/F1_aerial.png
+F2_lookout https://github.com/NeatKnight18586/inktime/raw/renders/renders/styleframes/F2_lookout.png
+F3_money https://github.com/NeatKnight18586/inktime/raw/renders/renders/styleframes/F3_money.png
+F4_day https://github.com/NeatKnight18586/inktime/raw/renders/renders/styleframes/F4_day.png
+F5_tick_day https://github.com/NeatKnight18586/inktime/raw/renders/renders/styleframes/F5_tick_day.png
+contact https://github.com/NeatKnight18586/inktime/raw/renders/renders/styleframes/contact.jpg
+notan https://github.com/NeatKnight18586/inktime/raw/renders/renders/styleframes/notan.png

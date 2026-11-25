@@ -1,0 +1,17 @@
+WARN length: 20.0 s (30-55 hard, 35-50 target; scratch episode)
+WARN frame1: no sound word, no caption (no voice)
+PASS stillness: longest still run 0 frames (max 19), still frames 0.0% (max 10%)
+PASS rotation: peak 83.3 deg/s at frame 159 (max 90 outside whip, dive, rise)
+PASS witness: 0.0% of runtime, none before 3 s
+WARN hands: hands in 36.5% of POV frames (min 40%)
+PASS tick: longest out-of-frame run 144 frames (max 192)
+PASS centre40: 907 card-frames clear of the centre 40%
+WARN change: median visual-change interval 1.42 s over 11 changes (1.5-2.5)
+PASS soundwords: 3 words, spaced 48+ frames, no face covered
+PASS money: S7 starts at 76.7% (65-85) and holds 0.83 s (min 0.8)
+PASS plant: forestay_top in frame for frames 0-48
+WARN loop: pose within 0.00 deg / 0.0 cm; no voice, word end not checked
+PASS captions: no captions (no voice)
+PASS script: no script.json
+PASS variety: scratch episode: not compared
+PASS look: 6 stills in range
