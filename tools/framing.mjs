@@ -11,7 +11,7 @@ export const H = 1920;
 const DEGR = Math.PI / 180;
 
 // A card's facing (rad): facingCam turns it toward the camera (offset in deg), else its fixed world facing.
-export const facingOf = (card, base, cam) => (card.facingCam !== undefined ? Math.atan2(cam.position.x - base.x, cam.position.z - base.z) + card.facingCam * DEGR : (card.facing ?? 0) * DEGR);
+export const facingOf = (card, base, cam, pose = null) => (pose?.faceYaw !== undefined ? Math.atan2(cam.position.x - base.x, cam.position.z - base.z) + pose.faceYaw * DEGR : card.facingCam !== undefined ? Math.atan2(cam.position.x - base.x, cam.position.z - base.z) + card.facingCam * DEGR : (card.facing ?? 0) * DEGR);
 
 export function makeCam(pos, quat, fov) {
   const cam = new THREE.PerspectiveCamera(fov, W / H, 0.05, 9000);
@@ -31,7 +31,7 @@ export const toScreen = (p, cam) => {
 // The card figure's span across the frame width (0..1) for a stick-character card; { lo: 2, hi: -1 } when nothing is in front of the camera.
 export function cardSpan(card, pose, spot, cam) {
   const base = new THREE.Vector3(...spot);
-  const t = faceTurn(facingOf(card, base, cam), base, cam.position);
+  const t = faceTurn(facingOf(card, base, cam, pose), base, cam.position);
   const fig = figure(pose, 0, Math.cos(t.angle));
   const pts = [];
   const add = (p, r) => pts.push([p.x - r, p.y], [p.x + r, p.y], [p.x, p.y - r], [p.x, p.y + r]);
@@ -89,7 +89,7 @@ export function tickView(pose, base, cam) {
 // A character's face disc in pixels (head centre, 0.4 D radius); null for the back of the head or off-screen.
 export function faceDisc(card, pose, spot, cam) {
   const base = new THREE.Vector3(...spot);
-  if (faceTurn(facingOf(card, base, cam), base, cam.position).back) return null;
+  if (faceTurn(facingOf(card, base, cam, pose), base, cam.position).back) return null;
   const fig = figure(pose, 0, 1);
   const centre = base.clone().add(new THREE.Vector3(0, fig.headC.y * D_METRES, 0));
   const s = toScreen(centre, cam);

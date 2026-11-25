@@ -344,7 +344,7 @@ function buildSky(scene, rng, pal) {
   stars.frustumCulled = false;
   group.add(stars);
   // Mirrored stars (sea state "flat"): each star's reflection drawn on the water where the eye sees it, 6 cm above the surface,
-  // so the ship and the hull still hide it; dimmed to 60%. Shown only when the sea state mirrors.
+  // so the ship and the hull still hide it; dimmed to 60%, a short vertical frost streak (2x the star size), shimmering on twos. Shown only when the sea state mirrors.
   const mirror = new THREE.Points(
     geo,
     new THREE.ShaderMaterial({
@@ -358,8 +358,11 @@ function buildSky(scene, rng, pal) {
           vec3 d = normalize(position);
           float h = max(uEye.y - 0.06, 0.5);
           vec3 w = vec3(uEye.x + d.x / d.y * h, 0.06, uEye.z + d.z / d.y * h);
-          vB = 0.6 * aBright * t; gl_PointSize = aSize; gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0); }`,
-      fragmentShader: `uniform vec3 uColor; varying float vB; void main(){ gl_FragColor = vec4(uColor * vB, 1.0); }`,
+          // Shimmer on twos: each reflection's brightness re-rolls every 2 frames.
+          float sh = 0.55 + 0.45 * fract(sin(dot(position.xz, vec2(12.9898, 78.233)) + uTwos * 3.7) * 43758.5453);
+          vB = 0.6 * aBright * t * sh; gl_PointSize = aSize * 4.0; gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0); }`,
+      // A short vertical frost streak: twice the star's width, twice as tall again (the point sprite clipped to a bar).
+      fragmentShader: `uniform vec3 uColor; varying float vB; void main(){ if (abs(gl_PointCoord.x - 0.5) > 0.25) discard; gl_FragColor = vec4(uColor * vB, 1.0); }`,
     })
   );
   mirror.name = 'stars_mirror';
@@ -1149,7 +1152,9 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   // 6 cm brass padlock (kits/props/props.mjs).
   const cr = crate(pal, { text: 'BINOCULARS' });
   cr.group.position.set(-0.48, 0, 0.38);
-  cr.group.rotation.y = 0.5 + Math.PI;
+  // The stencilled front (+Z) faces the lookout eye squarely (the eye in nest space: centreline, LOOKOUT.back from the rear wall).
+  const eyeZ = -(R - 0.04) + LOOKOUT.back;
+  cr.group.rotation.y = Math.atan2(0 - cr.group.position.x, eyeZ - cr.group.position.z);
   nest.add(cr.group);
   anim.ready.push(cr.ready);
   anchors.locker = cr.group;

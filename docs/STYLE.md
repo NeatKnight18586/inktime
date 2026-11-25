@@ -77,7 +77,7 @@
 ## Hands (you)
 - XIII style. Realistic proportions, never cartoon nubs.
 - Two flat skin tones (Phase 6b, lighter): lit = lamp #E8A64B mixed 75% toward paper #F4EFE6; shadow = lit x 0.78 toward navy. One hard-edged shadow shape per finger group.
-- Scale 1.25; the navy knit cuff shows at most 4 cm. Test (CI stills job, tools/handtest.mjs): in every hand pose render, skin is at least 60% of the hand's pixel area and the cuff at most 25%.
+- Scale 1.25; the cuff shows 1.5 cm, a lighter navy sleeve #3A4A66 with knit hatching. Every pose turns the back of the hand at least 40 deg toward the camera (no end-on wrists); poses that hold the phone up to you show the palm. Test (CI stills job, tools/handtest.mjs): in every hand pose render, skin is at least 55% of the hand's pixel area and the cuff at most 30%.
 - Two-hand mode: a pose with "hand": "both" shows both rigs (the left mirrored to the bottom-left), e.g. "rub".
 - Outline 8 px, knuckle creases 2-3 px; navy wool cuff with knit hatching.
 - A 3D viewmodel, as in FPS games (engine/rig/hands3d.mjs): an existing rigged hand (@webxr-input-profiles generic-hand, MIT; assets/hands/) in camera space, bottom-right 25-35% of the frame, multiplied by the scene tint. Material: the toon ramp in the two skin tones, lit by the 1b.2 hand light (warm amber key from below, ice rim on the upper edges). Ink: a second SkinnedMesh sharing the skeleton, back faces pushed out along the skinned normal in the vertex shader, lineScale 1.3. Cuff: a navy knit-hatch cylinder on the wrist bone.

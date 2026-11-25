@@ -86,7 +86,7 @@ export function compile(ep, { words = [], script = null } = {}) {
     if (c.cast === 'guide') for (const s of shots) for (const g of s.guide ?? []) track.push({ at: g.at, pose: g.pose });
     track.sort((a, b) => a.at - b.at);
     const speak = [...(c.speak ?? []).map(([a, b]) => [F(a), F(b)]), ...speakOf(c.cast)];
-    const card = { cast: c.cast, track, anchor: c.anchor, blink: c.blink ?? true, ...(c.light ? { light: c.light } : {}), ...(c.facing !== undefined ? { facing: c.facing } : {}), ...(c.facingCam !== undefined ? { facingCam: c.facingCam } : {}), ...(c.slotScale !== undefined ? { slotScale: c.slotScale } : {}), ...(speak.length ? { speak } : {}) };
+    const card = { cast: c.cast, track, anchor: c.anchor, blink: c.blink ?? true, ...(c.light ? { light: c.light } : {}), ...(c.facing !== undefined ? { facing: c.facing } : {}), ...(c.facingCam !== undefined ? { facingCam: c.facingCam } : {}), ...(c.slotScale !== undefined ? { slotScale: c.slotScale } : {}), ...(c.pop !== undefined ? { pop: F(c.pop) } : {}), ...(speak.length ? { speak } : {}) };
     if (c.cast === 'guide') {
       const anchors = [{ at: 0, anchor: c.anchor }];
       for (const s of shots) for (const g of s.guide ?? []) anchors.push({ at: g.at, anchor: g.anchor });

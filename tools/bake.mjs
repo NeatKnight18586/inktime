@@ -16,13 +16,14 @@ import { paniniStrength } from '../engine/post/panini.mjs';
 import { HELD, heldObjectCamera } from '../engine/rig/presets.mjs';
 import { handsPlan } from '../engine/rig/hands3d.mjs';
 import { poseAt, mouthAt, breathAt, blinkFrames } from '../engine/cast/stickmath.mjs';
-import { tickPoseAt, countdownAt, bobAt } from '../engine/cast/tick.mjs';
+import { tickPoseAt, countdownAt, bobAt, tickSilhouette } from '../engine/cast/tick.mjs';
+import { D_METRES } from '../engine/cast/stickmath.mjs';
 import { sfxState, pickVariant, sfxTilt, SIZE as SFX_SIZE } from '../engine/sfxwords.mjs';
 import { splitCards } from './captions.mjs';
 import { cardSpan, tickView, faceDisc, sfxBox, makeCam, toScreen, W, H } from './framing.mjs';
 import { loadEpisode, compile, readJson } from './timeline.mjs';
 import { rng, hashSeed } from './rng.mjs';
-import { isSlot, slotPoint, slotOutward, tickSlotDistance, sfxSlotDistance, TICK_IDLE_WIDTH } from '../engine/rig/slots.mjs';
+import { isSlot, slotPoint, slotOutward, tickSlotDistance, sfxSlotDistance, TICK_IDLE_WIDTH, SLOTS, popState } from '../engine/rig/slots.mjs';
 import { lightFx, LIGHT_STATES } from '../engine/look/lightstate.mjs';
 import { wispFrames, placeWisp } from '../engine/rig/breath.mjs';
 
@@ -185,16 +186,20 @@ export async function bakeSpec(spec, { words = [], range = null } = {}) {
           // Camera slot: the point in front of the camera; a drift pose walks outward, away from the centre.
           const home = isSlot(an) ? an : 'cam_right';
           // c.slotScale: Tick that many times its slot size (closer to the eye), e.g. 'Tick close'.
-          const p = slotPoint(home, camera, tickSlotDistance(camera.fov) / (c.slotScale ?? 1));
+          const pop = c.pop !== undefined ? popState(n - c.pop, SLOTS[home].x, TICK_IDLE_WIDTH) : null;
+          const p = slotPoint(home, camera, tickSlotDistance(camera.fov) / ((c.slotScale ?? 1) * (pop?.scale ?? 1)), pop?.x ?? null);
           const drift = poses[t.name]?.drift;
           if (drift && !jumping) p.addScaledVector(slotOutward(home, camera), Math.hypot(...drift) * (Math.max(0, n - t.start) / fps));
           if (jumping) {
             // The jump: Tick flies to the centre and grows to JUMP.tickWidth of the width (closer to the eye), hands spinning.
             const js = jumpState(tr.k, !!tr.back);
             const e = js.fly * js.fly * (3 - 2 * js.fly);
-            const c = slotPoint('cam_centre', camera, tickSlotDistance(camera.fov) * (TICK_IDLE_WIDTH / JUMP.tickWidth));
-            p.lerp(c, e);
             if (js.spin) t = { ...tickPoseAt(poses, [{ at: 0, pose: 'spin' }], ne), name: 'spin', start: tr.at ?? n };
+            // The distance at which Tick's own silhouette (this pose) spans JUMP.tickWidth of the frame width.
+            const sil = tickSilhouette(t.pose);
+            const wM = (Math.max(...sil.map(([x]) => x)) - Math.min(...sil.map(([x]) => x))) * D_METRES;
+            const c = slotPoint('cam_centre', camera, wM / (2 * JUMP.tickWidth * Math.tan((camera.fov * Math.PI) / 360) * camera.aspect));
+            p.lerp(c, e);
             g.jumpCentre = toScreen(p, cam);
           }
           pos = p.toArray();

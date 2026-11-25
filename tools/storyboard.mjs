@@ -51,7 +51,7 @@ export function beatSpec(beat, { ep, words, compiled }) {
     shots = N > LEAD ? [{ frames: N - LEAD, camera: beat.camera }, extra({ frames: LEAD + 1, camera: beat.camera })] : [extra({ frames: N + 1, camera: beat.camera })];
   }
   const cards = (beat.cards ?? []).map((c) => {
-    if (c.cast === 'guide') return { cast: 'guide', anchor: 'guide_spot', anchors: [{ at: 0, anchor: c.slot ?? 'cam_right' }], pose: c.pose ?? 'idle', blink: true, ...(c.slotScale ? { slotScale: c.slotScale } : {}) };
+    if (c.cast === 'guide') return { cast: 'guide', anchor: 'guide_spot', anchors: [{ at: 0, anchor: c.slot ?? 'cam_right' }], pose: c.pose ?? 'idle', blink: true, ...(c.slotScale ? { slotScale: c.slotScale } : {}), ...(c.pop !== undefined ? { pop: N + c.pop } : {}) };
     return { cast: c.cast, anchor: c.anchor, pose: c.pose ?? 'idle', blink: true, ...(c.light ? { light: c.light } : {}), ...(c.facing !== undefined ? { facing: c.facing } : {}), ...(c.facingCam !== undefined ? { facingCam: c.facingCam } : {}) };
   });
   for (const c of cards) if (c.cast === 'guide' && !isSlot(c.anchors[0].anchor)) throw new Error(`storyboard ${beat.id}: guide slot "${c.anchors[0].anchor}"`);

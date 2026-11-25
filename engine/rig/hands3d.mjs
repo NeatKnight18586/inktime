@@ -21,8 +21,11 @@ export const BLEND_FRAMES = 3;
 export const HAND_FRAME = { x: 0.12, y: -0.2, z: 0.42, scale: 1.25, refFov: 72 };
 // Skin values (Phase 6b, lighter): lit = lamp mixed SKIN.toPaper toward paper; shadow = lit x SKIN.shadow, 20% toward navy.
 export const SKIN = { toPaper: 0.75, shadow: 0.78 };
-// The knit cuff: at most 4 cm of it shows past the wrist.
-export const CUFF = { length: 0.04, r0: 0.036, r1: 0.039 };
+// The knit cuff (the sleeve's end): 1.5 cm shows past the wrist, in a lighter navy with knit hatching so it reads as a sleeve.
+export const CUFF = { length: 0.015, r0: 0.036, r1: 0.038, colour: '#3A4A66' };
+// Every pose turns the back of the hand at least BACK_MIN deg toward the camera (no end-on wrists); poses that hold the phone
+// up to you (prop "phone") show the palm instead and are exempt.
+export const BACK_MIN = 40;
 // Two-hand poses ("hand": "both"): the right pose drives both rigs; the left mirrors it (x, wrist yaw and roll) at the
 // bottom-left. "rub": the palms slide against each other on twos (RUB.amp m at RUB.hz).
 export const RUB = { amp: 0.018, hz: 2.2 };
@@ -301,10 +304,11 @@ export function buildHand(gltf, colors, hex = {}) {
   skinned.parent.add(hull);
 
   // Cuff on the wrist bone, running back along the arm.
-  const knit = knitTexture(hex.navy ?? '#1B2A41', hex.ink ?? '#141414');
+  const knit = knitTexture(CUFF.colour, hex.ink ?? '#141414');
+  const sleeve = new THREE.Color(CUFF.colour);
   const cuffGeo = new THREE.CylinderGeometry(CUFF.r0, CUFF.r1, CUFF.length, 24, 1, true);
-  const cuff = new THREE.Mesh(cuffGeo, skinMaterial({ ...colors, lit: colors.navy, shadow: colors.navy }, { map: knit }));
-  if (!knit) cuff.material.uniforms.uLit.value = colors.navy;
+  const cuff = new THREE.Mesh(cuffGeo, skinMaterial({ ...colors, lit: sleeve, shadow: sleeve.clone().multiplyScalar(0.72) }, { map: knit }));
+  if (!knit) cuff.material.uniforms.uLit.value = sleeve;
   cuff.material.uniforms.uRimMix.value = 0;
   const arm = f.clone().negate();
   const wq = rest.wrist.quat.clone();
@@ -369,7 +373,7 @@ export function buildPhone(rig, colors) {
     new THREE.MeshBasicMaterial({ color: colors.glow ?? colors.key, fog: false, toneMapped: false })
   );
   screen.position.z = PHONE.d / 2 + 0.0006;
-  // The screen reads "NO SERVICE" (hand-lettered ink on the lamp glow), across the screen's long side.
+  // The screen reads "NO SERVICE" (hand-lettered ink on the lamp glow).
   if (typeof document !== 'undefined') {
     const cv = document.createElement('canvas');
     cv.width = 256;
@@ -381,12 +385,16 @@ export function buildPhone(rig, colors) {
     tex.colorSpace = THREE.SRGBColorSpace;
     screen.material.map = tex;
     screen.material.color.set(0xffffff);
-    screen.userData.ready = letterImage(PHONE.screenText, { fill: '#141414' }).then((img) => {
+    // Two lines, "NO" over "SERVICE", across the screen's short side, upright as the phone is held to you (phone_show turns the
+    // screen's +y down the frame, so the canvas is drawn turned 180 deg), in the upper half of the screen, clear of the caption.
+    const [l1, l2] = PHONE.screenText.split(' ');
+    screen.userData.ready = Promise.all([letterImage(l1, { fill: '#141414' }), letterImage(l2, { fill: '#141414' })]).then(([a1, a2]) => {
       g.save();
-      g.translate(cv.width / 2, cv.height / 2);
-      g.rotate(-Math.PI / 2);
-      const k = Math.min((cv.height * 0.86) / img.width, (cv.width * 0.5) / img.height);
-      g.drawImage(img, (-img.width * k) / 2, (-img.height * k) / 2, img.width * k, img.height * k);
+      g.translate(cv.width / 2, cv.height * 0.6);
+      g.rotate(Math.PI);
+      const k = (cv.width * 0.9) / a2.width;
+      g.drawImage(a1, (-a1.width * k) / 2, -36 - a1.height * k, a1.width * k, a1.height * k);
+      g.drawImage(a2, (-a2.width * k) / 2, 6, a2.width * k, a2.height * k);
       g.restore();
       tex.needsUpdate = true;
     });

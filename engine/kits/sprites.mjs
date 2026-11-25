@@ -9,25 +9,28 @@ export const SPRITE_Z = 0.5;
 // Each drawing fills a 1 x 1 m layer (x -0.5..0.5, y 0..1).
 export const SPRITES = {
   pocket_lining: (k, c) => {
-    // A turned-out wool pocket lining hanging from the fingers: a rumpled pale bag, a dark seam, a few loose threads.
-    const p = [[-0.3, 0.95], [-0.36, 0.6], [-0.28, 0.3], [-0.1, 0.12], [0.12, 0.1], [0.3, 0.28], [0.36, 0.62], [0.3, 0.95]];
-    k.shape(p, c.cloth, { line: k.lw.silhouette });
-    k.line([[-0.25, 0.9], [0.25, 0.9]], k.lw.crease);
-    k.line([[-0.2, 0.55], [-0.05, 0.35], [0.12, 0.42]], k.lw.texture);
-    k.hatch([[0.1, 0.12], [0.3, 0.28], [0.36, 0.62], [0.2, 0.6]], { alpha: 0.4 });
-    k.line([[0.0, 0.11], [0.03, 0.0]], k.lw.texture);
+    // Your coat (the navy sleeve-coat) with its pocket turned out: a dark pocket slit under a flap, and the white cloth lining
+    // hanging out of it, with ink fold lines and a loose thread. The lining is the middle 60% of the drawing's width.
+    k.shape(k.rect(-0.5, 0.6, 0.5, 1.0), c.coat, { line: k.lw.silhouette });
+    k.hatch(k.rect(-0.5, 0.6, 0.5, 1.0), { alpha: 0.25 });
+    k.shape([[-0.36, 0.82], [0.36, 0.82], [0.33, 0.74], [-0.33, 0.74]], c.coatDark, { line: k.lw.crease });
+    k.shape(k.ellipse(0, 0.74, 0.32, 0.03, 24), c.ink, { outline: false });
+    const lining = [[-0.3, 0.75], [-0.33, 0.55], [-0.26, 0.32], [-0.16, 0.14], [0.02, 0.08], [0.18, 0.13], [0.28, 0.3], [0.32, 0.55], [0.3, 0.75]];
+    k.shape(lining, c.paper, { line: k.lw.silhouette });
+    for (const f of [[[-0.2, 0.7], [-0.14, 0.45], [-0.06, 0.2]], [[0.05, 0.7], [0.1, 0.42], [0.06, 0.16]], [[0.22, 0.68], [0.2, 0.4]], [[-0.26, 0.5], [-0.1, 0.36]]]) k.line(f, k.lw.crease);
+    k.hatch([[0.18, 0.13], [0.28, 0.3], [0.32, 0.55], [0.22, 0.55], [0.14, 0.25]], { alpha: 0.35 });
+    k.line([[0.02, 0.08], [0.05, -0.0]], k.lw.texture);
   },
   moth: (k, c) => {
-    // A small moth, wings spread, ink-outlined, with two dust dashes.
+    // A small moth rising, wings spread wide, ink-outlined, with three rising dashes below it.
     for (const s of [-1, 1]) {
-      k.shape([[0, 0.55], [s * 0.42, 0.85], [s * 0.48, 0.55], [s * 0.3, 0.35], [0, 0.45]], c.moth, { line: k.lw.silhouette });
-      k.line([[s * 0.12, 0.6], [s * 0.35, 0.7]], k.lw.texture);
+      k.shape([[0, 0.62], [s * 0.2, 0.95], [s * 0.48, 0.88], [s * 0.4, 0.62], [s * 0.3, 0.45], [s * 0.1, 0.45]], c.moth, { line: k.lw.silhouette });
+      k.line([[s * 0.1, 0.7], [s * 0.36, 0.78]], k.lw.texture);
     }
-    k.shape(k.ellipse(0, 0.5, 0.06, 0.2, 16), c.ink, { line: k.lw.crease });
-    k.line([[0, 0.68], [-0.1, 0.9]], k.lw.texture);
-    k.line([[0, 0.68], [0.1, 0.9]], k.lw.texture);
-    k.line([[-0.45, 0.2], [-0.3, 0.25]], k.lw.texture);
-    k.line([[0.4, 0.15], [0.28, 0.2]], k.lw.texture);
+    k.shape(k.ellipse(0, 0.6, 0.05, 0.17, 16), c.ink, { line: k.lw.crease });
+    k.line([[0, 0.76], [-0.1, 0.96]], k.lw.texture);
+    k.line([[0, 0.76], [0.1, 0.96]], k.lw.texture);
+    for (const x of [-0.18, 0, 0.18]) k.line([[x, 0.32], [x, 0.12]], k.lw.crease);
   },
   phone: (k, c) => {
     // The dropped phone, tumbling: a dark slab with a glowing lamp screen and speed dashes above it.
@@ -40,7 +43,7 @@ export const SPRITES = {
 // names: the sprite names a plan uses. Returns { update(list), ready, prepass }.
 export function makeSprites(camera, palette, names, tint) {
   const hex = (k, d) => palette.json.colors[k] ?? d;
-  const c = { ink: palette.json.ink, paper: palette.json.paper, cloth: palette.mixHex('paper', 'navy' in palette.json.colors ? 'navy' : 'ink', 0.25), moth: palette.mixHex('paper', 'ink', 0.45), glow: hex('lamp', palette.json.paper) };
+  const c = { ink: palette.json.ink, paper: palette.json.paper, coat: '#3A4A66', coatDark: '#2A3650', moth: palette.mixHex('paper', 'ink', 0.4), glow: hex('lamp', palette.json.paper) };
   const items = {};
   const jobs = [];
   const holder = new THREE.Group();

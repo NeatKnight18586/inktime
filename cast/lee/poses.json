@@ -269,5 +269,30 @@
     "eyes": "half",
     "brows": "raised",
     "mouth": "smirk"
+  },
+  "look_away": {
+    "armL": [
+      30,
+      40
+    ],
+    "armR": [
+      30,
+      40
+    ],
+    "legL": [
+      6,
+      12
+    ],
+    "legR": [
+      -4,
+      0
+    ],
+    "tilt": 6,
+    "lean": 6,
+    "faceYaw": 95,
+    "look": 1,
+    "eyes": "half",
+    "brows": "flat",
+    "mouth": "line"
   }
 }

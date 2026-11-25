@@ -64,7 +64,7 @@
      "cast": "guide",
      "slot": "cam_right",
      "pose": "point",
-     "slotScale": 1.8
+     "pop": -8
     },
     {
      "cast": "fleet",
@@ -123,9 +123,15 @@
    "set": "titanic_crowsnest",
    "look": "titanic_night",
    "camera": {
-    "anchor": "cam_crate",
-    "preset": "held",
-    "fov": 52
+    "anchor": "cam_lookout",
+    "preset": "glance",
+    "fov": 52,
+    "from": "base",
+    "to": {
+     "anchor": "crate",
+     "lift": 0.2
+    },
+    "lean": 0
    },
    "hands": "crate_lid",
    "subject": "the BINOCULARS crate",
@@ -191,8 +197,8 @@
     {
      "cast": "lee",
      "anchor": "lee_spot",
-     "pose": "lean_rail",
-     "facingCam": 80
+     "pose": "look_away",
+     "facing": -65
     },
     {
      "cast": "fleet",
@@ -307,17 +313,17 @@
    "sprites": [
     {
      "name": "pocket_lining",
-     "x": 0.62,
-     "y": 0.72,
-     "size": 0.2,
-     "rot": -8
+     "x": 0.5,
+     "y": 0.68,
+     "size": 0.234,
+     "rot": 0
     },
     {
      "name": "moth",
-     "x": 0.4,
-     "y": 0.36,
-     "size": 0.1,
-     "rot": -15
+     "x": 0.42,
+     "y": 0.4,
+     "size": 0.035,
+     "rot": -10
     }
    ],
    "subject": "your empty pocket",
@@ -342,11 +348,11 @@
     "fov": 84,
     "from": {
      "yaw": 75,
-     "pitch": -42
+     "pitch": -35
     },
     "to": {
      "yaw": 75,
-     "pitch": -42
+     "pitch": -35
     },
     "lean": 0
    },
@@ -506,8 +512,8 @@
    },
    "hands": "rail_grip",
    "jump": {
-    "at": -6,
-    "stamp": "SOUTHAMPTON · APRIL 1912",
+    "at": -10,
+    "stamp": "SOUTHAMPTON|9 APRIL 1912",
     "dest": "dock"
    },
    "subject": "Tick",
@@ -546,7 +552,7 @@
    },
    "jump": {
     "at": -24,
-    "stamp": "SOUTHAMPTON · APRIL 1912",
+    "stamp": "SOUTHAMPTON|9 APRIL 1912",
     "dest": "dock"
    },
    "subject": "the officer",
@@ -712,7 +718,7 @@
    "set": "auction_2007",
    "look": "auction_warm",
    "camera": {
-    "anchor": "cam_auction",
+    "anchor": "cam_slam",
     "preset": "held",
     "fov": 52
    },
@@ -737,8 +743,8 @@
      "word": "SOLD",
      "at": -4,
      "anchor": "gavel",
-     "size": 0.4,
-     "lift": 0.45
+     "size": 0.12,
+     "lift": 0.2
     }
    ]
   },

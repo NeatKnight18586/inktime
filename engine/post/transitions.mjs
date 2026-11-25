@@ -9,21 +9,21 @@ import { letterImage } from '../look/lettering.mjs';
 //  sting  12 frames: seeded ink blobs splash outward from the centre, revealing the scene.
 //  whip   the whip preset (engine/rig/presets.mjs) across the cut; the pass only draws its smear frame (stretched ink streaks).
 //  match  a circular iris through the screen position of a round anchor: closes onto it, opens on the next scene.
-//  jump   20 frames, the time jump: Tick flies to the centre and grows to 40% of the width while its hands spin (frames 0-11),
-//         an ink splash grows from Tick and covers the frame (8-13), the cut lands at frame 14 and the splash wipes open on the
+//  jump   20 frames, the time jump: Tick flies to the centre and grows to 40% of the width in 6 frames (there by frame 8) while
+//         its hands spin (frames 0-11), an ink splash grows from Tick from frame 12 and covers the frame, the cut lands at frame 14 and the splash wipes open on the
 //         destination (14-19). A hand-lettered date stamp card then pops in for 1.2 s. "back": the same 20 frames reversed
 //         (the cut at frame 6, Tick shrinks back to its slot), no stamp. Rule: at most 2 jumps per episode, each to a new place.
 export const BLINK_FRAMES = 8;
 export const STING_FRAMES = 12;
 export const MATCH_FRAMES = 12;
-export const JUMP = { frames: 20, cut: 14, fly: 12, coverFrom: 8, stampSeconds: 1.2, tickWidth: 0.4, max: 2 };
+export const JUMP = { frames: 20, cut: 14, fly: 12, flyIn: 6, coverFrom: 12, stampSeconds: 1.2, tickWidth: 0.4, max: 2 };
 export const TRANSITION_FRAMES = { blink: BLINK_FRAMES, sting: STING_FRAMES, match: MATCH_FRAMES, whip: 8, jump: JUMP.frames };
 
 // Jump state for local frame k (0..19): fly 0..1 (Tick from its slot to the centre), cover 0..1 (ink grows from Tick) and
 // reveal 0..1 (the splash wiping open on the destination). back: the timeline reversed.
 export function jumpState(k, back = false) {
   const j = back ? JUMP.frames - 1 - k : k;
-  const fly = Math.min(1, (j + 1) / 8);
+  const fly = Math.min(1, (j + 1) / JUMP.flyIn);
   const cover = j < JUMP.coverFrom ? 0 : j < JUMP.cut ? (j - JUMP.coverFrom + 1) / (JUMP.cut - JUMP.coverFrom) : 1;
   const reveal = j < JUMP.cut ? 0 : (j - JUMP.cut + 1) / (JUMP.frames - JUMP.cut);
   return { j, fly, cover, reveal, spin: j < JUMP.fly, cut: back ? JUMP.frames - JUMP.cut : JUMP.cut };
@@ -211,27 +211,34 @@ export function transitionPass({ res, ink, seed = 'transition' }) {
   return pass;
 }
 
-// Browser: the stamp card as a texture: paper, a double ink border, the text hand-lettered in ink (engine/look/lettering.mjs).
+// Browser: the stamp as a texture: one paper card per line ("|" separates stacked cards, each within the 3-word rule), each with
+// a double ink border and its text hand-lettered in ink (engine/look/lettering.mjs), stacked and a little askew.
 export async function stampTexture(text, { ink = '#141414', paper = '#F4EFE6', seed = 'stamp' } = {}) {
+  const lines = String(text).split('|').map((l) => l.trim()).filter(Boolean);
+  const CH = 200;
+  const GAP = 36;
   const c = document.createElement('canvas');
   c.width = 1400;
-  c.height = 240;
+  c.height = lines.length * CH + (lines.length - 1) * GAP + 40;
   const g = c.getContext('2d');
   const r = rng(hashSeed(`${seed}:${text}`));
-  g.save();
-  g.translate(c.width / 2, c.height / 2);
-  g.rotate((r() * 2 - 1) * 0.03);
-  g.fillStyle = paper;
-  g.fillRect(-680, -100, 1360, 200);
-  g.strokeStyle = ink;
-  g.lineWidth = 10;
-  g.strokeRect(-672, -92, 1344, 184);
-  g.lineWidth = 4;
-  g.strokeRect(-656, -76, 1312, 152);
-  const img = await letterImage(text, { fill: ink, seed: 'v1' });
-  const k = Math.min(1260 / img.width, 120 / img.height);
-  g.drawImage(img, (-img.width * k) / 2, (-img.height * k) / 2, img.width * k, img.height * k);
-  g.restore();
+  for (const [i, line] of lines.entries()) {
+    const img = await letterImage(line, { fill: ink, seed: 'v1' });
+    const k = Math.min(1180 / img.width, 116 / img.height);
+    const w = Math.min(1360, img.width * k + 150);
+    g.save();
+    g.translate(c.width / 2 + (i % 2 ? 40 : -20), 20 + CH / 2 + i * (CH + GAP));
+    g.rotate((r() * 2 - 1) * 0.035);
+    g.fillStyle = paper;
+    g.fillRect(-w / 2, -CH / 2, w, CH);
+    g.strokeStyle = ink;
+    g.lineWidth = 10;
+    g.strokeRect(-w / 2 + 8, -CH / 2 + 8, w - 16, CH - 16);
+    g.lineWidth = 4;
+    g.strokeRect(-w / 2 + 24, -CH / 2 + 24, w - 48, CH - 48);
+    g.drawImage(img, (-img.width * k) / 2, (-img.height * k) / 2, img.width * k, img.height * k);
+    g.restore();
+  }
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   return t;

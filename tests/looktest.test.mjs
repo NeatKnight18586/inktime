@@ -649,7 +649,20 @@ test('hands: rigged hand (scale 1.25) curls round a rail, sits bottom-right (31-
   assert.ok(rig.skinned.material.uniforms.uLit.value.equals(new THREE.Color('#EFCEA0')));
   assert.equal(HAND_FRAME.scale, 1.25);
   rig.cuff.geometry.computeBoundingBox();
-  assert.ok(rig.cuff.geometry.boundingBox.max.y - rig.cuff.geometry.boundingBox.min.y <= 0.04 + 1e-9, 'cuff at most 4 cm');
+  assert.ok(rig.cuff.geometry.boundingBox.max.y - rig.cuff.geometry.boundingBox.min.y <= 0.015 + 1e-9, 'cuff 1.5 cm');
+  // Every pose shows the back of the hand turned at least 40 deg toward the camera (phone-holding poses show the palm: exempt).
+  const { BACK_MIN } = await import('../engine/rig/hands3d.mjs');
+  for (const [name, p] of Object.entries(poses)) {
+    if (p.prop === 'phone') continue;
+    rig.setPose(p);
+    placeHand(rig.group, rig.baseQuat, p.wrist, 90, p.offset ?? [0, 0, 0]);
+    scene.updateMatrixWorld(true);
+    const wq = rig.group.getWorldQuaternion(new THREE.Quaternion());
+    const back = rig.axes.n.clone().negate().applyQuaternion(wq).normalize();
+    const toCam = rig.bones.wrist.getWorldPosition(new THREE.Vector3()).negate().normalize();
+    const deg = (Math.asin(back.dot(toCam)) * 180) / Math.PI;
+    assert.ok(deg >= BACK_MIN, `${name}: back of the hand ${deg.toFixed(0)} deg toward the camera`);
+  }
 });
 
 test('hands: the left hand loads and rigs the same way', async () => {

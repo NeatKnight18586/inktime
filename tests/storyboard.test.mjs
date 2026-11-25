@@ -27,7 +27,7 @@ test('storyboard: 21 beats, each at a word of its line, with subject, verb, set 
 test('storyboard: at most 2 jumps, to different places; in-world text at most 3 words', () => {
   const jumps = board.beats.filter((b) => b.jump && !b.jump.back);
   assert.ok(new Set(jumps.map((b) => b.jump.dest)).size <= 2);
-  for (const t of [...jumps.map((b) => b.jump.stamp), 'BINOCULARS', 'CROWS NEST TELEPHONE', '£90,000', 'NO SERVICE']) assert.ok(t.split(/\s+/).filter((w) => /[A-Z0-9£]/.test(w)).length <= 3, t);
+  for (const t of [...jumps.flatMap((b) => b.jump.stamp.split('|')), 'BINOCULARS', 'CROWS NEST TELEPHONE', '£90,000', 'NO SERVICE']) assert.ok(t.split(/\s+/).filter((w) => /[A-Z0-9£]/.test(w)).length <= 3, t);
 });
 
 test('money shot: the berg spans at least 40% of the width and stays fully in frame during the hold', async () => {
