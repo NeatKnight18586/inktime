@@ -54,4 +54,4 @@ Times: "L<n>:<w>" is the start of word w (0-based) of line Ln from words.json; a
 # Phase 6b additions (ep001 v2)
 - episode.json: "sea" ("flat" | "swell", default per episode; a shot may set its own), "captionKeys" (yellow key words), shot "transitionIn": "jump" with "jump": {"stamp", "dest"}, or "jump_back"; cards may set "facingCam" (deg from facing the camera) and the guide "slotScale"; shot "sprites" [{name, x, y, size, rot}].
 - storyboard.json: {"episode", "beats": [{id, at: "L2: binoculars", set, look, camera, subject, verb, captionKey, ...}]}; tools/storyboard.mjs renders one still per beat at that word (captions burned in) and a 7x3 contact sheet; the CI stills job runs it on a [stills] commit and publishes to renders/<id>-storyboard/ with hands.txt (tools/handtest.mjs).
-- storyboard.md (episodes/<id>/): the review, 2 lines per beat (mute test, match).
+- storyboard.md (episodes/<id>/): the review, 2 lines per beat (mute test, match); published to renders/<id>-storyboard/ by every [stills] run, or alone by a push whose message has [publish-review] (no render).

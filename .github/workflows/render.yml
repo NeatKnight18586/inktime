@@ -176,7 +176,9 @@ jobs:
           go=false
           stills=false
           mode=full
-          if [ "$STILLS_IN" = "true" ] || { [ "$EVENT" = "push" ] && printf '%s' "$MSG" | grep -qF '[stills]'; }; then stills=true
+          # [publish-review]: publish episodes/<id>/storyboard.md only (no render, no stills).
+          if [ "$EVENT" = "push" ] && printf '%s' "$MSG" | grep -qF '[publish-review]'; then go=false
+          elif [ "$STILLS_IN" = "true" ] || { [ "$EVENT" = "push" ] && printf '%s' "$MSG" | grep -qF '[stills]'; }; then stills=true
           elif [ "$EVENT" != "push" ]; then
             go=true
             if [ "$FULL_IN" != "true" ]; then mode=preview; fi
@@ -554,6 +556,26 @@ jobs:
           PAIRS=""
           for f in $D/*.png $D/*.measure.txt $D/contact.jpg $D/render.json $D/critique.md $D/urls.txt $D/solid.txt; do PAIRS="$PAIRS $f=$(basename $f)"; done
           node tools/publish-renders.mjs styleframes $PAIRS
+
+  # The storyboard review (episodes/<id>/storyboard.md) published next to its stills, without rendering: a push whose message has
+  # [publish-review].
+  review:
+    needs: audio
+    if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[publish-review]') && needs.audio.outputs.dir != '' }}
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DIR: ${{ needs.audio.outputs.dir }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Publish storyboard.md
+        run: |
+          if [ -f "$DIR/storyboard.md" ]; then node tools/publish-renders.mjs "$(basename "$DIR")-storyboard" "$DIR/storyboard.md=storyboard.md"; else echo "no $DIR/storyboard.md"; fi
 
   status-failed:
     needs: [audio, plan, render, assemble, stills, preview]

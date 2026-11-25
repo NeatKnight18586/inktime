@@ -123,15 +123,9 @@
    "set": "titanic_crowsnest",
    "look": "titanic_night",
    "camera": {
-    "anchor": "cam_lookout",
-    "preset": "glance",
-    "fov": 52,
-    "from": "base",
-    "to": {
-     "anchor": "crate",
-     "lift": 0.2
-    },
-    "lean": 0
+    "anchor": "cam_crate",
+    "preset": "held",
+    "fov": 52
    },
    "hands": "crate_lid",
    "subject": "the BINOCULARS crate",
@@ -742,9 +736,8 @@
     {
      "word": "SOLD",
      "at": -4,
-     "anchor": "gavel",
-     "size": 0.12,
-     "lift": 0.2
+     "anchor": "cam_top",
+     "size": 0.1
     }
    ]
   },

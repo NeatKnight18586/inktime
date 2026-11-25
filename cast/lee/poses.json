@@ -293,6 +293,7 @@
     "look": 1,
     "eyes": "half",
     "brows": "flat",
-    "mouth": "line"
+    "mouth": "line",
+    "gaze": 1
   }
 }

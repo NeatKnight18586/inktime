@@ -332,7 +332,9 @@ export function drawStick(ctx, W, H, params, st) {
 
   const face = (L, sh, sx) => {
     const eyeY = 0;
-    const ex = [sh - (D.eyeGap / 2) * sx, sh + (D.eyeGap / 2) * sx];
+    // pose.gaze (0..1): the eyes (and brows) look along the face shift, sliding up to 0.08 D further than the face.
+    const gz = (pose.gaze ?? 0) * 0.08 * (Math.sign(sh) || 1);
+    const ex = [sh + gz - (D.eyeGap / 2) * sx, sh + gz + (D.eyeGap / 2) * sx];
     if (st.cheek) {
       for (const x of ex) {
         const c = L(x + Math.sign(x - sh) * 0.1 * sx, -0.13);

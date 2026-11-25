@@ -386,11 +386,11 @@ export function buildPhone(rig, colors) {
     screen.material.map = tex;
     screen.material.color.set(0xffffff);
     // Two lines, "NO" over "SERVICE", across the screen's short side, upright as the phone is held to you (phone_show turns the
-    // screen's +y down the frame, so the canvas is drawn turned 180 deg), in the upper half of the screen, clear of the caption.
+    // screen's +y down the frame, so the canvas is drawn turned 180 deg), across the middle of the screen, clear of the thumb.
     const [l1, l2] = PHONE.screenText.split(' ');
     screen.userData.ready = Promise.all([letterImage(l1, { fill: '#141414' }), letterImage(l2, { fill: '#141414' })]).then(([a1, a2]) => {
       g.save();
-      g.translate(cv.width / 2, cv.height * 0.6);
+      g.translate(cv.width / 2, cv.height * 0.5);
       g.rotate(Math.PI);
       const k = (cv.width * 0.9) / a2.width;
       g.drawImage(a1, (-a1.width * k) / 2, -36 - a1.height * k, a1.width * k, a1.height * k);
