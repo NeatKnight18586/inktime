@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { LAYERS, setLayer } from '../../engine/look/layers.mjs';
+import { crate } from '../props/props.mjs';
 
 const DEG = Math.PI / 180;
 export const SHIP = {
@@ -248,7 +249,7 @@ function hexMix(a, b, t) {
 }
 
 // Animated parts registered during build (rigging sway, lamp flicker).
-const anim = { stays: null, ropes: [], lamps: [], shipRoot: null };
+const anim = { stays: null, ropes: [], lamps: [], shipRoot: null, mirror: null, ready: [] };
 // Shared per-frame uniforms for the set's animated shaders.
 const fxUniforms = {
   uShip: { value: new THREE.Vector3(0, 0, PSI0) }, // ship root x, z, yaw
@@ -257,7 +258,12 @@ const fxUniforms = {
   uT2: { value: 0 },
   uTwos: { value: 0 },
   uFlicker: { value: 1 },
+  uEye: { value: new THREE.Vector3(0, 30, 0) },
+  uSwell: { value: new THREE.Vector3(0.3, (2 * Math.PI) / ((9.81 * 8 * 8) / (2 * Math.PI)), (2 * Math.PI) / 8) },
 };
+// Sea states (per episode or per shot: episode.json "sea", shot "sea"). swell: the 0.3 m, 8 s swell. flat: a flat calm
+// (the inquiry record for 14 April 1912): a 0.02 m micro-shimmer, the stars mirrored on the water, the glints kept.
+export const SEA_STATES = { swell: { amp: 0.3, mirror: false }, flat: { amp: 0.02, mirror: true } };
 
 function buildSky(scene, rng, pal) {
   const group = new THREE.Group();
@@ -337,6 +343,34 @@ function buildSky(scene, rng, pal) {
   stars.renderOrder = 1;
   stars.frustumCulled = false;
   group.add(stars);
+  // Mirrored stars (sea state "flat"): each star's reflection drawn on the water where the eye sees it, 6 cm above the surface,
+  // so the ship and the hull still hide it; dimmed to 60%, a short vertical frost streak (2x the star size), shimmering on twos. Shown only when the sea state mirrors.
+  const mirror = new THREE.Points(
+    geo,
+    new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: { uColor: { value: pal.color('frost') }, uTwos: fxUniforms.uTwos, uEye: fxUniforms.uEye },
+      vertexShader: `attribute float aSize; attribute float aBright; attribute float aTwinkle; uniform float uTwos; uniform vec3 uEye; varying float vB;
+        void main(){
+          float t = aTwinkle > 0.0 ? 0.3 + 0.7 * fract(sin(aTwinkle * 12.9898 + uTwos * 78.233) * 43758.5453) : 1.0;
+          vec3 d = normalize(position);
+          float h = max(uEye.y - 0.06, 0.5);
+          vec3 w = vec3(uEye.x + d.x / d.y * h, 0.06, uEye.z + d.z / d.y * h);
+          // Shimmer on twos: each reflection's brightness re-rolls every 2 frames.
+          float sh = 0.55 + 0.45 * fract(sin(dot(position.xz, vec2(12.9898, 78.233)) + uTwos * 3.7) * 43758.5453);
+          vB = 0.6 * aBright * t * sh; gl_PointSize = aSize * 4.0; gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0); }`,
+      // A short vertical frost streak: twice the star's width, twice as tall again (the point sprite clipped to a bar).
+      fragmentShader: `uniform vec3 uColor; varying float vB; void main(){ if (abs(gl_PointCoord.x - 0.5) > 0.25) discard; gl_FragColor = vec4(uColor * vB, 1.0); }`,
+    })
+  );
+  mirror.name = 'stars_mirror';
+  mirror.renderOrder = 2;
+  mirror.frustumCulled = false;
+  mirror.visible = false;
+  anim.mirror = mirror;
+  group.add(mirror);
   group.add(buildSea(pal));
   setLayer(group, LAYERS.FX);
   scene.add(group);
@@ -356,7 +390,7 @@ function buildSea(pal) {
     uFrost: { value: pal.color('frost') },
     uLamp: { value: pal.color('lamp') },
     uDir: { value: new THREE.Vector2(...SWELL.dir).normalize() },
-    uSwell: { value: new THREE.Vector3(SWELL.amp, (2 * Math.PI) / SWELL.length, (2 * Math.PI) / SWELL.period) },
+    uSwell: fxUniforms.uSwell,
     uHalfBeam: { value: SHIP.halfBeam },
     uPortZ: { value: new THREE.Vector2(-84, 108) },
     uShip: fxUniforms.uShip,
@@ -1114,23 +1148,23 @@ function buildMastAndNest(scene, rng, pal, anchors) {
   nest.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.02, 10), lampMat, -0.06, 1.38, mastLocalZ - 0.375, 'phone_bell'));
   anchors.phone = phone;
 
-  // Small steel locker with a brass padlock, aft-left on the floor.
-  const locker = mesh(new THREE.BoxGeometry(0.42, 0.46, 0.3), steel, -0.48, 0.23, 0.38, 'locker');
-  locker.rotation.y = 0.5;
-  nest.add(locker);
-  const lockGroup = new THREE.Group();
-  lockGroup.position.copy(locker.position);
-  lockGroup.rotation.y = 0.5;
-  const padlock = mesh(new THREE.BoxGeometry(0.06, 0.06, 0.025), lampMat, 0.0, 0.08, -0.165, 'padlock');
-  lockGroup.add(padlock);
-  const shackle = mesh(new THREE.TorusGeometry(0.02, 0.006, 4, 10, Math.PI), steel, 0, 0.11, -0.165, 'shackle');
-  lockGroup.add(shackle);
-  lockGroup.add(mesh(new THREE.BoxGeometry(0.02, 0.4, 0.01), inkMat, 0.1, 0.0, -0.152, 'locker_seam'));
-  nest.add(lockGroup);
-  anchors.locker = locker;
-  contactShadow(nest, pal, -0.48, 0.0, 0.38, 0.26, 0.2);
+  // The binoculars crate (Phase 6b): a wooden crate stencilled "BINOCULARS", aft-left on the floor, its lid locked with a real
+  // 6 cm brass padlock (kits/props/props.mjs).
+  const cr = crate(pal, { text: 'BINOCULARS' });
+  cr.group.position.set(-0.48, 0, 0.38);
+  // The stencilled front (+Z) faces the lookout eye squarely (the eye in nest space: centreline, LOOKOUT.back from the rear wall).
+  const eyeZ = -(R - 0.04) + LOOKOUT.back;
+  cr.group.rotation.y = Math.atan2(0 - cr.group.position.x, eyeZ - cr.group.position.z);
+  nest.add(cr.group);
+  anim.ready.push(cr.ready);
+  anchors.locker = cr.group;
+  anchors.crate = cr.group;
+  contactShadow(nest, pal, -0.48, 0.0, 0.38, 0.32, 0.22);
   contactShadow(nest, pal, 0.42, 0.0, 0.42, 0.3, 0.22);
-  anchors.padlock = padlock;
+  anchors.padlock = cr.padlock;
+  // Inserts on the crate: the padlock close-up (the 6 cm lock fills about 30% of the width at vFOV 52) and the lid from above.
+  cameraAnchor(cr.group, anchors, 'cam_padlock', new THREE.Vector3(0, 0.3, 0.535), { yaw: 0, pitch: -6, fov: 52 });
+  cameraAnchor(cr.group, anchors, 'cam_crate', new THREE.Vector3(0, 1.4, 0.95), { yaw: 0, pitch: -50, fov: 52 });
 
   // Story props: tin mug on the rim, scarf on a hook, folded oilskin on the floor.
   const ma = -14 * DEG;
@@ -1216,6 +1250,7 @@ export function build(scene, rng) {
   anim.stays = null;
   anim.ropes = [];
   anim.lamps = [];
+  anim.ready = [];
   const L = pal.json.light;
   scene.add(new THREE.HemisphereLight(pal.color(L.fill), pal.color('navy'), L.fillIntensity));
 
@@ -1230,7 +1265,7 @@ export function build(scene, rng) {
   const aerial = aerialPose(anchors.berg_crest.position);
   cameraAnchor(scene, anchors, 'aerial', aerial.pos, { yaw: aerial.yaw, pitch: aerial.pitch, fov: AERIAL.fov, panini: false });
   anchorAt(anchorGroup, anchors, 'sea', new THREE.Vector3(0, 0, SHIP.mastZ - 220));
-  return { anchors, update, shipPose, keyLight: anim.keyLight, hook: buildHook(aerial, anchors.berg_crest.position) };
+  return { anchors, update, shipPose, keyLight: anim.keyLight, hook: buildHook(aerial, anchors.berg_crest.position), ready: Promise.all(anim.ready) };
 }
 
 // Frame-0 camera: horizontal distance AERIAL.back from the crest, rotated AERIAL.side deg off the crest -> ship line so
@@ -1277,8 +1312,12 @@ const flick = (seed, k) => {
 };
 
 // Per-frame state from the frame index only: sea, stars, smoke (on twos), lamp flicker (on twos), rigging sway.
-export function update(n, { camera, fps = 24 } = {}) {
+export function update(n, { camera, fps = 24, shot = null } = {}) {
   const t = n / fps;
+  const sea = SEA_STATES[shot?.sea] ?? SEA_STATES.swell;
+  fxUniforms.uSwell.value.x = sea.amp;
+  if (anim.mirror) anim.mirror.visible = sea.mirror;
+  if (camera) fxUniforms.uEye.value.copy(camera.position);
   const k = Math.floor(n / 2);
   fxUniforms.uT.value = t;
   const sp = shipPose(t);
@@ -1319,5 +1358,5 @@ function swing(a, b, angle) {
 
 export const ANCHORS = [
   'aerial', 'berg_crest', 'iceberg_glow', 'cam_lookout', 'forestay_top', 'lee_spot', 'fleet_spot', 'guide_spot', 'sea',
-  'bell', 'phone', 'locker', 'padlock', 'deck', 'iceberg_dark', 'iceberg_rim',
+  'bell', 'phone', 'locker', 'padlock', 'deck', 'iceberg_dark', 'iceberg_rim', 'crate', 'cam_padlock', 'cam_crate',
 ];

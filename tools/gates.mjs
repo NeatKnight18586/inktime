@@ -169,6 +169,13 @@ export function runGates({ doc, words = [], script = null, index = [], id = doc.
     const bad = [close !== undefined && `two sound words start within 48 frames (frame ${close})`, cover].filter(Boolean);
     out.push(g('soundwords', bad.length ? 'FAIL' : 'PASS', bad.length ? bad.join('; ') : `${starts.length} words, spaced 48+ frames, no face covered`));
   }
+  // jumps (STORY): at most 2 time jumps per episode, each to a different destination; returns ("jump_back") do not count.
+  {
+    const jumps = (doc.transitions ?? []).filter((t) => t.type === 'jump');
+    const dests = jumps.map((t) => t.dest ?? t.stamp ?? '');
+    const bad = [jumps.length > 2 && `${jumps.length} jumps (max 2)`, new Set(dests).size < dests.length && 'two jumps to the same destination'].filter(Boolean);
+    out.push(g('jumps', bad.length ? 'FAIL' : 'PASS', bad.length ? bad.join('; ') : `${jumps.length} jump${jumps.length === 1 ? '' : 's'}${dests.length ? ` (${dests.join(', ')})` : ''}`));
+  }
   // money shot
   {
     const ms = doc.moneyShot;

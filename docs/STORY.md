@@ -54,6 +54,20 @@ Only the 0.5 s sting repeats. Hook type, set, beat details, the guide's role and
 ## Packaging
 Title of at most 6 words, written as the hook. The first frame is the thumbnail. Pin a comment with the sources.
 
+## Production rules (Phase 6b)
+1. Show exactly what's said: the picture shows the thing the words name, when they name it.
+2. Something new on screen every 1.5-2.5 s.
+3. At least 3 locations, reached by at most 2 time jumps (each to a different place; a return is not a jump).
+4. A verb in every shot: someone or something does something.
+5. The subject fills at least 25% of the frame (an establishing or scale shot may say otherwise in the storyboard).
+6. Readability rules: captions, hands, Tick size and breath as in docs/STYLE.md.
+7. Storyboard stills first: episodes/<id>/storyboard.json, one still per beat at its word (tools/storyboard.mjs, commit with [stills]), reviewed with the mute and match tests before any motion render.
+
+## Council rulings
+- Cutaways (another place or time) are diorama sets (engine/kits/diorama.mjs), not full 3D sets.
+- Every storyboard is reviewed with a mute test (what a viewer with the sound off understands) and a blind test (the story works with eyes closed: every quoted line is attributed, every visual gag has a sound).
+- Timebox: at most 1 extra stills round per storyboard, on framing and values only.
+
 ## Episode workflow
 1. Ideate in chat with Claude (outside the repo): lock the script, the shot list (times as L<n>:<w> word anchors, never seconds) and facts.md.
 2. The user records the whole script in ElevenLabs as ONE mp3 in line order and uploads episodes/<id>/audio/voice.mp3 and music.mp3.

@@ -11,7 +11,7 @@
     "spread": 0.35,
     "thumbOppose": 0.7,
     "wrist": [
-      -18,
+      10,
       8,
       6
     ]
@@ -28,8 +28,8 @@
     "spread": 0.5,
     "thumbOppose": 0.5,
     "wrist": [
-      -10,
-      -6,
+      6,
+      24,
       10
     ]
   },
@@ -45,8 +45,8 @@
     "spread": 0.35,
     "thumbOppose": 0.5,
     "wrist": [
-      -25,
-      0,
+      11,
+      -10,
       0
     ]
   },
@@ -62,8 +62,8 @@
     "spread": 0.2,
     "thumbOppose": 0.4,
     "wrist": [
-      -40,
-      -20,
+      4,
+      10,
       20
     ]
   },
@@ -79,8 +79,8 @@
     "spread": 0.6,
     "thumbOppose": 0.3,
     "wrist": [
-      -5,
-      10,
+      11,
+      -20,
       -5
     ]
   },
@@ -97,7 +97,7 @@
     "thumbOppose": 0.1,
     "wrist": [
       10,
-      0,
+      -30,
       -15
     ]
   },
@@ -113,8 +113,8 @@
     "spread": 0.3,
     "thumbOppose": 0.5,
     "wrist": [
-      -12,
       12,
+      2,
       0
     ]
   },
@@ -134,6 +134,86 @@
       0,
       80,
       -120
+    ]
+  },
+  "rub": {
+    "hand": "both",
+    "rub": true,
+    "offset": [
+      -0.075,
+      0.03,
+      0
+    ],
+    "curl": {
+      "thumb": 0.2,
+      "index": 0.15,
+      "middle": 0.15,
+      "ring": 0.2,
+      "pinky": 0.25
+    },
+    "spread": 0.3,
+    "thumbOppose": 0.2,
+    "wrist": [
+      -10,
+      -55,
+      -70
+    ]
+  },
+  "crate_lid": {
+    "hand": "right",
+    "curl": {
+      "thumb": 0.15,
+      "index": 0.1,
+      "middle": 0.1,
+      "ring": 0.12,
+      "pinky": 0.15
+    },
+    "spread": 0.6,
+    "thumbOppose": 0.15,
+    "wrist": [
+      11,
+      10,
+      4
+    ]
+  },
+  "pocket_out": {
+    "hand": "right",
+    "curl": {
+      "thumb": 0.75,
+      "index": 0.7,
+      "middle": 0.75,
+      "ring": 0.8,
+      "pinky": 0.8
+    },
+    "spread": 0.3,
+    "thumbOppose": 0.75,
+    "wrist": [
+      -1,
+      20,
+      20
+    ]
+  },
+  "phone_show": {
+    "hand": "right",
+    "prop": "phone",
+    "curl": {
+      "thumb": 0.35,
+      "index": 0.45,
+      "middle": 0.5,
+      "ring": 0.5,
+      "pinky": 0.5
+    },
+    "spread": 0.3,
+    "thumbOppose": 0.35,
+    "wrist": [
+      0,
+      70,
+      -90
+    ],
+    "offset": [
+      0.02,
+      0.22,
+      0.04
     ]
   }
 }

@@ -251,9 +251,10 @@ test('countdown ring: linear keys, full = the first value, 3 flashes on twos at 
   check('countdown', { looktest: [72, 264, 456].map((n) => countdownAt(k, n).frac), refill: [140, 143, 146, 152].map((n) => countdownAt(z, n).value) });
 });
 
-test('letter.mjs: a skeleton stroke alphabet for the seven words; tapered brush strokes, 1.5% wobble, ink outline, lamp fill; 3 variants', () => {
-  const need = new Set(WORDS.join('').split(''));
-  assert.deepEqual([...need].sort(), Object.keys(GLYPHS).sort(), 'exactly the letters in the seven words');
+test('letter.mjs: a skeleton stroke alphabet (A-Z, 0-9, - £ · \' , space); tapered brush strokes, 1.5% wobble, ink outline, lamp fill; 3 variants', () => {
+  const need = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-£·\', '];
+  assert.deepEqual(need.sort(), Object.keys(GLYPHS).sort(), 'the whole alphabet, digits and symbols');
+  for (const w of ['BINOCULARS', 'CROWS NEST TELEPHONE', '£90,000', 'SOUTHAMPTON · 9 APRIL 1912', "IT'S"]) assert.ok(wordSvg(w, 'v1').includes('<path'), w);
   // Wobble: the centreline never strays more than 1.5% of the letter height from the skeleton.
   const r = rng(hashSeed('wobble'));
   const o = strokeOutline([[0, 0], [0, 1]], { r });

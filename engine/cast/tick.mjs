@@ -554,8 +554,11 @@ export async function makeTick(scene, spec, anchors, palette, { tint, seed = 'ti
         const drift = poses[name]?.drift;
         if (drift) base.addScaledVector(new THREE.Vector3(...drift), Math.max(0, n - start) / 24);
       }
-      if (mat.depthTest === slot) {
-        mat.depthTest = prepassMat.depthTest = !slot;
+      // Over the set: the depth test always passes (it still writes depth, so the sea and other transparent layers drawn later
+      // stay behind Tick); drawn last among the opaques.
+      const df = slot ? THREE.AlwaysDepth : THREE.LessEqualDepth;
+      if (mat.depthFunc !== df) {
+        mat.depthFunc = prepassMat.depthFunc = df;
         mat.needsUpdate = prepassMat.needsUpdate = true;
       }
       card.renderOrder = slot ? 10 : 0;

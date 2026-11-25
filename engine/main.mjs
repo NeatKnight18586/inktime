@@ -10,7 +10,7 @@ import { edgesPass } from './post/edges.mjs';
 import { grainPass } from './post/grain.mjs';
 import { paniniPass } from './post/panini.mjs';
 import { cameraPose } from './rig/camera.mjs';
-import { transitionPass } from './post/transitions.mjs';
+import { transitionPass, stampTexture } from './post/transitions.mjs';
 import { makeBreath } from './rig/breath.mjs';
 import { makeCard } from './rig/card.mjs';
 import { makeTick } from './cast/tick.mjs';
@@ -20,6 +20,8 @@ import { heldObjectCamera, HELD } from './rig/presets.mjs';
 import { installHaze, hazeColorHex } from './look/haze.mjs';
 import { bakeCorners } from './look/paint.mjs';
 import { rng, hashSeed } from '../tools/rng.mjs';
+import { padlock as padlockProp } from '../kits/props/props.mjs';
+import { makeSprites } from './kits/sprites.mjs';
 
 const W = 1080;
 const H = 1920;
@@ -74,6 +76,7 @@ async function load(scenePath) {
   const kit = await import(`/kits/sets/${spec.set}.mjs`);
   const built = kit.build(scene, rng(hashSeed(`${spec.seed}:set`)));
   const anchors = built.anchors;
+  await built.ready; // lettering on props (stencils, tags, cards) is drawn before the first frame
   addHulls(scene);
   bakeCorners(scene);
   // Scene tint: cards and hands are multiplied by it.
@@ -90,15 +93,10 @@ async function load(scenePath) {
   const poses = await (await fetch('/cast/hands/poses.json')).json();
   const hands = await makeHands(camera, tint, palette, poses);
   const breath = makeBreath(camera, palette, tint);
-  // Held object (a brass padlock): lifted to HELD.forward m in front of the eye and HELD.down m below it, in camera space,
-  // moving with the hands. Shown only in shots whose camera names an object.
-  const heldObj = new THREE.Group();
+  // Held object: the real 6 cm brass padlock (kits/props/props.mjs), lifted to HELD.forward m in front of the eye and HELD.down m
+  // below it, in camera space, moving with the hands. Shown only in shots whose camera names an object.
+  const heldObj = padlockProp(palette).group;
   heldObj.name = 'held_padlock';
-  const brass = new THREE.MeshBasicMaterial({ color: palette.color('lamp').multiply(tint), fog: false });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.085, 0.035), brass);
-  const shackle = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.009, 8, 16, Math.PI), brass);
-  shackle.position.y = 0.0425;
-  heldObj.add(body, shackle);
   heldObj.visible = false;
   camera.add(heldObj);
   addHulls(heldObj);
@@ -124,18 +122,23 @@ async function load(scenePath) {
   const trans = transitionPass({ res, ink: palette.json.ink, seed: `${spec.seed}:transition` });
   composer.addPass(trans);
   const showable = new Set(doc.showable ?? []);
+  const sprites = makeSprites(camera, palette, [...new Set(plan.flatMap((e) => (e?.sprites ?? []).map((s) => s.name)))], tint);
+  await sprites.ready;
+  // Date stamp cards of the jumps (hand-lettered), made once per text.
+  const stamps = {};
+  for (const e of plan) if (e?.stamp && !stamps[e.stamp.text]) stamps[e.stamp.text] = await stampTexture(e.stamp.text, { ink: palette.json.ink, paper: palette.json.paper, seed: spec.seed });
 
-  Object.assign(state, { plan, sfx, heldObj, kit: built, hands, spec, scene, camera, anchors, cards, composer, normalRT, passes: { misreg, edges, panini, grain, trans }, breath, palette, showable });
+  Object.assign(state, { plan, sfx, heldObj, kit: built, hands, spec, scene, camera, anchors, cards, composer, normalRT, passes: { misreg, edges, panini, grain, trans }, breath, palette, showable, stamps, sprites });
   return { frames: spec.frames, anchors: Object.keys(anchors) };
 }
 
 async function renderFrame(n) {
-  const { plan, sfx, kit, hands, spec, scene, camera, anchors, cards, composer, normalRT, passes, palette, showable, breath, heldObj } = state;
+  const { plan, sfx, kit, hands, spec, scene, camera, anchors, cards, composer, normalRT, passes, palette, showable, breath, heldObj, stamps, sprites } = state;
   if (!spec) throw new Error('renderFrame before load');
   const e = plan[n];
   if (!e) throw new Error(`no plan entry for frame ${n}`);
   const fps = spec.fps ?? 24;
-  const shot = { index: e.shot, show: e.show };
+  const shot = { index: e.shot, show: e.show, sea: e.sea ?? null };
   // World state (ship travel, sway) derives from n; everything else is the baked plan entry.
   kit.update?.(n, { fps, shot });
   scene.updateMatrixWorld(true);
@@ -158,10 +161,12 @@ async function renderFrame(n) {
     glow.intensity = glow.userData.base * (e.fx ? e.fx.glow : 1);
   }
   cards.forEach((card, i) => card.update(n, camera, e.cards[i]));
-  breath.update(n, c.rest, fps);
+  breath.update(n, e.breath ?? null);
+  sprites.update(e.sprites ?? []);
   // Transitions (blink, sting, match) and the whip smear frame are drawn last, in ink.
   const tr = e.tr && e.tr.type !== 'smear' ? e.tr : null;
   passes.trans.setState(tr, e.tr?.smear ? { streak: e.tr.smear } : null);
+  passes.trans.setStamp(e.stamp ? stamps[e.stamp.text] : null, e.stamp);
   kit.update?.(n, { camera, fps, shot });
   hands.apply(e.hands, e.m, fps, c.lean, e.hands?.cur);
   heldObj.visible = !!e.held;
@@ -193,10 +198,12 @@ async function renderFrame(n) {
   scene.overrideMaterial = null;
   // Cards are solid occluders in the line layer: cutout depth + normals, so nothing behind a body shows through its ink.
   for (const c of cards) c.prepass(true);
+  kit.prepass?.(true);
   sfx.prepass(true);
   camera.layers.set(LAYERS.CARD_BODY);
   renderer.render(scene, camera);
   for (const c of cards) c.prepass(false);
+  kit.prepass?.(false);
   sfx.prepass(false);
   camera.layers.set(LAYERS.HULL);
   renderer.render(scene, camera);
@@ -213,8 +220,60 @@ async function renderFrame(n) {
   return { n, shot: e.shot, preset: e.preset, ...cameraPose(camera) };
 }
 
+// Hands skin/cuff test (CI stills job, tools/handtest.mjs): every hand pose rendered alone in flat ID colours (skin red, cuff green,
+// phone blue, no ink hull) at vFOV 90; returns per pose the skin and cuff shares of the hand's pixel area (the phone excluded).
+async function handTest() {
+  const palette = await loadLook('titanic_night');
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(90, W / H, NEAR, FAR);
+  scene.add(camera);
+  const poses = await (await fetch('/cast/hands/poses.json')).json();
+  const hands = await makeHands(camera, new THREE.Color(1, 1, 1), palette, poses);
+  const ids = { skin: new THREE.MeshBasicMaterial({ color: 0xff0000 }), cuff: new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide }), phone: new THREE.MeshBasicMaterial({ color: 0x0000ff }) };
+  // The ID materials go on only for the test render (apply() sets the toon uniforms on the real materials).
+  const swaps = [];
+  hands.holder.traverse((o) => {
+    if (!o.isMesh || o.userData.isHull) return;
+    let kind = o.isSkinnedMesh ? 'skin' : 'phone';
+    for (let p = o; p; p = p.parent) if (p.name === 'cuff') kind = 'cuff';
+    swaps.push([o, o.material, ids[kind]]);
+  });
+  const hulls = [];
+  hands.holder.traverse((o) => o.userData.isHull && hulls.push(o));
+  const w = W / 4;
+  const h = H / 4;
+  const rt = new THREE.WebGLRenderTarget(w, h);
+  const px = new Uint8Array(w * h * 4);
+  const out = {};
+  for (const name of Object.keys(poses)) {
+    hands.apply({ name }, 0, 24, 1, name);
+    camera.updateMatrixWorld(true);
+    for (const [o, , id] of swaps) o.material = id;
+    for (const o of hulls) o.visible = false;
+    renderer.setRenderTarget(rt);
+    renderer.setClearColor(0x000000, 1);
+    renderer.clear();
+    renderer.render(scene, camera);
+    renderer.readRenderTargetPixels(rt, 0, 0, w, h, px);
+    for (const [o, real] of swaps) o.material = real;
+    for (const o of hulls) o.visible = true;
+    let skin = 0;
+    let cuff = 0;
+    for (let i = 0; i < px.length; i += 4) {
+      if (px[i] > 128 && px[i + 1] < 100) skin++;
+      else if (px[i + 1] > 128 && px[i] < 100) cuff++;
+    }
+    const all = skin + cuff;
+    out[name] = { skin: all ? skin / all : 0, cuff: all ? cuff / all : 0, pixels: all };
+  }
+  renderer.setRenderTarget(null);
+  rt.dispose();
+  return out;
+}
+
 window.inktime = {
   load,
+  handTest,
   get frameCount() {
     return state.spec?.frames ?? 0;
   },

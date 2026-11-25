@@ -30,7 +30,7 @@ export function loadEpisode(dir) {
   return { ep, words: wordsDoc?.words ?? [], wordsDoc, script: existsSync(sf) ? readJson(sf) : null };
 }
 
-const TRANSITION_LEAD = { blink: 3, sting: 0, match: 6 }; // frames before the cut that each overlay starts
+const TRANSITION_LEAD = { blink: 3, sting: 0, match: 6, jump: 14, jump_back: 6 }; // frames before the cut that each overlay starts
 
 export function compile(ep, { words = [], script = null } = {}) {
   const fps = ep.fps ?? 24;
@@ -57,6 +57,8 @@ export function compile(ep, { words = [], script = null } = {}) {
     }
     const camera = { anchor: s.anchor ?? (preset === 'dive' || preset === 'rise' ? 'aerial' : 'cam_lookout'), preset, ...(s.fov !== undefined ? { fov: s.fov } : {}), ...(s.lookAt ? { to: s.lookAt } : {}), ...params };
     const out = { id: s.id ?? `S${i + 1}`, start: starts[i], frames: end - starts[i], camera, show: s.show ?? [], light: s.light ?? ep.light ?? 'night' };
+    const sea = s.sea ?? ep.sea;
+    if (sea) out.sea = sea;
     if (s.hands?.length) {
       const track = s.hands.map(([t, pose]) => ({ at: F(t), pose }));
       out.hands = track.length === 1 && track[0].at === starts[i] ? track[0].pose : track;
@@ -67,7 +69,7 @@ export function compile(ep, { words = [], script = null } = {}) {
   });
   const transitions = (ep.transitions ?? []).map((t) => ({ ...t, at: F(t.at) }));
   src.forEach((s, i) => {
-    if (s.transitionIn && !['cut', 'whip'].includes(s.transitionIn)) transitions.push({ type: s.transitionIn, at: Math.max(0, starts[i] - (TRANSITION_LEAD[s.transitionIn] ?? 0)), ...(s.transitionAnchor ? { anchor: s.transitionAnchor } : {}) });
+    if (s.transitionIn && !['cut', 'whip'].includes(s.transitionIn)) transitions.push({ type: s.transitionIn, at: Math.max(0, starts[i] - (TRANSITION_LEAD[s.transitionIn] ?? 0)), ...(s.transitionAnchor ? { anchor: s.transitionAnchor } : {}), ...(s.jump ? { stamp: s.jump.stamp, dest: s.jump.dest } : {}) });
   });
   // Cards: one per cast member that has a card entry; the guide (Tick) gets one automatically from the shots' guide lists.
   const cards = [];
@@ -84,7 +86,7 @@ export function compile(ep, { words = [], script = null } = {}) {
     if (c.cast === 'guide') for (const s of shots) for (const g of s.guide ?? []) track.push({ at: g.at, pose: g.pose });
     track.sort((a, b) => a.at - b.at);
     const speak = [...(c.speak ?? []).map(([a, b]) => [F(a), F(b)]), ...speakOf(c.cast)];
-    const card = { cast: c.cast, track, anchor: c.anchor, blink: c.blink ?? true, ...(c.light ? { light: c.light } : {}), ...(c.facing !== undefined ? { facing: c.facing } : {}), ...(speak.length ? { speak } : {}) };
+    const card = { cast: c.cast, track, anchor: c.anchor, blink: c.blink ?? true, ...(c.light ? { light: c.light } : {}), ...(c.facing !== undefined ? { facing: c.facing } : {}), ...(c.facingCam !== undefined ? { facingCam: c.facingCam } : {}), ...(c.slotScale !== undefined ? { slotScale: c.slotScale } : {}), ...(c.pop !== undefined ? { pop: F(c.pop) } : {}), ...(speak.length ? { speak } : {}) };
     if (c.cast === 'guide') {
       const anchors = [{ at: 0, anchor: c.anchor }];
       for (const s of shots) for (const g of s.guide ?? []) anchors.push({ at: g.at, anchor: g.anchor });
@@ -101,6 +103,7 @@ export function compile(ep, { words = [], script = null } = {}) {
   const countdown = (ep.countdown ?? []).map(([t, value]) => ({ at: F(t), value }));
   const spec = { name: ep.id, id: ep.id, fps, seed: ep.seed ?? ep.id, look: ep.look, set: ep.set, shots, cards, transitions, sfx, hookType: ep.hookType ?? null, frames: total };
   if (countdown.length) spec.countdown = countdown;
+  if (ep.captionKeys) spec.captionKeys = ep.captionKeys;
   if (ep.moneyShot) spec.moneyShot = { ...ep.moneyShot, index: shots.findIndex((s) => s.id === ep.moneyShot.shot) };
   if (ep.plant) spec.plant = { anchor: ep.plant.anchor, frames: ep.plant.frames };
   if (ep.loop) spec.loop = ep.loop;

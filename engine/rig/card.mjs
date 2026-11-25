@@ -128,7 +128,11 @@ export async function makeCard(scene, spec, anchors, palette, { tint, seed = 'ca
         const pose = { ...p0 };
         if (p0.shake) pose.lean = (p0.lean ?? 0) + p0.shake * (k % 2 ? 1 : -1);
         pose.mouth = e.mouth;
-        const look = faceTurn(facing, base, camera.position, p0.look ?? 0);
+        // facingCam (deg): face the camera, turned that far from it (0 = straight at you); else the fixed world facing.
+        // A pose's faceYaw (deg from facing the camera) wins: e.g. Lee "look_away", turned to the sea, the face shift at its maximum.
+        const camBearing = Math.atan2(camera.position.x - base.x, camera.position.z - base.z);
+        const fy = p0.faceYaw !== undefined ? camBearing + p0.faceYaw * DEG : spec.facingCam !== undefined ? camBearing + spec.facingCam * DEG : facing;
+        const look = faceTurn(fy, base, camera.position, p0.look ?? 0);
         const turn = Math.cos(look.angle);
         const order = drawOrder(look.angle);
         const fig = figure(pose, e.breath, turn);

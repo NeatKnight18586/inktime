@@ -1,0 +1,181 @@
+{
+  "idle": {
+    "armL": [
+      -4,
+      0
+    ],
+    "armR": [
+      6,
+      8
+    ],
+    "legL": [
+      -6,
+      0
+    ],
+    "legR": [
+      3,
+      0
+    ],
+    "tilt": 0,
+    "eyes": "half",
+    "brows": "neutral",
+    "mouth": "line"
+  },
+  "step": {
+    "armL": [
+      22,
+      10
+    ],
+    "armR": [
+      -18,
+      6
+    ],
+    "legL": [
+      24,
+      -18
+    ],
+    "legR": [
+      -14,
+      20
+    ],
+    "tilt": 2,
+    "lean": 4,
+    "eyes": "half",
+    "brows": "flat",
+    "mouth": "line"
+  },
+  "pat_pocket": {
+    "armL": [
+      -4,
+      0
+    ],
+    "armR": [
+      18,
+      118
+    ],
+    "legL": [
+      -6,
+      0
+    ],
+    "legR": [
+      3,
+      0
+    ],
+    "tilt": -6,
+    "eyes": "half",
+    "brows": "raised",
+    "mouth": "smirk"
+  },
+  "point": {
+    "armL": [
+      12,
+      20
+    ],
+    "armR": [
+      80,
+      6
+    ],
+    "legL": [
+      4,
+      0
+    ],
+    "legR": [
+      -3,
+      0
+    ],
+    "tilt": 3,
+    "lean": 4,
+    "eyes": "wide",
+    "brows": "raised",
+    "mouth": "o"
+  },
+  "wave": {
+    "armL": [
+      -4,
+      0
+    ],
+    "armR": [
+      150,
+      30
+    ],
+    "legL": [
+      -6,
+      0
+    ],
+    "legR": [
+      3,
+      0
+    ],
+    "tilt": 4,
+    "eyes": "half",
+    "brows": "raised",
+    "mouth": "smirk"
+  },
+  "talk": {
+    "armL": [
+      38,
+      52
+    ],
+    "armR": [
+      16,
+      30
+    ],
+    "legL": [
+      4,
+      0
+    ],
+    "legR": [
+      -3,
+      0
+    ],
+    "tilt": 4,
+    "eyes": "half",
+    "brows": "raised",
+    "mouth": "line"
+  },
+  "glance": {
+    "armL": [
+      -4,
+      0
+    ],
+    "armR": [
+      6,
+      8
+    ],
+    "legL": [
+      -6,
+      0
+    ],
+    "legR": [
+      3,
+      0
+    ],
+    "tilt": -6,
+    "look": -1,
+    "eyes": "half",
+    "brows": "flat",
+    "mouth": "line"
+  },
+  "shrug": {
+    "armL": [
+      35,
+      80
+    ],
+    "armR": [
+      35,
+      80
+    ],
+    "legL": [
+      3,
+      0
+    ],
+    "legR": [
+      3,
+      0
+    ],
+    "tilt": 7,
+    "eyes": "half",
+    "brows": "raised",
+    "mouth": "frown"
+  }
+}

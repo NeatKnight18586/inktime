@@ -223,5 +223,77 @@
     "eyes": "half",
     "brows": "flat",
     "mouth": "line"
+  },
+  "lean_rail": {
+    "armL": [
+      30,
+      40
+    ],
+    "armR": [
+      30,
+      40
+    ],
+    "legL": [
+      6,
+      12
+    ],
+    "legR": [
+      -4,
+      0
+    ],
+    "tilt": 6,
+    "lean": 8,
+    "look": 1,
+    "eyes": "half",
+    "brows": "flat",
+    "mouth": "line"
+  },
+  "smug": {
+    "armL": [
+      4,
+      6
+    ],
+    "armR": [
+      34,
+      105
+    ],
+    "legL": [
+      3,
+      0
+    ],
+    "legR": [
+      3,
+      0
+    ],
+    "tilt": -4,
+    "eyes": "half",
+    "brows": "raised",
+    "mouth": "smirk"
+  },
+  "look_away": {
+    "armL": [
+      30,
+      40
+    ],
+    "armR": [
+      30,
+      40
+    ],
+    "legL": [
+      6,
+      12
+    ],
+    "legR": [
+      -4,
+      0
+    ],
+    "tilt": 6,
+    "lean": 6,
+    "faceYaw": 95,
+    "look": 1,
+    "eyes": "half",
+    "brows": "flat",
+    "mouth": "line",
+    "gaze": 1
   }
 }

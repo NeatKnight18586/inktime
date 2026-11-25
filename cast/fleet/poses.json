@@ -204,5 +204,28 @@
     "eyes": "wide",
     "brows": "raised",
     "mouth": "o"
+  },
+  "squint_point": {
+    "armL": [
+      8,
+      16
+    ],
+    "armR": [
+      80,
+      6
+    ],
+    "legL": [
+      4,
+      0
+    ],
+    "legR": [
+      -3,
+      0
+    ],
+    "tilt": 3,
+    "lean": 4,
+    "eyes": "squint",
+    "brows": "frown",
+    "mouth": "o"
   }
 }

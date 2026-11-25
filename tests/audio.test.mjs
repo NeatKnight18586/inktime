@@ -77,12 +77,18 @@ test('time strings resolve against words.json', () => {
 });
 
 const W_ = (word, start, end) => ({ word, start, end, matched: true });
-test('captions: 1-2 words per card, never across punctuation', () => {
-  const words = [W_('You', 0, 0.2), W_('hold', 0.3, 0.5), W_('it,', 0.6, 0.8), W_('then', 0.9, 1.1), W_('drop', 1.2, 1.4), W_('it', 1.5, 1.6), W_('now.', 1.7, 1.9)];
-  const cards = splitCards(words);
-  assert.deepEqual(cards.map((c) => c.text), ['You hold', 'it,', 'then drop', 'it now.']);
+test('captions: 1-3 words per card, never across punctuation; numbers and captionKeys are the key word', () => {
+  const words = [W_('You', 0, 0.2), W_('hold', 0.3, 0.5), W_('it,', 0.6, 0.8), W_('then', 0.9, 1.1), W_('drop', 1.2, 1.4), W_('it', 1.5, 1.6), W_('now.', 1.7, 1.9), W_('Forty', 2, 2.2), W_('keys', 2.3, 2.5)];
+  const cards = splitCards(words, { keys: ['drop'] });
+  assert.deepEqual(cards.map((c) => c.text), ['You hold it,', 'then drop it', 'now.', 'Forty keys']);
+  assert.deepEqual(cards[1].keys, [false, true, false]);
+  assert.deepEqual(cards[3].keys, [true, false]);
+  const ass = assFile(cards);
+  assert.match(ass, /\{\\1c&H3FD2FF&\}drop\{\\1c&HFFFFFF&\}/, 'key word yellow #FFD23F');
+  assert.match(ass, /\\fscx115\\fscy115\\t\(0,125,\\fscx100\\fscy100\)/, 'pop over 3 frames from 115%');
+  assert.match(ass, /Dialogue: 0,.*\\blur6/, 'soft 6 px shadow layer');
   for (const c of cards) {
-    assert.ok(c.words <= 2);
+    assert.ok(c.words <= 3);
     assert.ok(!/[.,;:!?]\s/.test(c.text), `no punctuation inside "${c.text}"`);
   }
 });
@@ -92,7 +98,7 @@ test('captions: safe zones (never the bottom 20% or the right 15%) and style', (
   const cards = splitCards(words);
   for (const c of cards) {
     assert.equal(c.x, W / 2);
-    assert.equal(c.y, Math.round(H * 0.33));
+    assert.equal(c.y, Math.round(H * 0.64));
     assert.ok(c.x + c.width / 2 <= SAFE.right, `right edge of "${c.text}"`);
     assert.ok(c.x - c.width / 2 >= W - SAFE.right, 'symmetric left edge');
     assert.ok(c.y + c.height / 2 <= SAFE.bottom, 'bottom edge');
@@ -100,7 +106,7 @@ test('captions: safe zones (never the bottom 20% or the right 15%) and style', (
   const ass = assFile(cards);
   assert.match(ass, /PlayResX: 1080/);
   assert.match(ass, /PlayResY: 1920/);
-  assert.match(ass, /Style: Default,Anton,\d+,&H00FFFFFF,.*&H00141414,.*,1,8,0,5,/);
+  assert.match(ass, /Style: Default,Anton,110,&H00FFFFFF,.*&H00141414,.*,1,10,0,5,/);
   assert.match(ass, new RegExp(`\\\\pos\\(${CX},${CY}\\)`));
 });
 
