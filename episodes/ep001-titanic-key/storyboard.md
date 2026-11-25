@@ -1,6 +1,7 @@
 # ep001 storyboard review (fixes round 2, commit 3d5b27e)
 
 Contact sheet: https://github.com/NeatKnight18586/inktime/raw/renders/renders/ep001-titanic-key-storyboard/contact.jpg
+Match count: 17 yes, 4 partly, 0 no. Hands test: all 12 poses pass (skin >= 55%, cuff <= 30%).
 Two lines per beat. Mute: what a viewer with the sound off understands. Match: does the picture show what the words say.
 
 **b01 L1 "forty"**: the aerial hook, frame 0
