@@ -1,7 +1,7 @@
 {
  "meta": {
   "lead": -0.1,
-  "matchRate": 0.9771
+  "matchRate": 1.0
  },
  "words": [
   {
@@ -33,14 +33,14 @@
    "w": 3,
    "word": "seconds",
    "start": 0.78,
-   "end": 1.16,
+   "end": 1.14,
    "matched": true
   },
   {
    "line": "L1",
    "w": 4,
    "word": "to",
-   "start": 1.16,
+   "start": 1.14,
    "end": 1.4,
    "matched": true
   },
@@ -144,8 +144,8 @@
    "line": "L2",
    "w": 5,
    "word": "freezing.",
-   "start": 5.0,
-   "end": 5.34,
+   "start": 5.04,
+   "end": 5.32,
    "matched": true
   },
   {
@@ -225,14 +225,14 @@
    "w": 1,
    "word": "doesn't",
    "start": 9.18,
-   "end": 9.5,
+   "end": 9.48,
    "matched": true
   },
   {
    "line": "L3",
    "w": 2,
    "word": "even",
-   "start": 9.5,
+   "start": 9.48,
    "end": 9.72,
    "matched": true
   },
@@ -256,7 +256,7 @@
    "line": "L3",
    "w": 5,
    "word": "'No",
-   "start": 10.68,
+   "start": 10.7,
    "end": 10.84,
    "matched": true
   },
@@ -288,15 +288,15 @@
    "line": "L3",
    "w": 9,
    "word": "Ship",
-   "start": 12.36,
-   "end": 12.4,
+   "start": 12.38,
+   "end": 12.42,
    "matched": true
   },
   {
    "line": "L3",
    "w": 10,
    "word": "can't",
-   "start": 12.4,
+   "start": 12.42,
    "end": 12.72,
    "matched": true
   },
@@ -321,15 +321,15 @@
    "w": 0,
    "word": "Thirty",
    "start": 14.06,
-   "end": 14.2,
+   "end": 14.24,
    "matched": true
   },
   {
    "line": "L4",
    "w": 1,
    "word": "seconds.",
-   "start": 14.2,
-   "end": 14.62,
+   "start": 14.24,
+   "end": 14.58,
    "matched": true
   },
   {
@@ -337,22 +337,22 @@
    "w": 2,
    "word": "You",
    "start": 15.06,
-   "end": 15.16,
+   "end": 15.18,
    "matched": true
   },
   {
    "line": "L4",
    "w": 3,
    "word": "check",
-   "start": 15.16,
-   "end": 15.36,
+   "start": 15.18,
+   "end": 15.34,
    "matched": true
   },
   {
    "line": "L4",
    "w": 4,
    "word": "every",
-   "start": 15.36,
+   "start": 15.34,
    "end": 15.76,
    "matched": true
   },
@@ -369,7 +369,7 @@
    "w": 6,
    "word": "Nothing.",
    "start": 16.66,
-   "end": 16.9,
+   "end": 16.88,
    "matched": true
   },
   {
@@ -409,7 +409,7 @@
    "w": 4,
    "word": "flat.",
    "start": 18.38,
-   "end": 18.74,
+   "end": 18.72,
    "matched": true
   },
   {
@@ -449,14 +449,14 @@
    "w": 9,
    "word": "the",
    "start": 20.12,
-   "end": 20.22,
+   "end": 20.24,
    "matched": true
   },
   {
    "line": "L5",
    "w": 10,
    "word": "ice...",
-   "start": 20.22,
+   "start": 20.24,
    "end": 20.42,
    "matched": true
   },
@@ -473,14 +473,14 @@
    "w": 12,
    "word": "won't",
    "start": 21.0,
-   "end": 21.2,
+   "end": 21.16,
    "matched": true
   },
   {
    "line": "L5",
    "w": 13,
    "word": "see",
-   "start": 21.2,
+   "start": 21.16,
    "end": 21.4,
    "matched": true
   },
@@ -513,22 +513,22 @@
    "w": 17,
    "word": "close.",
    "start": 21.84,
-   "end": 22.12,
+   "end": 22.1,
    "matched": true
   },
   {
    "line": "L6",
    "w": 0,
    "word": "You",
-   "start": 22.68,
-   "end": 22.84,
+   "start": 22.7,
+   "end": 22.82,
    "matched": true
   },
   {
    "line": "L6",
    "w": 1,
    "word": "reach",
-   "start": 22.84,
+   "start": 22.82,
    "end": 22.98,
    "matched": true
   },
@@ -568,7 +568,7 @@
    "line": "L6",
    "w": 6,
    "word": "right.",
-   "start": 24.32,
+   "start": 24.34,
    "end": 24.66,
    "matched": true
   },
@@ -576,32 +576,32 @@
    "line": "L6",
    "w": 7,
    "word": "Nineteen",
-   "start": 25.26,
-   "end": 25.52,
+   "start": 25.22,
+   "end": 25.46,
    "matched": true
   },
   {
    "line": "L6",
    "w": 8,
    "word": "twelve.",
-   "start": 25.52,
-   "end": 25.92,
+   "start": 25.46,
+   "end": 25.7,
    "matched": true
   },
   {
    "line": "L7",
    "w": 0,
    "word": "Twenty",
-   "start": 26.44,
-   "end": 26.66,
+   "start": 26.48,
+   "end": 26.7,
    "matched": true
   },
   {
    "line": "L7",
    "w": 1,
    "word": "seconds.",
-   "start": 26.66,
-   "end": 27.04,
+   "start": 26.7,
+   "end": 27.02,
    "matched": true
   },
   {
@@ -761,14 +761,14 @@
    "w": 3,
    "word": "the",
    "start": 32.34,
-   "end": 32.5,
+   "end": 32.58,
    "matched": true
   },
   {
    "line": "L8",
    "w": 4,
    "word": "ship...",
-   "start": 32.5,
+   "start": 32.58,
    "end": 32.8,
    "matched": true
   },
@@ -785,14 +785,14 @@
    "w": 6,
    "word": "the",
    "start": 33.22,
-   "end": 33.36,
+   "end": 33.38,
    "matched": true
   },
   {
    "line": "L8",
    "w": 7,
    "word": "key",
-   "start": 33.36,
+   "start": 33.38,
    "end": 33.64,
    "matched": true
   },
@@ -809,15 +809,15 @@
    "w": 9,
    "word": "his",
    "start": 33.78,
-   "end": 33.92,
+   "end": 33.94,
    "matched": true
   },
   {
    "line": "L8",
    "w": 10,
    "word": "pocket.",
-   "start": 33.92,
-   "end": 34.3,
+   "start": 33.94,
+   "end": 34.32,
    "matched": true
   },
   {
@@ -849,14 +849,14 @@
    "w": 3,
    "word": "over",
    "start": 35.8,
-   "end": 36.08,
+   "end": 36.1,
    "matched": true
   },
   {
    "line": "L9",
    "w": 4,
    "word": "the",
-   "start": 36.08,
+   "start": 36.1,
    "end": 36.26,
    "matched": true
   },
@@ -888,39 +888,39 @@
    "line": "L10",
    "w": 0,
    "word": "'Iceberg,",
-   "start": 37.6,
-   "end": 38.073,
-   "matched": false
+   "start": 38.18,
+   "end": 38.74,
+   "matched": true
   },
   {
    "line": "L10",
    "w": 1,
    "word": "right",
-   "start": 38.073,
-   "end": 38.547,
-   "matched": false
+   "start": 38.94,
+   "end": 39.06,
+   "matched": true
   },
   {
    "line": "L10",
    "w": 2,
    "word": "ahead!'",
-   "start": 38.547,
-   "end": 39.02,
-   "matched": false
+   "start": 39.06,
+   "end": 39.38,
+   "matched": true
   },
   {
    "line": "L11",
    "w": 0,
    "word": "There",
-   "start": 39.02,
-   "end": 39.64,
+   "start": 39.88,
+   "end": 40.14,
    "matched": true
   },
   {
    "line": "L11",
    "w": 1,
    "word": "was",
-   "start": 39.64,
+   "start": 40.14,
    "end": 40.26,
    "matched": true
   },
@@ -945,14 +945,14 @@
    "w": 4,
    "word": "key",
    "start": 40.74,
-   "end": 40.9,
+   "end": 40.92,
    "matched": true
   },
   {
    "line": "L11",
    "w": 5,
    "word": "to",
-   "start": 40.9,
+   "start": 40.92,
    "end": 41.06,
    "matched": true
   },
@@ -968,7 +968,7 @@
    "line": "L11",
    "w": 7,
    "word": "It",
-   "start": 41.98,
+   "start": 42.0,
    "end": 42.08,
    "matched": true
   },
@@ -1025,14 +1025,14 @@
    "w": 14,
    "word": "pounds.",
    "start": 44.6,
-   "end": 44.92,
+   "end": 44.9,
    "matched": true
   },
   {
    "line": "L12",
    "w": 0,
    "word": "So",
-   "start": 45.52,
+   "start": 45.5,
    "end": 45.72,
    "matched": true
   },
